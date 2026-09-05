@@ -1,0 +1,82 @@
+{
+  "name": "cudoc-remark",
+  "version": "0.1.0",
+  "description": "Remark plugin for cudoc: heading anchors, badges, table cell lists and table column layout, each configurable.",
+  "keywords": [
+    "cudoc",
+    "remark",
+    "remark-plugin",
+    "mdx",
+    "markdown",
+    "mdast"
+  ],
+  "homepage": "https://github.com/cudoment/cudoc/tree/main/packages/cudoc-remark#readme",
+  "bugs": {
+    "url": "https://github.com/cudoment/cudoc/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cudoment/cudoc.git",
+    "directory": "packages/cudoc-remark"
+  },
+  "license": "MIT",
+  "author": "cudoment",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./prepare": {
+      "types": "./dist/prepare.d.ts",
+      "default": "./dist/prepare.js"
+    },
+    "./table-cell-list": {
+      "types": "./dist/transforms/table-cell-list/index.d.ts",
+      "default": "./dist/transforms/table-cell-list/index.js"
+    },
+    "./table-column-layout": {
+      "types": "./dist/transforms/table-column-layout/index.d.ts",
+      "default": "./dist/transforms/table-column-layout/index.js"
+    },
+    "./badge": {
+      "types": "./dist/transforms/badge.d.ts",
+      "default": "./dist/transforms/badge.js"
+    },
+    "./toc": {
+      "types": "./dist/toc.d.ts",
+      "default": "./dist/toc.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "cudoc-core": "0.1.0",
+    "estree-util-value-to-estree": "^3.5.0",
+    "mdast-util-mdx-jsx": "^3.2.0",
+    "remark-gfm": "^4.0.1",
+    "remark-mdx": "^3.1.0",
+    "remark-parse": "^11.0.0",
+    "unified": "^11.0.5"
+  },
+  "peerDependencies": {
+    "@types/mdast": "^4.0.4"
+  },
+  "peerDependenciesMeta": {
+    "@types/mdast": {
+      "optional": true
+    }
+  }
+}

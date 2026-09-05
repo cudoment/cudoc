@@ -1,0 +1,64 @@
+{
+  "name": "cudoc-node",
+  "version": "0.1.0",
+  "description": "Node-side pieces of cudoc: path resolution, AST export to JSON and loading it back.",
+  "keywords": [
+    "cudoc",
+    "mdx",
+    "mdast",
+    "ast",
+    "documentation"
+  ],
+  "homepage": "https://github.com/cudoment/cudoc/tree/main/packages/cudoc-node#readme",
+  "bugs": {
+    "url": "https://github.com/cudoment/cudoc/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cudoment/cudoc.git",
+    "directory": "packages/cudoc-node"
+  },
+  "license": "MIT",
+  "author": "cudoment",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./export-ast": {
+      "types": "./dist/export-ast.d.ts",
+      "default": "./dist/export-ast.js"
+    },
+    "./paths": {
+      "types": "./dist/paths.d.ts",
+      "default": "./dist/paths.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "cudoc-core": "0.1.0",
+    "unified": "^11.0.5"
+  },
+  "peerDependencies": {
+    "@types/mdast": "^4.0.4"
+  },
+  "peerDependenciesMeta": {
+    "@types/mdast": {
+      "optional": true
+    }
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "name": "cudoc-core",
+  "version": "0.1.0",
+  "description": "Framework-agnostic core for cudoc: document AST contract, validation, traversal and markup syntax parsing.",
+  "keywords": [
+    "cudoc",
+    "mdast",
+    "mdx",
+    "markdown",
+    "ast",
+    "documentation"
+  ],
+  "homepage": "https://github.com/cudoment/cudoc/tree/main/packages/cudoc-core#readme",
+  "bugs": {
+    "url": "https://github.com/cudoment/cudoc/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cudoment/cudoc.git",
+    "directory": "packages/cudoc-core"
+  },
+  "license": "MIT",
+  "author": "cudoment",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./ast": {
+      "types": "./dist/ast/index.d.ts",
+      "default": "./dist/ast/index.js"
+    },
+    "./syntax": {
+      "types": "./dist/syntax/index.d.ts",
+      "default": "./dist/syntax/index.js"
+    },
+    "./mdx": {
+      "types": "./dist/mdx/index.d.ts",
+      "default": "./dist/mdx/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "mdast-util-mdx-jsx": "^3.2.0",
+    "unist-util-visit": "^5.0.0"
+  },
+  "peerDependencies": {
+    "@types/mdast": "^4.0.4"
+  },
+  "peerDependenciesMeta": {
+    "@types/mdast": {
+      "optional": true
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/cudoc-core" },
+    { "path": "./packages/cudoc-remark" },
+    { "path": "./packages/cudoc-node" }
+  ]
+}
