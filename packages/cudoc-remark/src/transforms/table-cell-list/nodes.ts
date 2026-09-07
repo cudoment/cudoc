@@ -1,5 +1,5 @@
 import type { List, ListItem, Paragraph, PhrasingContent, Text } from "mdast"
-import type { CudocTableCellContent } from "cudoc-core"
+import type { CudocTableCellContent } from "cudoc"
 
 export const createTextNode = (value: string): Text => ({ type: "text", value })
 

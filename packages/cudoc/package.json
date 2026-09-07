@@ -1,0 +1,91 @@
+{
+  "name": "cudoc",
+  "version": "0.1.0",
+  "description": "Reusable document ASTs: validation, queries, export and loading for cross-document embedding.",
+  "keywords": [
+    "cudoc",
+    "mdast",
+    "mdx",
+    "markdown",
+    "ast",
+    "documentation"
+  ],
+  "homepage": "https://github.com/cudoment/cudoc/tree/main/packages/cudoc#readme",
+  "bugs": {
+    "url": "https://github.com/cudoment/cudoc/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cudoment/cudoc.git",
+    "directory": "packages/cudoc"
+  },
+  "license": "MIT",
+  "author": "cudoment",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./ast": {
+      "types": "./dist/ast.d.ts",
+      "default": "./dist/ast.js"
+    },
+    "./syntax": {
+      "types": "./dist/syntax.d.ts",
+      "default": "./dist/syntax.js"
+    },
+    "./mdx": {
+      "types": "./dist/mdx.d.ts",
+      "default": "./dist/mdx.js"
+    },
+    "./query": {
+      "types": "./dist/query.d.ts",
+      "default": "./dist/query.js"
+    },
+    "./embed": {
+      "types": "./dist/embed.d.ts",
+      "default": "./dist/embed.js"
+    },
+    "./node/export-ast": {
+      "types": "./dist/node/export-ast.d.ts",
+      "default": "./dist/node/export-ast.js"
+    },
+    "./node/load-ast-file": {
+      "types": "./dist/node/load-ast-file.d.ts",
+      "default": "./dist/node/load-ast-file.js"
+    },
+    "./node/paths": {
+      "types": "./dist/node/paths.d.ts",
+      "default": "./dist/node/paths.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "mdast-util-mdx-jsx": "^3.2.0",
+    "unist-util-visit": "^5.0.0",
+    "unified": "^11.0.5",
+    "vfile": "^6.0.3"
+  },
+  "peerDependencies": {
+    "@types/mdast": "^4.0.4"
+  },
+  "peerDependenciesMeta": {
+    "@types/mdast": {
+      "optional": true
+    }
+  }
+}

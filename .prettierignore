@@ -1,2 +1,13 @@
 dist/
 node_modules/
+
+# Example build output
+examples/*/.next/
+examples/*/.cudoc/
+examples/*/.docusaurus/
+examples/*/build/
+
+# Synced from examples/fixtures/showcase.mdx
+examples/next-mdx/docs/showcase.mdx
+examples/docusaurus/docs/showcase.mdx
+examples/nextra/content/showcase.mdx

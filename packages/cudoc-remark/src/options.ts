@@ -16,7 +16,7 @@ import {
   type ResolvedHeadingMetadataOptions,
   type Transform,
   type TransformState,
-} from "cudoc-core"
+} from "cudoc"
 import {
   resolveBadgeOptions,
   type BadgeOptions,

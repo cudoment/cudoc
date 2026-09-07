@@ -4,11 +4,11 @@
 
 **English** | [한국어](./README.ko.md)
 
-Documentation syntax extensions and AST extraction for MDX, shared across static site generators.
+Reuse sections and tables from MDX documents through their compiled AST, across static site generators.
 
 cudoc adds the markup a documentation site keeps needing — explicit heading anchors, inline badges, lists inside table cells, tables laid out as components — and it can write the compiled AST of every document to JSON so search, reuse and link checking read the same tree the page renders from.
 
-Every feature is optional and configured on its own. Nothing here assumes a particular site generator.
+Cross-document embedding is the central workflow: export the compiled AST, load it, select a section and render it with your site's components. Syntax extensions are individually configurable. Nothing here assumes a particular site generator.
 
 ## Contents
 
@@ -20,6 +20,8 @@ Every feature is optional and configured on its own. Nothing here assumes a part
 - [Providing components](#providing-components)
 - [Connecting it to a site generator](#connecting-it-to-a-site-generator)
 - [Exporting the AST](#exporting-the-ast)
+- [Reading it back](#reading-it-back)
+- [Guides and examples](#guides-and-examples)
 - [Constraints](#constraints)
 
 ## Why
@@ -30,11 +32,12 @@ cudoc separates the two halves. The syntax is described declaratively so any hos
 
 ## Packages
 
-| Package                                   | What it does                                                                      |
-| ----------------------------------------- | --------------------------------------------------------------------------------- |
-| [`cudoc-core`](./packages/cudoc-core)     | AST contract, validation, traversal, syntax parsing. No file system, no framework |
-| [`cudoc-remark`](./packages/cudoc-remark) | The remark plugin, with a separate option group per feature                       |
-| [`cudoc-node`](./packages/cudoc-node)     | Path resolution, AST export to JSON and loading it back                           |
+| Package                                           | What it does                                                                   |
+| ------------------------------------------------- | ------------------------------------------------------------------------------ |
+| [`cudoc`](./packages/cudoc)                       | Shared AST contract, validation, queries and Node export/loading for embedding |
+| [`cudoc-remark`](./packages/cudoc-remark)         | The remark plugin, with a separate option group per feature                    |
+| [`cudoc-docusaurus`](./packages/cudoc-docusaurus) | Docusaurus wiring, heading ids and a theme providing the components            |
+| [`cudoc-nextra`](./packages/cudoc-nextra)         | Nextra wiring, heading ids and default components                              |
 
 Each transform is also available on its own subpath, for a host that wants one feature and not the rest:
 
@@ -46,11 +49,14 @@ import badge from "cudoc-remark/badge"
 ## Installation
 
 ```bash
-npm install cudoc-remark
-npm install cudoc-node   # only if you want the AST written to JSON
+npm install cudoc cudoc-remark
+npm install cudoc-docusaurus    # on Docusaurus
+npm install cudoc-nextra        # on Nextra
 ```
 
-`cudoc-core` arrives as a dependency of both.
+`cudoc/embed` is a Node-only entry point included in `cudoc`, not a separate package. `cudoc` and `cudoc/query` remain browser-safe. All adapters and transforms use the same internal core through `cudoc`; there is no separately published core package. Export is explicitly wired into the host pipeline so the snapshot position and output directory are deliberate.
+
+The embedding guide walks through the [complete export, load, query and render workflow](./docs/embedding.md). `cudoc-remark` and the host adapters are separate packages with independent publication steps; a `cudoc` release alone does not publish them.
 
 ## Syntax
 
@@ -132,13 +138,6 @@ tableColumnLayout: [
     excludeAncestors: ["link", "linkReference"],
   },
 
-  // Table of contents. Off by default: most hosts build their own.
-  toc: {
-    titleDepth: 1,       // false to collect no title
-    depths: [2, 3],
-    exportName: "toc",
-  },
-
   // Column layout rules, applied in order. Empty by default.
   tableColumnLayout: [],
 
@@ -153,19 +152,27 @@ Everything runs in one traversal. That is not only for speed: ordering between t
 
 ## Providing components
 
-cudoc emits capitalized elements — `Anchor`, `Badge`, and whatever a layout rule names. MDX resolves those from the components you provide, and throws at render time if one is missing. Supply them wherever your host maps MDX components:
+cudoc emits capitalized elements — `Anchor`, `Badge`, and whatever a layout rule names. MDX resolves those from the components you provide, and throws at render time if one is missing.
+
+`cudoc-remark/components` provides `Anchor` and `Badge`. Layout tables use the host's existing `table`, `thead`, `tbody`, `tr`, `th` and `td` mappings by default. Only explicitly configured capitalized table names need additional components. Both adapters use this same set, so a document renders the same markup on every host:
 
 ```jsx
+import { cudocComponents } from "cudoc-remark/components"
+
 export function useMDXComponents(components) {
-  return {
-    ...components,
-    Anchor: MyAnchor,
-    Badge: MyBadge,
-  }
+  return { ...components, ...cudocComponents }
 }
 ```
 
-Rename them to match components you already have:
+They are markup with class names to style against — `span.cudoc-badge` — rather than a design. Replace one by putting it after the spread:
+
+```jsx
+return { ...components, ...cudocComponents, Badge: MyBadge }
+```
+
+On Docusaurus the adapter's theme supplies them, so there is nothing to write at all.
+
+Or rename the elements to match components you already have, and provide nothing new:
 
 ```js
 headingMetadata: {
@@ -177,35 +184,63 @@ headingMetadata: {
 
 ## Connecting it to a site generator
 
+Each host is verified by an [example site](./examples) that renders the same document; the three are compared against each other on every build.
+
 ### Next.js with `@next/mdx`
 
 ```js
 import createMDX from "@next/mdx"
-import cudocPrepare from "cudoc-remark"
 
 const withMDX = createMDX({
   options: {
-    remarkPlugins: [["remark-gfm"], [cudocPrepare, cudocOptions]],
+    remarkPlugins: [
+      ["remark-gfm"],
+      ["cudoc-remark", cudocOptions],
+      // Required with the supplied Anchor: it renders the badge only,
+      // so this plugin puts the actual link target on the heading.
+      ["cudoc-remark/heading-ids", {}],
+    ],
   },
 })
 ```
 
-Turbopack hands the config to a worker, so plugins are named by string and options must be plain JSON. cudoc's options are designed for that — see [Constraints](#constraints).
+Plugins are named by package rather than passed as functions. Turbopack hands the MDX config to a worker, which cannot carry a function; webpack keeps the config in this process, but `@next/mdx`'s loader resolves a string specifier there too, so one form covers both bundlers. That is also why every option has to stay plain JSON — see [Constraints](#constraints).
+
+Provide `Anchor` and `Badge` from `mdx-components.js`. Default layout tables reuse the existing HTML table mappings. Optional table of contents export is covered in the [Next.js guide](./docs/next-mdx.md#table-of-contents).
 
 ### Docusaurus
 
-Pass it through `beforeDefaultRemarkPlugins` so anchors exist before Docusaurus generates its own heading ids and table of contents, and leave `toc` off so the two do not both produce one.
+```js
+import { cudocRemarkPlugins } from "cudoc-docusaurus"
+
+presets: [["classic", { docs: {
+  beforeDefaultRemarkPlugins: cudocRemarkPlugins(cudocOptions),
+} }]],
+plugins: ["cudoc-docusaurus"],
+```
+
+`beforeDefaultRemarkPlugins`, so the anchors exist before Docusaurus assigns its own heading ids, and the plugin entry so its theme supplies the components. See [`cudoc-docusaurus`](./packages/cudoc-docusaurus#readme).
 
 ### Nextra
 
-Connect it through `mdxOptions.remarkPlugins`, and leave `toc` off for the same reason.
+```js
+import { cudocRemarkPlugins } from "cudoc-nextra"
 
-> Docusaurus and Nextra adapters are not published yet. Both hosts run MDX v3, so the plugin itself works; what an adapter adds is ordering and default components. Pin your versions and verify with a small example first.
+const withNextra = nextra({
+  mdxOptions: { remarkPlugins: cudocRemarkPlugins(cudocOptions) },
+})
+```
+
+Nextra puts these in front of its own plugins, which is the order cudoc needs. Add `cudocComponents` from `cudoc-nextra/components` in `mdx-components.jsx`. See [`cudoc-nextra`](./packages/cudoc-nextra#readme).
+
+### Heading ids on a host that makes its own
+
+Both Docusaurus and Nextra slugify heading text into an id, which would leave two ids on the same heading. Both adapters copy each anchor id onto its heading first, so the heading and the anchor agree on one value. `cudoc-remark/heading-ids` is the plugin that does it, and it works on any host whose pipeline ends in `mdast-util-to-hast` — including plain MDX.
 
 ## Exporting the AST
 
 ```js
-import exportAst from "cudoc-node"
+import exportAst from "cudoc/embed"
 
 remarkPlugins: [
   ["remark-gfm"],
@@ -218,13 +253,63 @@ Each document under `sourceRoot` is written to a matching path under `outDir`. P
 
 The tree comes from the host's real compilation rather than a second parse. Re-parsing MDX to reproduce it would drift, because the MDX compiler applies its own transforms before user plugins run.
 
-Read it back with `loadAst`, which validates the version on the way in so a stale file is reported where it is read:
+## Reading it back
+
+Exporting the tree is half of what it is for. The other half is a page that pulls a section, a table or a paragraph out of another document and renders it in place — so the summary and the page it summarizes come from one tree and cannot drift apart.
+
+`loadAst` reads a stored document, validating the schema version on the way in so a stale file is reported where it is read rather than misinterpreted:
 
 ```js
-import { loadAst } from "cudoc-node"
+import { loadAst } from "cudoc/embed"
 
 const document = loadAst("en/setup/app", { outDir: ".cudoc/ast" })
 ```
+
+`cudoc/query` is what you locate things with. An anchor id is the key: an author chose it, and it survives the heading being reworded, which is why cudoc has explicit anchors in the first place.
+
+```js
+import {
+  findSiblingNode,
+  getHeadingBadge,
+  getNodeText,
+  getTableCellText,
+  sliceSectionByAnchorId,
+} from "cudoc/query"
+
+// The section a link points at, as a tree of its own.
+const section = sliceSectionByAnchorId(document, "rate-limits")
+if (!section) throw new Error("Missing section: rate-limits")
+
+const [heading, ...rest] = section.children
+getNodeText([heading]) // "Rate limits"
+getHeadingBadge(heading) // "REST API" — an attribute, not text
+
+// Bounded to the section, so a lookup cannot borrow the next one's table.
+const table = findSiblingNode(section, 0, {
+  direction: "after",
+  type: "table",
+  boundary: section.children.length,
+})
+if (!table) throw new Error("Missing table in rate-limits")
+getTableCellText(table, [
+  [1, 0],
+  [1, 1],
+])
+```
+
+What counts as the right node for a particular embed stays with you: that is a convention of your documentation set, not something cudoc can know. cudoc provides queries over a snapshot of the host's remark tree at the export plugin. Later host transforms and component execution are outside that snapshot.
+
+See the [embedding guide](./docs/embedding.md) for the whole path, and [`examples/next-mdx/app/embed`](./examples/next-mdx/app/embed) for a page that does it.
+
+## Guides and examples
+
+[`docs/`](./docs) walks through setting cudoc up on each host, from an empty project to a rendered page, and says where the three differ and why:
+
+- [Next.js with `@next/mdx`](./docs/next-mdx.md)
+- [Docusaurus](./docs/docusaurus.md)
+- [Nextra](./docs/nextra.md)
+
+[`examples/`](./examples) holds one site per host, all rendering [the same document](./examples/fixtures/showcase.mdx) with the same options. `scripts/compare-hosts.mjs` reads their built HTML and requires the heading ids, badges, list nesting and table grid to match; `scripts/check-rebuild.mjs` edits the document, rebuilds, and requires the edit to reach both the page and the exported AST.
 
 ## Constraints
 

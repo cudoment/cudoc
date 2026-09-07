@@ -1,0 +1,13 @@
+/**
+ * Only the badge needs styling. A table laid out by a cudoc rule is rebuilt as
+ * `table`/`td`, so the theme's own table styles apply to it unchanged.
+ */
+.cudoc-badge {
+  border: 1px solid currentColor;
+  border-radius: 0.5rem;
+  font-size: 0.75em;
+  margin-left: 0.35rem;
+  opacity: 0.8;
+  padding: 0.05rem 0.4rem;
+  vertical-align: middle;
+}

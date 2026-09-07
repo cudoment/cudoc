@@ -38,3 +38,43 @@ jobs:
       # A packed install is the only check that exports, type declarations and
       # runtime dependencies are actually complete.
       - run: node scripts/verify-pack.mjs
+
+  examples:
+    name: Example sites
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # The examples link the packages from `dist`, so they have to be built.
+      - run: npm run build
+
+      # Installed separately: three site generators in one workspace would make
+      # the root install slow and force them onto shared hoisted versions.
+      - run: npm ci
+        working-directory: examples/next-mdx
+      - run: npm ci
+        working-directory: examples/docusaurus
+      - run: npm ci
+        working-directory: examples/nextra
+
+      - run: npm run build
+        working-directory: examples/next-mdx
+      # cudoc has to work under either Next.js bundler, and only a real build
+      # says whether the string plugin specifiers resolve in both.
+      - run: npm run build:webpack
+        working-directory: examples/next-mdx
+      - run: npm run build
+        working-directory: examples/docusaurus
+      - run: npm run build
+        working-directory: examples/nextra
+
+      - name: The three hosts must render the same document the same way
+        run: node scripts/compare-hosts.mjs
+      # A remark plugin only runs when MDX is really compiled, so a reused
+      # compilation cache can leave a site a version behind while passing.
+      - name: An edit must reach every page and every exported AST
+        run: node scripts/check-rebuild.mjs

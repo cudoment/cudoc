@@ -2,7 +2,7 @@
  * Element names used inside a normalized table cell.
  *
  * These are HTML elements, identical across every MDX host, so they are fixed
- * rather than configurable. `cudoc-core` takes the name as an argument, so an
+ * rather than configurable. `cudoc` takes the name as an argument, so an
  * option can be added here later without touching the parser.
  */
 
@@ -10,7 +10,7 @@ import {
   createLineBreakElement,
   isLineBreakElement,
   isMdxTextElementNamed,
-} from "cudoc-core"
+} from "cudoc"
 import type { Node } from "unist"
 
 export const LINE_BREAK_ELEMENT = "br"

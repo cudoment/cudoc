@@ -78,6 +78,8 @@ const isPublished = (name, version) => {
 const unpublished = ordered.filter((dir) => {
   const { name, version, private: isPrivate } = manifests.get(dir)
   if (isPrivate) return false
+  const selected = process.argv.slice(2)
+  if (selected.length > 0 && !selected.includes(name)) return false
 
   const published = isPublished(name, version)
   console.error(

@@ -12,6 +12,7 @@ import { execFileSync } from "node:child_process"
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
+import { build } from "esbuild"
 
 const ROOT = process.cwd()
 const PACKAGES_DIR = path.join(ROOT, "packages")
@@ -55,7 +56,69 @@ try {
     ),
   )
 
-  run("npm", ["install", "--no-audit", "--no-fund", ...tarballs], workspace)
+  // Verify the product without sibling workspace packages or dev dependencies.
+  const productIndex = packages.findIndex(
+    ({ manifest }) => manifest.name === "cudoc",
+  )
+  if (productIndex < 0) throw new Error("Missing cudoc package")
+  run(
+    "npm",
+    [
+      "install",
+      "--omit=dev",
+      "--no-audit",
+      "--no-fund",
+      tarballs[productIndex],
+    ],
+    workspace,
+  )
+  fs.writeFileSync(
+    path.join(workspace, "embed-check.mjs"),
+    `
+import assert from "node:assert/strict"
+import path from "node:path"
+import exportAst, { loadAst, sliceSectionByAnchorId } from "cudoc/embed"
+import { sliceSectionByAnchorId as querySlice } from "cudoc/query"
+import { validateAstContract } from "cudoc"
+const tree = { type: "root", children: [
+  { type: "heading", depth: 2, data: { hProperties: { id: "limits" } }, children: [{ type: "text", value: "Limits" }] },
+  { type: "paragraph", children: [{ type: "text", value: "Reusable content" }] }
+] }
+exportAst({ cwd: process.cwd() })(tree, { path: path.join(process.cwd(), "docs/guide.mdx") })
+const document = loadAst("guide")
+validateAstContract(document, { requireVersion: true })
+assert.equal(sliceSectionByAnchorId, querySlice)
+assert.equal(sliceSectionByAnchorId(document, "limits").children[1].children[0].value, "Reusable content")
+await assert.rejects(import("cudoc/dist/internal/core/index.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" })
+console.log("standalone cudoc export/load/embed verified")
+`,
+  )
+  process.stdout.write(run("node", ["embed-check.mjs"], workspace))
+  await build({
+    stdin: {
+      contents:
+        'import * as api from "cudoc"; import * as query from "cudoc/query"; console.log(api, query)',
+      resolveDir: workspace,
+    },
+    bundle: true,
+    platform: "browser",
+    format: "esm",
+    write: false,
+  })
+  console.log("browser-safe public entries verified")
+
+  run(
+    "npm",
+    [
+      "install",
+      "--no-audit",
+      "--no-fund",
+      ...tarballs,
+      "@types/react@^19",
+      "@types/mdast@^4",
+    ],
+    workspace,
+  )
 
   const checks = packages
     .map(
@@ -71,12 +134,79 @@ try {
     )
     .join("\n")
 
-  fs.writeFileSync(
-    path.join(workspace, "check.mjs"),
-    `${checks}\n${assertions}\nconsole.log("every package imported cleanly")\n`,
+  // import.meta.resolve also returns URLs for missing files. Actually import
+  // the subpaths to verify their files and transitive runtime dependencies.
+  const subpaths = packages.flatMap(({ manifest }) =>
+    Object.keys(manifest.exports ?? {})
+      .filter((subpath) => subpath.startsWith("./") && !subpath.includes("*"))
+      .map((subpath) => `${manifest.name}/${subpath.slice(2)}`),
   )
 
-  run("node", ["check.mjs"], workspace)
+  const resolutions = subpaths
+    .map(
+      (specifier) =>
+        `await import(${JSON.stringify(specifier)}${specifier.endsWith("/package.json") ? ', { with: { type: "json" } }' : ""})`,
+    )
+    .join("\n")
+
+  fs.writeFileSync(
+    path.join(workspace, "check.mjs"),
+    `${checks}\n${assertions}\n${resolutions}\nconsole.log(\`every package and \${${subpaths.length}} subpaths imported cleanly\`)\n`,
+  )
+
+  process.stdout.write(run("node", ["check.mjs"], workspace))
+  // A JS-only re-export can work at runtime while leaving strict TypeScript
+  // consumers with TS7016. Exercise public declarations outside the workspace.
+  fs.writeFileSync(
+    path.join(workspace, "check.mts"),
+    `
+import { cudocComponents } from "cudoc-nextra/components"
+import { cudocComponents as shared } from "cudoc-remark/components"
+import type { CudocTable } from "cudoc"
+import { getTableCellText } from "cudoc/query"
+import { cudocRemarkPlugins as docusaurus } from "cudoc-docusaurus"
+import { cudocRemarkPlugins as nextra } from "cudoc-nextra"
+import type { CudocDocusaurusOptions } from "cudoc-docusaurus"
+import type { CudocNextraOptions } from "cudoc-nextra"
+import type { HostPluginOptions, CudocRemarkOptions } from "cudoc-remark"
+const table: CudocTable = { type: "table", children: [] }
+const cells: (string | undefined)[] = getTableCellText(table, [[1, 0]])
+const components: typeof shared = cudocComponents
+components.Anchor({ badge: cells[0] })
+const hostHasToc: "toc" extends keyof HostPluginOptions ? true : false = false
+const docusaurusHasToc: "toc" extends keyof CudocDocusaurusOptions ? true : false = false
+const nextraHasToc: "toc" extends keyof CudocNextraOptions ? true : false = false
+docusaurus({ badge: true })
+nextra({ badge: true })
+// @ts-expect-error Removed options must not be accepted, even when disabled.
+docusaurus({ toc: false })
+// @ts-expect-error Removed options must not be accepted, even when disabled.
+nextra({ toc: false })
+// @ts-expect-error An alternate export name must not enable the removed feature.
+docusaurus({ toc: { exportName: "customToc" } })
+// @ts-expect-error An alternate export name must not enable the removed feature.
+nextra({ toc: { exportName: "customToc" } })
+const nextOptions: CudocRemarkOptions = { toc: { exportName: "toc" } }
+`,
+  )
+  process.stdout.write(
+    run(
+      "node",
+      [
+        path.join(ROOT, "node_modules/typescript/bin/tsc"),
+        "--noEmit",
+        "--strict",
+        "--skipLibCheck",
+        "--module",
+        "NodeNext",
+        "--target",
+        "ES2022",
+        "check.mts",
+      ],
+      workspace,
+    ),
+  )
+  console.log("public TypeScript declarations verified")
   console.log("packed install verified")
 } finally {
   fs.rmSync(workspace, { recursive: true, force: true })

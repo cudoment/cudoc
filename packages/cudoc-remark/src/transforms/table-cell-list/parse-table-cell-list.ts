@@ -1,5 +1,5 @@
 import type { PhrasingContent } from "mdast"
-import type { CudocTableCellContent } from "cudoc-core"
+import type { CudocTableCellContent } from "cudoc"
 import { parseInlineContent } from "./parse-inline-markdown.js"
 import { createTextNode } from "./nodes.js"
 

@@ -38,13 +38,13 @@ const layoutTable = (
   source: string,
   options: CudocRemarkOptions = { tableColumnLayout: RULE },
 ): MdxJsxFlowElement | undefined =>
-  findJsxElement(run(source, options), "Table")
+  findJsxElement(run(source, options), "table")
 
 describe("matching", () => {
   it("does nothing without a rule", () => {
     const tree = run(document({ cell: "- a<br />- b<br />- c<br />- d" }))
 
-    expect(findJsxElement(tree, "Table")).toBeUndefined()
+    expect(findJsxElement(tree, "table")).toBeUndefined()
     expect(tree.children.some((node) => node.type === "table")).toBe(true)
   })
 
@@ -95,7 +95,7 @@ describe("matching", () => {
       },
     )
 
-    expect(findJsxElement(tree, "Table")).toBeDefined()
+    expect(findJsxElement(tree, "table")).toBeDefined()
   })
 
   it("matches a column header that carries badge syntax", () => {

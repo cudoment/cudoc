@@ -15,7 +15,7 @@ import {
   DEFAULT_ANCHOR_NAME,
   DEFAULT_BADGE_DELIMITERS,
   type DelimiterPair,
-} from "cudoc-core"
+} from "cudoc"
 
 export type TocEntry = {
   id: string

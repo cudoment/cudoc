@@ -1,0 +1,54 @@
+{
+  "name": "cudoc-docusaurus",
+  "version": "0.1.0",
+  "description": "Docusaurus adapter for cudoc: remark wiring, default components and a theme that provides them.",
+  "keywords": [
+    "cudoc",
+    "docusaurus",
+    "docusaurus-plugin",
+    "mdx",
+    "documentation"
+  ],
+  "homepage": "https://github.com/cudoment/cudoc/tree/main/packages/cudoc-docusaurus#readme",
+  "bugs": {
+    "url": "https://github.com/cudoment/cudoc/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cudoment/cudoc.git",
+    "directory": "packages/cudoc-docusaurus"
+  },
+  "license": "MIT",
+  "author": "cudoment",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "theme",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "cudoc-remark": "0.1.0",
+    "unified": "^11.0.5"
+  },
+  "peerDependencies": {
+    "@docusaurus/core": "^3.0.0",
+    "react": "^18.0.0 || ^19.0.0"
+  }
+}

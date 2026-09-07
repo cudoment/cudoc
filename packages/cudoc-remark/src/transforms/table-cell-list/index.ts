@@ -10,7 +10,7 @@
 
 import type { TableCell } from "mdast"
 import type { Node } from "unist"
-import type { CudocTableCell, TransformContext } from "cudoc-core"
+import type { CudocTableCell, TransformContext } from "cudoc"
 import { buildTableCellChildren } from "./build-table-cell-children.js"
 import {
   hasTableCellListPattern,

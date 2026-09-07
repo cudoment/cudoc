@@ -103,13 +103,21 @@ export const textOf = (node: unknown): string => {
   return ""
 }
 
-/** Flattens a JSX table into rows of cell text, for structural assertions. */
-export const tableLayout = (table: MdxJsxFlowElement): string[][] => {
+/**
+ * Flattens a JSX table into rows of cell text, for structural assertions.
+ *
+ * The row element is named rather than assumed, because the layout defaults to
+ * HTML tag names and a rule may configure any others.
+ */
+export const tableLayout = (
+  table: MdxJsxFlowElement,
+  rowName = "tr",
+): string[][] => {
   const rows: string[][] = []
   const visit = (node: unknown) => {
     const candidate = node as MdxJsxFlowElement
     if (!candidate || typeof candidate !== "object") return
-    if (candidate.name === "TableRow") {
+    if (candidate.name === rowName) {
       rows.push(
         (candidate.children as unknown[]).map((cell) => textOf(cell).trim()),
       )

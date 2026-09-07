@@ -1,0 +1,53 @@
+# cudoc showcase
+
+Every cudoc feature appears at least once below. The same file is rendered by
+each example site, so the anchor ids, badge text, list structure and table
+layout have to come out the same in all of them.
+
+## Heading anchors (#heading-anchors)
+
+A heading carries its own anchor id, so a deep link keeps working after the
+heading is reworded.
+
+### Nested heading (#nested-heading)
+
+Anchors are collected at every configured depth, not only at the top level.
+
+## Rate limits (#rate-limits) (@REST API)
+
+A heading may carry a badge as well as an id. The badge moves onto the anchor
+element instead of staying in the heading text.
+
+### Retry policy (#retry-policy) (@beta)
+
+Retries are capped, and the cap is part of the response.
+
+## Inline badges (#inline-badges)
+
+This field is (@deprecated) and will be removed in the next major version. A
+sentence may carry (@two) separate (@badges) without losing the text between
+them.
+
+Badge syntax inside [a link (@not a badge)](https://example.com) stays literal,
+because a badge there would nest interactive content.
+
+## Lists inside table cells (#table-cell-lists)
+
+Markdown cannot put a list in a table cell, so the markers are read from the
+cell's raw source and rebuilt as real list nodes.
+
+| Purpose  | Detail                                                                                         |
+| -------- | ---------------------------------------------------------------------------------------------- |
+| Identity | - Proves membership<br />-- Student card<br />-- Staff card<br />- Proves a qualification      |
+| Access   | 1. Request a token<br />2. Call the endpoint<br />1.. Send the header<br />1.. Read the result |
+| Plain    | No markers here, so the cell is left exactly as written.                                       |
+
+##### Requirements (#requirements)
+
+A column holding many items reads badly in one narrow cell, so a layout rule
+splits it and spans the header to keep the grid rectangular.
+
+| Method |                                                               Prerequisites |
+| ------ | --------------------------------------------------------------------------: |
+| GET    | - An account<br />- A project<br />- An issued key<br />- The scope granted |
+| POST   |                                               - An account<br />- A project |

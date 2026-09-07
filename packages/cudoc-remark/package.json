@@ -29,9 +29,21 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./components": {
+      "types": "./dist/components/index.d.ts",
+      "default": "./dist/components/index.js"
+    },
     "./prepare": {
       "types": "./dist/prepare.d.ts",
       "default": "./dist/prepare.js"
+    },
+    "./heading-ids": {
+      "types": "./dist/heading-ids.d.ts",
+      "default": "./dist/heading-ids.js"
+    },
+    "./host-plugins": {
+      "types": "./dist/host-plugins.d.ts",
+      "default": "./dist/host-plugins.js"
     },
     "./table-cell-list": {
       "types": "./dist/transforms/table-cell-list/index.d.ts",
@@ -63,19 +75,24 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "cudoc-core": "0.1.0",
+    "cudoc": "0.1.0",
     "estree-util-value-to-estree": "^3.5.0",
     "mdast-util-mdx-jsx": "^3.2.0",
     "remark-gfm": "^4.0.1",
     "remark-mdx": "^3.1.0",
     "remark-parse": "^11.0.0",
-    "unified": "^11.0.5"
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.0.0"
   },
   "peerDependencies": {
-    "@types/mdast": "^4.0.4"
+    "@types/mdast": "^4.0.4",
+    "react": "^18.0.0 || ^19.0.0"
   },
   "peerDependenciesMeta": {
     "@types/mdast": {
+      "optional": true
+    },
+    "react": {
       "optional": true
     }
   }

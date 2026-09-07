@@ -8,7 +8,7 @@
  */
 
 import type { Heading, Parent, PhrasingContent, Table, TableCell } from "mdast"
-import type { SectionSelector, TransformContext } from "cudoc-core"
+import type { SectionSelector, TransformContext } from "cudoc"
 import {
   assertSectionSelector,
   findPreviousHeading,
@@ -20,7 +20,7 @@ import {
   DEFAULT_BADGE_DELIMITERS,
   DEFAULT_ID_DELIMITERS,
   type DelimiterPair,
-} from "cudoc-core"
+} from "cudoc"
 import {
   createLayoutTable,
   resolveTableComponents,

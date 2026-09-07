@@ -1,8 +1,17 @@
 {
   "files": [],
   "references": [
-    { "path": "./packages/cudoc-core" },
-    { "path": "./packages/cudoc-remark" },
-    { "path": "./packages/cudoc-node" }
+    {
+      "path": "./packages/cudoc"
+    },
+    {
+      "path": "./packages/cudoc-remark"
+    },
+    {
+      "path": "./packages/cudoc-docusaurus"
+    },
+    {
+      "path": "./packages/cudoc-nextra"
+    }
   ]
 }

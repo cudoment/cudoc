@@ -10,7 +10,7 @@
 import type { Heading, Root } from "mdast"
 import type { Plugin } from "unified"
 import type { VFile } from "vfile"
-import { transformHeadingAnchor, walk, type Transform } from "cudoc-core"
+import { transformHeadingAnchor, walk, type Transform } from "cudoc"
 import {
   resolveOptions,
   type CudocRemarkOptions,

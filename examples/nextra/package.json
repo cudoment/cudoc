@@ -1,0 +1,24 @@
+{
+  "name": "cudoc-example-nextra",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Nextra example wiring cudoc through cudoc-nextra.",
+  "scripts": {
+    "sync": "node ../scripts/sync-fixture.mjs content/showcase.mdx",
+    "dev": "npm run sync && next dev",
+    "build": "npm run sync && next build",
+    "start": "next start",
+    "clean": "rm -rf .next .cudoc"
+  },
+  "dependencies": {
+    "cudoc": "file:../../packages/cudoc",
+    "cudoc-nextra": "file:../../packages/cudoc-nextra",
+    "cudoc-remark": "file:../../packages/cudoc-remark",
+    "next": "15.5.25",
+    "nextra": "4.6.0",
+    "nextra-theme-docs": "4.6.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  }
+}

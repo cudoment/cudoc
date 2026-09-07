@@ -1,5 +1,5 @@
 import type { List, PhrasingContent } from "mdast"
-import type { CudocTableCellContent } from "cudoc-core"
+import type { CudocTableCellContent } from "cudoc"
 import { createBreak, isBreak } from "./elements.js"
 import { normalizeInlineEmphasis } from "./parse-inline-markdown.js"
 import { createListItemNode, createListNode, isListElement } from "./nodes.js"

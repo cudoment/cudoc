@@ -1,0 +1,39 @@
+:root {
+  color-scheme: light dark;
+}
+
+body {
+  font-family: system-ui, sans-serif;
+  line-height: 1.6;
+  margin: 0 auto;
+  max-width: 52rem;
+  padding: 2rem 1.5rem 6rem;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th,
+td {
+  border: 1px solid currentColor;
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.cudoc-anchor {
+  margin-left: 0.4rem;
+  opacity: 0.4;
+  text-decoration: none;
+}
+
+.cudoc-badge {
+  border: 1px solid currentColor;
+  border-radius: 0.5rem;
+  font-size: 0.75em;
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.4rem;
+  vertical-align: middle;
+}

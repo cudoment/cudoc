@@ -4,8 +4,8 @@ import type {
   MdxJsxExpressionAttribute,
   MdxJsxTextElement,
 } from "mdast-util-mdx-jsx"
-import type { CudocTableCellContent } from "cudoc-core"
-import { createMdxAttribute, isMdxTextElementNamed } from "cudoc-core"
+import type { CudocTableCellContent } from "cudoc"
+import { createMdxAttribute, isMdxTextElementNamed } from "cudoc"
 import { createBreak, isBreak } from "../table-cell-list/elements.js"
 
 const hasVisibleCellContent = (children: CudocTableCellContent[]): boolean =>

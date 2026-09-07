@@ -1,0 +1,4 @@
+build/
+.docusaurus/
+.cudoc/
+docs/showcase.mdx

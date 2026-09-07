@@ -70,31 +70,64 @@ describe("through @mdx-js/mdx", () => {
     expect(output).toContain('"first"')
   })
 
-  it("lays out a table as host components", async () => {
-    const source = [
-      "##### Requirements",
-      "",
-      "| Method | Prerequisites |",
-      "| --- | --- |",
-      "| GET | - a<br />- b<br />- c<br />- d |",
-      "",
-    ].join("\n")
+  const LAYOUT_SOURCE = [
+    "##### Requirements",
+    "",
+    "| Method | Prerequisites |",
+    "| --- | --- |",
+    "| GET | - a<br />- b<br />- c<br />- d |",
+    "",
+  ].join("\n")
 
-    const output = await compileMdx(source, {
+  const LAYOUT_RULE = {
+    section: { depth: 5, titles: ["Requirements"] },
+    columnHeaders: ["Prerequisites"],
+  }
+
+  it("lays out a table through the components the host already maps", async () => {
+    const output = await compileMdx(LAYOUT_SOURCE, {
+      tableColumnLayout: [LAYOUT_RULE],
+    })
+
+    // The default names are the HTML tags, so the rebuilt table resolves
+    // against the site's own `table` and `td` rather than asking for new
+    // components. Nothing capitalized is introduced.
+    expect(output).toContain("<_components.table>")
+    expect(output).toContain("<_components.td>")
+    expect(output).toContain('<_components.th colSpan="2">')
+    expect(output).not.toMatch(/\{Table[A-Za-z]*\} = _components/)
+    // The split halves land in separate cells.
+    expect(output).toContain('<_components.li>{"b"}</_components.li>')
+    expect(output).toContain('<_components.li>{"c"}</_components.li>')
+  })
+
+  it("uses capitalized components when a rule names them", async () => {
+    const output = await compileMdx(LAYOUT_SOURCE, {
       tableColumnLayout: [
         {
-          section: { depth: 5, titles: ["Requirements"] },
-          columnHeaders: ["Prerequisites"],
+          ...LAYOUT_RULE,
+          components: { table: "Table", cell: "TableCell", head: "TableHead" },
         },
       ],
     })
 
-    expect(output).toContain("Table")
+    // A capitalized element is destructured from the provided components, so a
+    // site naming its own has to supply them.
+    expect(output).toContain("{Table, TableCell, TableHead}")
     expect(output).toContain("<TableCell>")
+  })
+
+  it("keeps column alignment on native cells, including split and spanning cells", async () => {
+    const output = await compileMdx(
+      LAYOUT_SOURCE.replace("| --- | --- |", "| :--- | ---: |") +
+        "| POST | single |\n",
+      {
+        tableColumnLayout: [LAYOUT_RULE],
+      },
+    )
+    expect(output.match(/"textAlign": "left"/g)).toHaveLength(3)
+    expect(output.match(/"textAlign": "right"/g)).toHaveLength(4)
     expect(output).toContain('colSpan="2"')
-    // The split halves land in separate cells.
-    expect(output).toContain('<_components.li>{"b"}</_components.li>')
-    expect(output).toContain('<_components.li>{"c"}</_components.li>')
   })
 
   it("produces the same output when the plugin is a no-op", async () => {
