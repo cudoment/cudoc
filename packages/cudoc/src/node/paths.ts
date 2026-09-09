@@ -9,7 +9,7 @@ import path from "node:path"
 
 export const DEFAULT_SOURCE_ROOT = "docs"
 export const DEFAULT_OUTPUT_ROOT = ".cudoc/ast"
-export const DEFAULT_EXTENSIONS = [".mdx"]
+export const DEFAULT_EXTENSIONS = [".md", ".mdx"]
 
 export type PathOptions = {
   /** Directory holding the documents, relative to `cwd`. */

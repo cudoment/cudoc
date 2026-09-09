@@ -1,6 +1,6 @@
 {
   "name": "cudoc-remark",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Remark plugin for cudoc: heading anchors, badges, table cell lists and table column layout, each configurable.",
   "keywords": [
     "cudoc",
@@ -60,6 +60,14 @@
     "./toc": {
       "types": "./dist/toc.d.ts",
       "default": "./dist/toc.js"
+    },
+    "./embed": {
+      "types": "./dist/embed.d.ts",
+      "default": "./dist/embed.js"
+    },
+    "./runtime": {
+      "types": "./dist/runtime.d.ts",
+      "default": "./dist/runtime.js"
     }
   },
   "files": [
@@ -75,14 +83,17 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "cudoc": "0.1.0",
+    "@cudoment/cudoc": "0.2.0",
     "estree-util-value-to-estree": "^3.5.0",
     "mdast-util-mdx-jsx": "^3.2.0",
     "remark-gfm": "^4.0.1",
     "remark-mdx": "^3.1.0",
     "remark-parse": "^11.0.0",
     "unified": "^11.0.5",
-    "unist-util-visit": "^5.0.0"
+    "unist-util-visit": "^5.0.0",
+    "remark-directive": "^4.0.0",
+    "acorn": "^8.15.0",
+    "remark-frontmatter": "^5.0.0"
   },
   "peerDependencies": {
     "@types/mdast": "^4.0.4",

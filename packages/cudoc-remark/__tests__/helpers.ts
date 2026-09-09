@@ -8,15 +8,15 @@ import cudocPrepare from "cudoc-remark"
 import type { CudocRemarkOptions } from "cudoc-remark"
 
 /**
- * Runs the plugin the way a host would, with the source attached to the file so
- * the table-cell transform can read raw cell text.
+ * Exercises the explicit component-transform API with the source attached.
+ * Default component-free rendering is covered by portable-pipeline.test.tsx.
  */
 export const run = (input: string, options: CudocRemarkOptions = {}): Root => {
   const processor = unified()
     .use(remarkParse)
     .use(remarkMdx)
     .use(remarkGfm)
-    .use(cudocPrepare, options)
+    .use(cudocPrepare, { headingMetadata: true, ...options })
 
   const tree = processor.parse(input) as Root
 

@@ -11,3 +11,9 @@ examples/*/build/
 examples/next-mdx/docs/showcase.mdx
 examples/docusaurus/docs/showcase.mdx
 examples/nextra/content/showcase.mdx
+
+examples/*/docs/portable.md
+examples/*/docs/reference.md
+examples/nextra/content/portable.md
+examples/nextra/content/reference.md
+examples/html/site/

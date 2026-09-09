@@ -52,7 +52,7 @@ jobs:
       # The examples link the packages from `dist`, so they have to be built.
       - run: npm run build
 
-      # Installed separately: three site generators in one workspace would make
+      # Installed separately: site generators in one workspace would make
       # the root install slow and force them onto shared hoisted versions.
       - run: npm ci
         working-directory: examples/next-mdx
@@ -60,6 +60,10 @@ jobs:
         working-directory: examples/docusaurus
       - run: npm ci
         working-directory: examples/nextra
+      - run: npm ci
+        working-directory: examples/vitepress
+      - run: npm ci
+        working-directory: examples/html
 
       - run: npm run build
         working-directory: examples/next-mdx
@@ -71,6 +75,18 @@ jobs:
         working-directory: examples/docusaurus
       - run: npm run build
         working-directory: examples/nextra
+      - run: npm run build
+        working-directory: examples/vitepress
+      - run: npm run build
+        working-directory: examples/html
+      - name: Native host syntax must normalize with cudoc syntax
+        run: node scripts/check-native-hosts.mjs
+      - name: Portable Markdown must render across all five hosts
+        run: node scripts/compare-portable-hosts.mjs
+      - name: Host libraries must export HTML with each link policy
+        run: node scripts/check-html-hosts.mjs
+      - name: Changed sources must refresh untouched embedding pages
+        run: node scripts/check-portable-rebuild.mjs
 
       - name: The three hosts must render the same document the same way
         run: node scripts/compare-hosts.mjs

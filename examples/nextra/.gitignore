@@ -1,3 +1,6 @@
 .next/
 .cudoc/
 content/showcase.mdx
+
+content/portable.md
+content/reference.md

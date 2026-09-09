@@ -1,55 +1,29 @@
 # cudoc-remark
 
-The [cudoc](https://github.com/cudoment/cudoc) remark plugin: explicit heading anchors, inline badges, lists inside table cells, and tables laid out as host components.
+Connect cudoc Markdown syntax and prepared document embeds to a remark/MDX pipeline.
 
-Every feature is configured on its own and can be turned off. All options are JSON-serializable, so the plugin works under a bundler that hands its config to a worker.
+This separate package is a pipeline adapter, not a second implementation of cudoc's rules. Shared document semantics live in `@cudoment/cudoc`. Use it directly with Next.js/remark; Docusaurus and Nextra adapters already depend on it. VitePress and HTML use their own adapters and do not need this plugin.
 
-```bash
-npm install cudoc-remark
+ESM · Node.js 20+
+
+```sh
+npm install @cudoment/cudoc cudoc-remark remark-gfm
 ```
 
 ```js
-import cudocPrepare from "cudoc-remark"
+import remarkGfm from "remark-gfm"
+import cudoc from "cudoc-remark"
 
-const remarkPlugins = [["remark-gfm"], [cudocPrepare, {}]]
+const remarkPlugins = [remarkGfm, [cudoc, { host: "next", syntax: {} }]]
 ```
 
-Individual transforms are available on their own subpaths: `cudoc-remark/table-cell-list`, `cudoc-remark/table-column-layout`, `cudoc-remark/badge`.
+Default settings produce component-free output in both `.md` and `.mdx`; `syntax: {}` makes the defaults explicit. Let the host detect the document format. For Next.js Turbopack, use package-name plugin strings and JSON options as shown in the guide. `cudoc-remark/embed` inserts its runtime automatically after collection and preparation.
 
-For optional table of contents export with `@next/mdx`, see the [Next.js guide](https://github.com/cudoment/cudoc/blob/main/docs/next-mdx.md#table-of-contents). The standalone export plugin is `cudoc-remark/toc`.
+Choose `host`, `cudoc` or `both` independently for `headingAnchor`, `badge`, `tableCellList`, `callout` and `link`. The representative callout is `> [!NOTE] Title`. Authors do not register cudoc React components in the recommended setup. Syntax-only rendering needs no stored JSON; cross-document embedding requires document collection.
 
-## Components
-
-The plugin emits capitalized elements such as `Anchor` and `Badge`, which MDX resolves from the components your host provides and throws over when one is missing. `cudoc-remark/components` ships a plain implementation of every one of them:
-
-```jsx
-import { cudocComponents } from "cudoc-remark/components"
-
-export function useMDXComponents(components) {
-  return { ...components, ...cudocComponents }
-}
-```
-
-They are markup with class names to hook styles onto, meant to be restyled or replaced. `cudoc-docusaurus` and `cudoc-nextra` both use this same set, so a document renders the same markup wherever it is built. React is an optional peer dependency, needed only if you import them.
-
-The supplied components are `Anchor` and `Badge`. Default layout tables reuse the host's HTML table mappings and retain column alignment. Rules naming capitalized table components require the site's own implementations.
-
-## Heading ids
-
-`cudoc-remark/heading-ids` copies each anchor id onto the heading itself, which is where a deep link resolves and where a host that generates its own ids will look:
-
-```js
-remarkPlugins: [[cudocPrepare, options], "cudoc-remark/heading-ids"]
-```
-
-This is required with the supplied `Anchor`, which renders only the badge. Omit it only if your own component renders the ID.
-
-## Writing a host adapter
-
-`createHostPlugins(options, adapter)` returns the plugin list a site generator needs — the transforms and the id promotion, with options validated when the config loads. It is what `cudoc-docusaurus` and `cudoc-nextra` are built on.
-
-See the [main README](https://github.com/cudoment/cudoc#readme) for the syntax and the full option list, and the [host guides](https://github.com/cudoment/cudoc/tree/main/docs) for setting it up on a particular site generator.
-
-## License
-
-[MIT](./LICENSE)
+- [Usage guide](https://github.com/cudoment/cudoc/tree/main/docs/next-mdx.md) · [한국어 가이드](https://github.com/cudoment/cudoc/tree/main/docs/next-mdx.ko.md)
+- [Markdown syntax](https://github.com/cudoment/cudoc/tree/main/docs/syntax.md)
+- [Embedding](https://github.com/cudoment/cudoc/tree/main/docs/embedding.md)
+- [Standalone HTML alongside a host](https://github.com/cudoment/cudoc/tree/main/docs/html.md#export-alongside-an-existing-site)
+- [API reference](https://github.com/cudoment/cudoc/tree/main/docs/api-reference/README.md)
+- [Runnable examples](https://github.com/cudoment/cudoc/tree/main/examples/README.md)

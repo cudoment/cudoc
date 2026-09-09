@@ -6,16 +6,16 @@ import { compile } from "@mdx-js/mdx"
 import remarkGfm from "remark-gfm"
 import { visit } from "unist-util-visit"
 import type { List } from "mdast"
-import type { CudocTable } from "cudoc"
+import type { CudocTable } from "@cudoment/cudoc"
 import {
   findSiblingNode,
   getHeadingBadge,
   getNodeText,
   getTableCellText,
   sliceSectionByAnchorId,
-} from "cudoc/query"
-import exportAst, { loadAst } from "cudoc/embed"
-import { loadAstFile } from "cudoc/node/load-ast-file"
+} from "@cudoment/cudoc/query"
+import exportAst, { loadAst } from "@cudoment/cudoc/embed"
+import { loadAstFile } from "@cudoment/cudoc/node/load-ast-file"
 import cudocPrepare from "cudoc-remark"
 import promoteAnchorIds from "cudoc-remark/heading-ids"
 

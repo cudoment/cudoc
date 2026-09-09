@@ -5,7 +5,7 @@ import {
   splitByDelimiters,
   stripDelimited,
   validateAstContract,
-} from "cudoc"
+} from "@cudoment/cudoc"
 import type { Heading, List, Root } from "mdast"
 
 describe("delimiters", () => {

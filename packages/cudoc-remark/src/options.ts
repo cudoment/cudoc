@@ -16,7 +16,7 @@ import {
   type ResolvedHeadingMetadataOptions,
   type Transform,
   type TransformState,
-} from "cudoc"
+} from "@cudoment/cudoc"
 import {
   resolveBadgeOptions,
   type BadgeOptions,
@@ -33,6 +33,7 @@ import {
   type TocOptions,
 } from "./toc.js"
 import type { Toc } from "./toc.js"
+import { resolveSyntax, type DocumentOptions } from "@cudoment/cudoc/document"
 
 export type CudocState = TransformState & {
   toc: Toc
@@ -41,7 +42,10 @@ export type CudocState = TransformState & {
 /** A feature is off when `false`, on with defaults when `true` or omitted. */
 export type FeatureOption<Options> = boolean | Options | undefined
 
-export type CudocRemarkOptions = {
+export type CudocRemarkOptions = Pick<
+  DocumentOptions,
+  "syntax" | "host" | "format" | "calloutTypes" | "components" | "headingIds"
+> & {
   /** List syntax inside table cells. */
   tableCellList?: boolean
   /** Anchor id and badge written in a heading. */
@@ -72,6 +76,12 @@ export type ResolvedCudocRemarkOptions = {
 }
 
 const KNOWN_KEYS = new Set([
+  "syntax",
+  "host",
+  "format",
+  "calloutTypes",
+  "components",
+  "headingIds",
   "tableCellList",
   "headingMetadata",
   "badge",
@@ -113,6 +123,19 @@ export const resolveOptions = (
     throw new TypeError("cudoc: options must be an object")
   }
   assertKnownKeys(options)
+  if (options.syntax !== undefined) {
+    resolveSyntax(options.syntax)
+    for (const [feature, legacy] of [
+      ["headingAnchor", "headingMetadata"],
+      ["badge", "badge"],
+      ["tableCellList", "tableCellList"],
+    ] as const) {
+      if (options[legacy] !== undefined)
+        throw new TypeError(
+          `cudoc: configure ${feature} through syntax or ${legacy}, not both`,
+        )
+    }
+  }
 
   if (
     options.tableColumnLayout !== undefined &&

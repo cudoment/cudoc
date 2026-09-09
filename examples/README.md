@@ -1,62 +1,82 @@
-# Examples
+# Runnable examples
 
-Three sites that render the same document, so that "cudoc works on this host" means something checkable rather than something asserted.
+[Usage guides](../docs/README.md) · [한국어 가이드](../docs/README.ko.md) · [API reference](../docs/api-reference/README.md)
 
-| Directory                    | Host                               | Adapter            |
-| ---------------------------- | ---------------------------------- | ------------------ |
-| [`next-mdx`](./next-mdx)     | Next.js 16 App Router, `@next/mdx` | none needed        |
-| [`docusaurus`](./docusaurus) | Docusaurus 3.10                    | `cudoc-docusaurus` |
-| [`nextra`](./nextra)         | Nextra 4.6.0, Next.js 15.5         | `cudoc-nextra`     |
+Four documentation hosts and the optional HTML output render the shared [portable Markdown](./fixtures/portable.md) and [reference document](./fixtures/reference.md). They demonstrate callouts, explicit anchors, badges, lists inside table cells, a heading-summary table and original-source replacement without author-written cudoc components. HTML output can accompany every host; the HTML example also demonstrates use without another host.
 
-The document is [`fixtures/showcase.mdx`](./fixtures/showcase.mdx) and the options are [`fixtures/cudoc-options.mjs`](./fixtures/cudoc-options.mjs). Each site copies the fixture in before it builds, so an edit reaches all three.
+## Build an example
 
-For setting cudoc up in your own project rather than reading one of these, see the [host guides](../docs).
+Install and build packages from the repository root first:
 
-## Running one
+```sh
+npm ci
+npm run build
+```
 
-The examples are **not** workspace packages. Three site generators pulling in their own React, bundler and MDX versions would make `npm ci` at the root slow and leave the packages sharing hoisted versions they never asked for. Each site installs on its own and links the packages with `file:` paths, which resolve to the built `dist` directories:
+Examples install independently, using their own lockfiles and local `file:` package dependencies. For example:
 
-```bash
-npm run build                 # from the repository root, first
+```sh
 cd examples/next-mdx
-npm install
-npm run dev                   # or: npm run build
+npm ci
+npm run build
+npm run dev
 ```
 
-`examples/next-mdx` also has `dev:webpack` and `build:webpack`, because Next.js can run either bundler and cudoc has to work under both.
+| Directory                                           | Host configuration    | Build           | Development or view                      | Example page         |
+| --------------------------------------------------- | --------------------- | --------------- | ---------------------------------------- | -------------------- |
+| [next-mdx](./next-mdx/next.config.mjs)              | Next.js + `@next/mdx` | `npm run build` | `npm run dev`                            | `/portable`          |
+| [docusaurus](./docusaurus/docusaurus.config.mjs)    | Docusaurus            | `npm run build` | `npm start`                              | `/docs/portable`     |
+| [nextra](./nextra/next.config.mjs)                  | Nextra                | `npm run build` | `npm run dev`                            | `/portable`          |
+| [vitepress](./vitepress/docs/.vitepress/config.mjs) | VitePress             | `npm run build` | `npx vitepress preview docs` after build | `/portable.html`     |
+| [html](./html/package.json)                         | Standalone HTML       | `npm run build` | Open `site/index.html`                   | `site/portable.html` |
 
-## Comparing the three
+Commands in the table run inside the corresponding example directory after `npm ci`. Next.js also provides `dev:webpack` and `build:webpack`. Package manifests and lockfiles define the dependency versions; check those when upgrading a host.
 
-```bash
+Each build synchronizes shared fixtures and collects documents before rendering. Edit [fixtures](./fixtures/portable.md), not the generated copies under each example's docs/content directory. Rebuild after editing fixtures. The HTML example can be shared by copying its entire `site/` directory.
+
+## Collection integrations
+
+| Host       | Collector                                                                   |
+| ---------- | --------------------------------------------------------------------------- |
+| Next.js    | [collect.mjs](./next-mdx/collect.mjs), standard cudoc compiler              |
+| Docusaurus | [collect.mjs](./docusaurus/collect.mjs), actual host MDX processor          |
+| Nextra     | [collect.mjs](./nextra/collect.mjs), `nextra/compile`                       |
+| VitePress  | [collect.mjs](./vitepress/collect.mjs), actual configured Markdown renderer |
+| HTML       | Collection is part of `cudoc-html build`                                    |
+
+When adapting a collector, match syntax, plugins and routes to the rendering configuration and change `compilerId` after relevant changes. Internal Docusaurus processor imports are version-specific. Preparation must finish before a host attempts to render an embed.
+
+## Export HTML from a host example
+
+After building a host example, export its collected documents from the repository root. For Docusaurus:
+
+```sh
+node packages/cudoc-html/dist/cli.js build examples/docusaurus/docs \
+  --library examples/docusaurus/.cudoc/documents --out-dir .cudoc-html-preview \
+  --links host --host-url https://docs.example.com/project/ \
+  --asset-dir examples/docusaurus/static
+```
+
+The existing host build and library stay unchanged. Use `--links relative` for local navigation or `--links none` to remove all hyperlinks. Adjust source and library paths for the other examples; Nextra uses `content`. Remove the generated preview directory when finished. See the [HTML guide](../docs/html.md) for deployment routes, shared assets and configuration.
+
+## Verify integrations
+
+Build all five examples, then run from the repository root:
+
+```sh
+node scripts/compare-portable-hosts.mjs
+node scripts/check-html-hosts.mjs
+node scripts/check-portable-rebuild.mjs
+node scripts/check-native-hosts.mjs
+```
+
+The comparison checks rendered content and collected ASTs. The HTML check exports all four real host libraries with all three link policies, verifies rendered embeds and destinations, and hashes every source, library and primary output file to confirm they are unchanged. The rebuild check temporarily changes only the referenced document and checks that the unchanged embedding document receives fresh results, then restores the fixture and outputs. Native-host checks exercise host/cudoc normalization and HTML export with actual compilers.
+
+The three MDX examples also contain a component-based `showcase.mdx` fixture and a direct-AST consumer for lower-level API coverage. These are implementation fixtures, not required authoring setup. Their dedicated checks are:
+
+```sh
 node scripts/compare-hosts.mjs
-```
-
-It reads the built HTML of each site and compares the heading ids, the badge texts, the list nesting and the table grid. Comparing the exported AST would be easier and would prove less: the AST is what the remark plugin produced, while these four things are what a reader actually gets after each host has run its own renderer over it.
-
-Build all three first, or the script will tell you which one is missing and how to build it.
-
-```bash
 node scripts/check-rebuild.mjs
 ```
 
-builds each site, edits the fixture, builds again, and requires the edit to appear in the rendered page, the exported AST and the consuming embed page. A remark plugin only runs when MDX is really compiled, so a reused compilation cache can leave a site a version behind while still reporting success.
-
-## Reading the AST back
-
-`examples/next-mdx` also has an [`/embed` page](./next-mdx/app/embed) that renders nothing of its own: the section summaries and the table on it are read out of `.cudoc/ast/showcase.json` with `loadAstFile` and `cudoc/query`. It is there because exporting the AST is only worth doing if something reads it, and that path deserves to be exercised rather than described.
-
-## What the document exercises
-
-Heading anchors and heading badges, badges in prose, lists inside table cells (nested and ordered), and a table whose column is laid out as host components and split across two cells.
-
-## Verified version combinations
-
-These are the combinations the examples are built against. Others may work; these are the ones that were run.
-
-| Host       | Versions                                                             |
-| ---------- | -------------------------------------------------------------------- |
-| Next.js    | Next.js 16.3, `@next/mdx` 16.3, React 19.2, Turbopack and webpack    |
-| Docusaurus | Docusaurus 3.10.2, React 19.2                                        |
-| Nextra     | Nextra 4.6.0, `nextra-theme-docs` 4.6.0, Next.js 15.5.25, React 19.2 |
-
-Nextra and its theme are pinned to the tested 4.6.0 combination. Rebuild and compare the examples before changing either version.
+For package consumers, `node scripts/verify-pack.mjs` builds temporary packed installations and checks public imports/types. For source/API changes, run the relevant integration checks above and keep the [API reference](../docs/api-reference/README.md) up to date. A documentation-only change does not require rebuilding every host.

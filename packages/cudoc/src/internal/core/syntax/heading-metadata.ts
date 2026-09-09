@@ -278,7 +278,7 @@ export const findAnchorNode = (
   anchorName: string = DEFAULT_ANCHOR_NAME,
 ): MdxJsxTextElement | undefined => {
   for (const node of nodes) {
-    if ("attributes" in node && node.name === anchorName) {
+    if (node.type === "mdxJsxTextElement" && node.name === anchorName) {
       return node
     }
   }

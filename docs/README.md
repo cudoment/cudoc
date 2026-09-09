@@ -1,46 +1,32 @@
-# Guides
+# cudoc usage guide
 
-**English** | [한국어](./README.ko.md)
+**English** | [한국어](./README.ko.md) · [Project home](../README.md)
 
-Setting cudoc up on each supported host, from an empty project to a rendered page.
+Markdown extensions and document embedding are the two core capabilities. Standalone HTML is optional additional output, usable alongside any supported documentation host or on its own. A documentation host is the site generator or web framework that builds and serves the primary site. Configuration belongs in the site setup; document authors write ordinary Markdown and cudoc markers.
 
-- [Next.js with `@next/mdx`](./next-mdx.md)
-- [Docusaurus](./docusaurus.md)
-- [Nextra](./nextra.md)
-- [Embedding a document in another](./embedding.md)
+## Learn in order
 
-For the syntax, the option list and what each package does, see the [main README](../README.md). For three sites you can build and compare, see [`examples/`](../examples).
+1. [Getting started](../README.md#getting-started): create a document and build HTML.
+2. [Markdown syntax](./syntax.md): choose syntax per feature and write callouts, anchors, badges and tables.
+3. [Document embedding](./embedding.md): collect documents, select sections, create summary tables and replace text.
+4. [AST datasets](./dataset.md): filter compiled documents for your own consumer.
+5. [Standalone HTML](./html.md): export files alongside your main site and choose a hyperlink policy.
 
-## The same shape on every host
+## Choose a host
 
-Every host is set up the same way, in the same order:
+| Host                         | Guide                             | Document format                     |
+| ---------------------------- | --------------------------------- | ----------------------------------- |
+| Existing Next.js application | [Next.js with MDX](./next-mdx.md) | `.md`, `.mdx`                       |
+| Docusaurus site              | [Docusaurus](./docusaurus.md)     | `.md`, `.mdx` with format detection |
+| Nextra site                  | [Nextra](./nextra.md)             | `.md`, `.mdx` with format detection |
+| VitePress site               | [VitePress](./vitepress.md)       | `.md`; React MDX is unsupported     |
 
-1. **Connect the plugins** so cudoc's transforms run before the host reads headings.
-2. **Provide the components**, because cudoc emits capitalized elements that MDX has to resolve.
-3. **Export the AST for embedding**, by appending the `cudoc/embed` entry from the `cudoc` package to the same plugin list. Load and query it as described in the [embedding guide](./embedding.md).
+Syntax-only integration stops after host configuration. For cross-document embedding, add collection and preparation before starting the host. The [embedding guide](./embedding.md) explains when to run those steps again.
 
-What differs is only how each host takes those three things:
+Standalone HTML can accompany any of the four host integrations. Reuse the host's collected library to keep native semantics and prepared embeds, and choose local links, deployment links or no hyperlinks. See [exporting alongside a site](./html.md#export-alongside-an-existing-site).
 
-|             | Next.js                                                      | Docusaurus                         | Nextra                                        |
-| ----------- | ------------------------------------------------------------ | ---------------------------------- | --------------------------------------------- |
-| Connect     | `remarkPlugins`, named by string                             | `beforeDefaultRemarkPlugins`       | `mdxOptions.remarkPlugins`                    |
-| Ordering    | anything, nothing competes                                   | must be _before_ the defaults      | already first, no opt-in                      |
-| Heading ids | `cudoc-remark/heading-ids`, required with the default Anchor | in the adapter                     | in the adapter                                |
-| Components  | `cudoc-remark/components` in `mdx-components`                | the adapter's theme, automatically | `cudoc-nextra/components` in `mdx-components` |
-| Adapter     | none needed                                                  | `cudoc-docusaurus`                 | `cudoc-nextra`                                |
+## For developers
 
-The components are one implementation, in `cudoc-remark/components`. The Nextra adapter re-exports it and the Docusaurus theme imports it, rather than either shipping its own, so a page renders the same markup wherever it is built. The plugin arrangement is likewise one function, `createHostPlugins`, which both adapters call.
+[API reference](./api-reference/README.md) documents imports, signatures, defaults, AST metadata, persistence and compiler ordering. [Examples](../examples/README.md) provide executable host integrations and validation commands.
 
-## Why Next.js has no adapter
-
-An adapter's job is to return a configured plugin list, which means being _called_ — and under Turbopack the MDX config is handed to a worker that cannot receive a function. Plugins there have to be named by string and resolved on the other side, so `cudocRemarkPlugins(options)` could not run in the first place.
-
-That is a constraint of the bundler rather than something cudoc chose, and it is why the Next.js guide names two cudoc plugins where the other two hosts call one function. Everything after that step is the same.
-
-## Writing an adapter for another host
-
-Two things make a host adapter, and only one of them is host-specific.
-
-`createHostPlugins(options, adapter)` from `cudoc-remark` is the arrangement: the transforms, the anchor ids promoted onto their headings, and an early rejection of a bad option. Both adapters here are a call to it plus a name.
-
-The rest is however that host takes components — a theme for Docusaurus, an `mdx-components` file for Nextra and Next.js — and `cudoc-remark/components` is what you point it at.
+The current scope covers syntax, embedding, AST projection and HTML generation. Link monitoring and replacement of a separate Docs project are not included. Native syntax support is limited to the forms listed in the guides; arbitrary host plugins and dynamic components do not automatically become portable.

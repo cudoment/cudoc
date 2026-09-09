@@ -7,12 +7,12 @@
 
 import type { Node, Text } from "mdast"
 import type { MdxJsxTextElement } from "mdast-util-mdx-jsx"
-import type { DelimiterPair, TransformContext } from "cudoc"
+import type { DelimiterPair, TransformContext } from "@cudoment/cudoc"
 import {
   assertDelimiterPair,
   DEFAULT_BADGE_DELIMITERS,
   splitByDelimiters,
-} from "cudoc"
+} from "@cudoment/cudoc"
 
 export const DEFAULT_BADGE_NAME = "Badge"
 

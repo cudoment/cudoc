@@ -19,7 +19,7 @@ jobs:
         with:
           node-version: 24
       - id: compare
-        run: node scripts/unpublished-packages.mjs cudoc >> "$GITHUB_OUTPUT"
+        run: node scripts/unpublished-packages.mjs @cudoment/cudoc >> "$GITHUB_OUTPUT"
 
   publish:
     name: Publish to npm

@@ -1,6 +1,6 @@
 {
   "name": "cudoc-nextra",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Nextra adapter for cudoc: remark wiring and default components.",
   "keywords": [
     "cudoc",
@@ -47,7 +47,7 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "cudoc-remark": "0.1.0",
+    "cudoc-remark": "0.2.0",
     "unified": "^11.0.5"
   },
   "peerDependencies": {

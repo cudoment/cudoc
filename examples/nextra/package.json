@@ -5,14 +5,15 @@
   "type": "module",
   "description": "Nextra example wiring cudoc through cudoc-nextra.",
   "scripts": {
-    "sync": "node ../scripts/sync-fixture.mjs content/showcase.mdx",
-    "dev": "npm run sync && next dev",
-    "build": "npm run sync && next build",
+    "sync": "node ../scripts/sync-fixture.mjs content/showcase.mdx && node ../scripts/sync-portable.mjs content",
+    "dev": "npm run sync && npm run collect && next dev",
+    "build": "npm run sync && npm run collect && next build",
     "start": "next start",
-    "clean": "rm -rf .next .cudoc"
+    "clean": "rm -rf .next .cudoc",
+    "collect": "node collect.mjs"
   },
   "dependencies": {
-    "cudoc": "file:../../packages/cudoc",
+    "@cudoment/cudoc": "file:../../packages/cudoc",
     "cudoc-nextra": "file:../../packages/cudoc-nextra",
     "cudoc-remark": "file:../../packages/cudoc-remark",
     "next": "15.5.25",

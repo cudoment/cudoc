@@ -1,6 +1,7 @@
 import nextra from "nextra"
 import { cudocRemarkPlugins } from "cudoc-nextra"
-import exportAst from "cudoc/embed"
+import embed from "cudoc-remark/embed"
+import exportAst from "@cudoment/cudoc/embed"
 import { cudocOptions } from "../fixtures/cudoc-options.mjs"
 
 /**
@@ -9,9 +10,11 @@ import { cudocOptions } from "../fixtures/cudoc-options.mjs"
  */
 const withNextra = nextra({
   mdxOptions: {
+    format: "detect",
     remarkPlugins: [
       ...cudocRemarkPlugins(cudocOptions),
       [exportAst, { sourceRoot: "content", outDir: ".cudoc/ast" }],
+      [embed, { sourceRoot: "content" }],
     ],
   },
 })

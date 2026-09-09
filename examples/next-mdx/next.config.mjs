@@ -19,7 +19,9 @@ const exportOptions = {
  * why every option below has to stay plain JSON.
  */
 const withMDX = createMDX({
+  extension: /\.mdx?$/,
   options: {
+    format: "detect",
     remarkPlugins: [
       ["remark-gfm"],
       ["cudoc-remark", cudocOptions],
@@ -27,13 +29,14 @@ const withMDX = createMDX({
       // heading ids of its own, so nothing competes here, but keeping the id in
       // the same place as the other hosts is what makes the three comparable.
       ["cudoc-remark/heading-ids", {}],
-      ["cudoc/embed", exportOptions],
+      ["@cudoment/cudoc/embed", exportOptions],
+      ["cudoc-remark/embed", { sourceRoot: "docs" }],
     ],
   },
 })
 
 export default withMDX({
-  pageExtensions: ["js", "jsx", "mdx"],
+  pageExtensions: ["js", "jsx", "md", "mdx"],
   // Include the stored AST when packaging this route for runtime reads.
   outputFileTracingIncludes: {
     "/embed": ["./.cudoc/ast/showcase.json"],

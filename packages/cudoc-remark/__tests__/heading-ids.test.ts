@@ -11,7 +11,7 @@ const run = (input: string, options: CudocRemarkOptions = {}): Root => {
   const processor = unified()
     .use(remarkParse)
     .use(remarkMdx)
-    .use(cudocPrepare, options)
+    .use(cudocPrepare, { headingMetadata: true, ...options })
     .use(promoteAnchorIds)
 
   return processor.runSync(processor.parse(input) as Root, {

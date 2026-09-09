@@ -12,6 +12,12 @@
     },
     {
       "path": "./packages/cudoc-nextra"
+    },
+    {
+      "path": "./packages/cudoc-vitepress"
+    },
+    {
+      "path": "./packages/cudoc-html"
     }
   ]
 }

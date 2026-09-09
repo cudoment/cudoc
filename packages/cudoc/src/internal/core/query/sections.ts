@@ -78,6 +78,7 @@ export const getHeadingBadge = (
   heading: Heading,
   options: AnchorLookupOptions = {},
 ): string | undefined =>
+  (heading.data as { cudoc?: { badge?: string } } | undefined)?.cudoc?.badge ??
   readStringAttribute(
     findAnchorNode(heading.children, options.anchorName ?? DEFAULT_ANCHOR_NAME),
     options.badgeAttribute ?? "badge",

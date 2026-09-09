@@ -30,21 +30,21 @@ const compileMdx = async (
 }
 
 describe("through @mdx-js/mdx", () => {
-  it("emits an anchor element for heading metadata", async () => {
+  it("puts heading metadata on native elements by default", async () => {
     const output = await compileMdx("## Rate limits (#rate-limits)\n")
 
-    // A capitalized element is destructured from the provided components, so
-    // the host must supply one or MDX throws at render time.
-    expect(output).toContain("{Anchor} = _components")
-    expect(output).toContain('<Anchor id="rate-limits" headerLevel="h2" />')
+    expect(output).not.toContain("{Anchor} = _components")
+    expect(output).toContain('<_components.h2 id="rate-limits">')
     expect(output).not.toContain("(#rate-limits)")
   })
 
-  it("emits a badge element for prose badges", async () => {
+  it("emits a native span for prose badges by default", async () => {
     const output = await compileMdx("A sentence with an (@important) badge.\n")
 
-    expect(output).toContain("{Badge} = _components")
-    expect(output).toContain('<Badge>{"important"}</Badge>')
+    expect(output).not.toContain("{Badge} = _components")
+    expect(output).toContain(
+      '<_components.span className="cudoc-badge">{"important"}</_components.span>',
+    )
   })
 
   it("builds a real list from table cell syntax", async () => {
@@ -125,8 +125,8 @@ describe("through @mdx-js/mdx", () => {
         tableColumnLayout: [LAYOUT_RULE],
       },
     )
-    expect(output.match(/"textAlign": "left"/g)).toHaveLength(3)
-    expect(output.match(/"textAlign": "right"/g)).toHaveLength(4)
+    expect(output.match(/textAlign: "left"/g)).toHaveLength(3)
+    expect(output.match(/textAlign: "right"/g)).toHaveLength(4)
     expect(output).toContain('colSpan="2"')
   })
 

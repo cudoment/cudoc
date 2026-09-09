@@ -15,7 +15,7 @@ import {
   DEFAULT_ANCHOR_NAME,
   DEFAULT_BADGE_DELIMITERS,
   type DelimiterPair,
-} from "cudoc"
+} from "@cudoment/cudoc"
 
 export type TocEntry = {
   id: string
@@ -116,6 +116,12 @@ const collectText = (
   preserveMetadata = false,
 ): string => {
   const values = nodes.flatMap((node) => {
+    if (
+      ["badge", "permalink"].includes(
+        (node.data as { cudoc?: { kind?: string } })?.cudoc?.kind ?? "",
+      )
+    )
+      return []
     if (node.type === "text") {
       return preserveMetadata
         ? [node.value]
@@ -159,10 +165,13 @@ export const collectHeadingToc = (
     return
   }
 
-  const id = extractAnchorId(
-    findAnchorNode(node.children, options.anchor.name),
-    options.anchor.idAttribute,
-  )
+  const id =
+    (node.data as { hProperties?: { id?: string } } | undefined)?.hProperties
+      ?.id ??
+    extractAnchorId(
+      findAnchorNode(node.children, options.anchor.name),
+      options.anchor.idAttribute,
+    )
   if (!id) return
 
   if (node.depth === topDepth) {
@@ -202,7 +211,7 @@ const createTocExportNode = (toc: Toc, exportName: string): RootContent =>
         ],
       },
     },
-  }) as RootContent
+  }) as unknown as RootContent
 
 export const addTocExport = (
   tree: Root,

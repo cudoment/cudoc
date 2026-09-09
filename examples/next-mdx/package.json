@@ -5,19 +5,20 @@
   "type": "module",
   "description": "Next.js App Router example wiring cudoc into @next/mdx.",
   "scripts": {
-    "sync": "node ../scripts/sync-fixture.mjs docs/showcase.mdx",
-    "dev": "npm run sync && next dev --turbopack",
-    "dev:webpack": "npm run sync && next dev --webpack",
-    "build": "npm run sync && next build --turbopack",
-    "build:webpack": "npm run sync && next build --webpack",
+    "sync": "node ../scripts/sync-fixture.mjs docs/showcase.mdx && node ../scripts/sync-portable.mjs docs",
+    "dev": "npm run sync && npm run collect && next dev --turbopack",
+    "dev:webpack": "npm run sync && npm run collect && next dev --webpack",
+    "build": "npm run sync && npm run collect && next build --turbopack",
+    "build:webpack": "npm run sync && npm run collect && next build --webpack",
     "start": "next start",
-    "clean": "rm -rf .next .cudoc"
+    "clean": "rm -rf .next .cudoc",
+    "collect": "node collect.mjs"
   },
   "dependencies": {
     "@mdx-js/loader": "^3.1.1",
     "@mdx-js/react": "^3.1.1",
     "@next/mdx": "^16.3.4",
-    "cudoc": "file:../../packages/cudoc",
+    "@cudoment/cudoc": "file:../../packages/cudoc",
     "cudoc-remark": "file:../../packages/cudoc-remark",
     "next": "^16.3.4",
     "react": "^19.2.0",

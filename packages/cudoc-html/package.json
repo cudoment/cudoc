@@ -1,0 +1,45 @@
+{
+  "name": "cudoc-html",
+  "version": "0.2.0",
+  "type": "module",
+  "license": "MIT",
+  "author": "cudoment",
+  "description": "Build portable HTML documentation sites with cudoc",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc --build"
+  },
+  "dependencies": {
+    "@cudoment/cudoc": "0.2.0",
+    "hast-util-from-html": "^2.0.3",
+    "hast-util-to-html": "^9.0.5",
+    "highlight.js": "^11.12.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "cudoc-html": "./dist/cli.js"
+  },
+  "homepage": "https://github.com/cudoment/cudoc/tree/main/packages/cudoc-html#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cudoment/cudoc.git",
+    "directory": "packages/cudoc-html"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

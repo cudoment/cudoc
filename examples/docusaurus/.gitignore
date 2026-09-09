@@ -2,3 +2,6 @@ build/
 .docusaurus/
 .cudoc/
 docs/showcase.mdx
+
+docs/portable.md
+docs/reference.md

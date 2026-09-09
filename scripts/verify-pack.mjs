@@ -58,7 +58,7 @@ try {
 
   // Verify the product without sibling workspace packages or dev dependencies.
   const productIndex = packages.findIndex(
-    ({ manifest }) => manifest.name === "cudoc",
+    ({ manifest }) => manifest.name === "@cudoment/cudoc",
   )
   if (productIndex < 0) throw new Error("Missing cudoc package")
   run(
@@ -77,9 +77,9 @@ try {
     `
 import assert from "node:assert/strict"
 import path from "node:path"
-import exportAst, { loadAst, sliceSectionByAnchorId } from "cudoc/embed"
-import { sliceSectionByAnchorId as querySlice } from "cudoc/query"
-import { validateAstContract } from "cudoc"
+import exportAst, { loadAst, sliceSectionByAnchorId } from "@cudoment/cudoc/embed"
+import { sliceSectionByAnchorId as querySlice } from "@cudoment/cudoc/query"
+import { validateAstContract } from "@cudoment/cudoc"
 const tree = { type: "root", children: [
   { type: "heading", depth: 2, data: { hProperties: { id: "limits" } }, children: [{ type: "text", value: "Limits" }] },
   { type: "paragraph", children: [{ type: "text", value: "Reusable content" }] }
@@ -89,7 +89,7 @@ const document = loadAst("guide")
 validateAstContract(document, { requireVersion: true })
 assert.equal(sliceSectionByAnchorId, querySlice)
 assert.equal(sliceSectionByAnchorId(document, "limits").children[1].children[0].value, "Reusable content")
-await assert.rejects(import("cudoc/dist/internal/core/index.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" })
+await assert.rejects(import("@cudoment/cudoc/dist/internal/core/index.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" })
 console.log("standalone cudoc export/load/embed verified")
 `,
   )
@@ -97,7 +97,7 @@ console.log("standalone cudoc export/load/embed verified")
   await build({
     stdin: {
       contents:
-        'import * as api from "cudoc"; import * as query from "cudoc/query"; console.log(api, query)',
+        'import * as api from "@cudoment/cudoc"; import * as query from "@cudoment/cudoc/query"; console.log(api, query)',
       resolveDir: workspace,
     },
     bundle: true,
@@ -106,6 +106,27 @@ console.log("standalone cudoc export/load/embed verified")
     write: false,
   })
   console.log("browser-safe public entries verified")
+  fs.writeFileSync(
+    path.join(workspace, "portable-check.mjs"),
+    `
+import fs from "node:fs"
+import assert from "node:assert/strict"
+import { compileDocument } from "@cudoment/cudoc/markdown"
+import { renderDocument } from "@cudoment/cudoc/render"
+import { buildDocuments } from "@cudoment/cudoc/node/library"
+import { resolveDocumentEmbeds } from "@cudoment/cudoc/node/resolve-embed"
+import { prepareEmbeds } from "@cudoment/cudoc/node/prepare-embeds"
+fs.mkdirSync("markdown")
+fs.writeFileSync("markdown/api.md", "# API (#api)\\n\\n> [!NOTE] Title\\n> Literal {value}.")
+const library = buildDocuments({ sourceRoot: "markdown", outDir: "portable-data" })
+await prepareEmbeds(library, "portable-data")
+assert.match(renderDocument(resolveDocumentEmbeds(library, "api")), /data-callout="note"/)
+assert.match(renderDocument(compileDocument("Literal {value}").tree), /{value}/)
+assert.ok(fs.existsSync(new URL(import.meta.resolve("@cudoment/cudoc/styles.css"))))
+console.log("standalone Markdown collection, rendering and prepared embeds verified")
+`,
+  )
+  process.stdout.write(run("node", ["portable-check.mjs"], workspace))
 
   run(
     "npm",
@@ -123,14 +144,14 @@ console.log("standalone cudoc export/load/embed verified")
   const checks = packages
     .map(
       ({ manifest }) =>
-        `import * as ${manifest.name.replace(/-/g, "_")} from "${manifest.name}"`,
+        `import * as ${manifest.name.replace(/[^a-zA-Z0-9_$]/g, "_")} from "${manifest.name}"`,
     )
     .join("\n")
 
   const assertions = packages
     .map(
       ({ manifest }) =>
-        `if (Object.keys(${manifest.name.replace(/-/g, "_")}).length === 0) throw new Error("${manifest.name} exported nothing")`,
+        `if (Object.keys(${manifest.name.replace(/[^a-zA-Z0-9_$]/g, "_")}).length === 0) throw new Error("${manifest.name} exported nothing")`,
     )
     .join("\n")
 
@@ -138,7 +159,12 @@ console.log("standalone cudoc export/load/embed verified")
   // the subpaths to verify their files and transitive runtime dependencies.
   const subpaths = packages.flatMap(({ manifest }) =>
     Object.keys(manifest.exports ?? {})
-      .filter((subpath) => subpath.startsWith("./") && !subpath.includes("*"))
+      .filter(
+        (subpath) =>
+          subpath.startsWith("./") &&
+          !subpath.includes("*") &&
+          !subpath.endsWith(".css"),
+      )
       .map((subpath) => `${manifest.name}/${subpath.slice(2)}`),
   )
 
@@ -162,13 +188,19 @@ console.log("standalone cudoc export/load/embed verified")
     `
 import { cudocComponents } from "cudoc-nextra/components"
 import { cudocComponents as shared } from "cudoc-remark/components"
-import type { CudocTable } from "cudoc"
-import { getTableCellText } from "cudoc/query"
+import type { CudocTable } from "@cudoment/cudoc"
+import { getTableCellText } from "@cudoment/cudoc/query"
 import { cudocRemarkPlugins as docusaurus } from "cudoc-docusaurus"
 import { cudocRemarkPlugins as nextra } from "cudoc-nextra"
 import type { CudocDocusaurusOptions } from "cudoc-docusaurus"
 import type { CudocNextraOptions } from "cudoc-nextra"
 import type { HostPluginOptions, CudocRemarkOptions } from "cudoc-remark"
+import { buildSite, type SiteOptions, type SiteLinkMode } from "cudoc-html"
+const linkMode: SiteLinkMode = "host"
+const siteOptions: SiteOptions = { sourceRoot: "docs", outDir: "html", library: ".cudoc/documents", links: linkMode, hostUrl: "https://example.com/docs/", assetDirs: ["public"], renderOptions: { components: { Notice: () => "<p>Notice</p>" } } }
+const siteBuilder: (options: SiteOptions) => { documentCount: number } = buildSite
+// @ts-expect-error Unknown link modes must not be accepted.
+const badMode: SiteLinkMode = "disabled"
 const table: CudocTable = { type: "table", children: [] }
 const cells: (string | undefined)[] = getTableCellText(table, [[1, 0]])
 const components: typeof shared = cudocComponents

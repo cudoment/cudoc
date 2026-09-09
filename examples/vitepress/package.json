@@ -1,0 +1,14 @@
+{
+  "name": "cudoc-example-vitepress",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync": "node ../scripts/sync-portable.mjs docs",
+    "build": "npm run sync && node collect.mjs && vitepress build docs"
+  },
+  "dependencies": {
+    "@cudoment/cudoc": "file:../../packages/cudoc",
+    "cudoc-vitepress": "file:../../packages/cudoc-vitepress",
+    "vitepress": "1.6.4"
+  }
+}

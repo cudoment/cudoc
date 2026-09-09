@@ -1,16 +1,16 @@
 /**
  * The remark plugin that applies cudoc's syntax and layout transforms.
  *
- * Everything runs in a single walk. That is not only for speed: ordering
- * between transforms is a contract, and a shared walk is what makes it one.
- * Cell-level normalization happens on the way down, so a transform that
- * rewrites a whole table on the way up sees cells that are already final.
+ * The authoring default uses common document normalization, then optional
+ * custom transforms and TOC collection. Explicit component-transform options
+ * use buildTransforms: cells run on entry and table layout runs on exit so
+ * table-wide transforms see normalized cells.
  */
 
 import type { Heading, Root } from "mdast"
 import type { Plugin } from "unified"
 import type { VFile } from "vfile"
-import { transformHeadingAnchor, walk, type Transform } from "cudoc"
+import { transformHeadingAnchor, walk, type Transform } from "@cudoment/cudoc"
 import {
   resolveOptions,
   type CudocRemarkOptions,
@@ -20,6 +20,9 @@ import { createBadgeTransform } from "./transforms/badge.js"
 import { createTableColumnLayoutTransform } from "./transforms/table-column-layout/index.js"
 import { transformTableCellList } from "./transforms/table-cell-list/index.js"
 import { addTocExport, collectHeadingToc, createToc } from "./toc.js"
+import remarkDirective from "remark-directive"
+import remarkFrontmatter from "remark-frontmatter"
+import { normalizeDocument } from "@cudoment/cudoc/document"
 
 /**
  * The source text is needed to read list syntax out of table cells, which mdast
@@ -66,11 +69,50 @@ export const buildTransforms = (
   return { pre, post }
 }
 
-const cudocPrepare: Plugin<[CudocRemarkOptions?], Root> = (options = {}) => {
+const cudocPrepare: Plugin<[CudocRemarkOptions?], Root> = function (
+  options = {},
+) {
   const resolved = resolveOptions(options)
+  // Component transforms are an explicit low-level API, never the authoring default.
+  const portable =
+    options.syntax !== undefined ||
+    (options.headingMetadata === undefined &&
+      options.badge === undefined &&
+      options.tableCellList === undefined)
+  this.use(remarkFrontmatter)
+  if (portable && options.host === "docusaurus") this.use(remarkDirective)
   const { pre, post } = buildTransforms(resolved)
 
   return function (tree: Root, file: VFile) {
+    const format = options.format ?? (file.extname === ".md" ? "md" : "mdx")
+    if (portable || format === "md") {
+      tree.children = tree.children.filter((node) => node.type !== "yaml")
+      const diagnostics = normalizeDocument(tree, getFileSource(file) ?? "", {
+        ...options,
+        format,
+      })
+      for (const diagnostic of diagnostics)
+        file.message(diagnostic.message, {
+          place: diagnostic.position,
+          ruleId: diagnostic.code,
+          source: "cudoc",
+        })
+      if (resolved.transforms.pre.length || resolved.transforms.post.length)
+        walk({
+          tree,
+          state: { source: getFileSource(file), toc: createToc() },
+          preTransforms: resolved.transforms.pre,
+          postTransforms: resolved.transforms.post,
+        })
+      if (resolved.toc) {
+        const toc = createToc()
+        for (const heading of tree.children)
+          if (heading.type === "heading")
+            collectHeadingToc(toc, heading, resolved.toc)
+        if (format !== "md") addTocExport(tree, toc, resolved.toc)
+      }
+      return
+    }
     const state: CudocState = {
       source: getFileSource(file),
       toc: createToc(),

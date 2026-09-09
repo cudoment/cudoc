@@ -1,3 +1,4 @@
+@import "@cudoment/cudoc/styles.css";
 /**
  * Only the badge needs styling. A table laid out by a cudoc rule is rebuilt as
  * `table`/`td`, so the classic theme's own table styles apply to it unchanged.

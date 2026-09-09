@@ -17,7 +17,11 @@
 import type { Heading, Root } from "mdast"
 import type { Plugin } from "unified"
 import { visit } from "unist-util-visit"
-import { extractAnchorId, findAnchorNode, DEFAULT_ANCHOR_NAME } from "cudoc"
+import {
+  extractAnchorId,
+  findAnchorNode,
+  DEFAULT_ANCHOR_NAME,
+} from "@cudoment/cudoc"
 
 export type PromoteAnchorIdsOptions = {
   /** Element name the id is read from. Matches `headingMetadata.anchor.name`. */

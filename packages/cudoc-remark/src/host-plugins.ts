@@ -2,7 +2,7 @@
  * The plugin list a host adapter hands to its site generator.
  *
  * Docusaurus and Nextra share the transforms and heading id promotion.
- * Components are supplied by each adapter through its host's integration.
+ * Default output uses native elements without a cudoc component provider.
  */
 
 import type { PluggableList } from "unified"
@@ -21,6 +21,12 @@ export type HostPluginOptions = Omit<CudocRemarkOptions, "toc"> & {
 }
 
 const KNOWN_KEYS = new Set<string>([
+  "syntax",
+  "host",
+  "format",
+  "calloutTypes",
+  "components",
+  "headingIds",
   "tableCellList",
   "headingMetadata",
   "badge",
@@ -55,7 +61,15 @@ export const createHostPlugins = (
   }
 
   const { promoteHeadingIds = true, ...remarkOptions } = options
-  const resolvedOptions = { ...remarkOptions, toc: false } as const
+  const host: "docusaurus" | "nextra" = adapter.includes("docusaurus")
+    ? "docusaurus"
+    : "nextra"
+  const resolvedOptions = {
+    ...remarkOptions,
+    host,
+    headingIds: "host" as const,
+    toc: false,
+  } as const
 
   // Resolved here rather than at the first document: a rejected key is a
   // configuration mistake, and an error raised while the config loads is far

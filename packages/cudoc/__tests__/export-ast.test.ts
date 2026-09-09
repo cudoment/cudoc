@@ -11,7 +11,7 @@ import exportAst, {
   getRelativeOutputPath,
   resolveExportAstOptions,
   resolvePathOptions,
-} from "cudoc/embed"
+} from "@cudoment/cudoc/embed"
 
 const CWD = "/project"
 
@@ -39,7 +39,7 @@ describe("path mapping", () => {
   })
 
   it("returns null for an extension that is not exported", () => {
-    expect(getOutputPath("docs/readme.md", pathOptions())).toBeNull()
+    expect(getOutputPath("docs/readme.txt", pathOptions())).toBeNull()
   })
 
   it("accepts an extension that is configured", () => {

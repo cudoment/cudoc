@@ -1,6 +1,6 @@
 {
   "name": "cudoc-docusaurus",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Docusaurus adapter for cudoc: remark wiring, default components and a theme that provides them.",
   "keywords": [
     "cudoc",
@@ -44,7 +44,7 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "cudoc-remark": "0.1.0",
+    "cudoc-remark": "0.2.0",
     "unified": "^11.0.5"
   },
   "peerDependencies": {

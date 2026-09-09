@@ -1,5 +1,5 @@
 /**
- * Reading a stored tree back, with `cudoc/query`.
+ * Reading a stored tree back, with `@cudoment/cudoc/query`.
  *
  * The subject is cudoc, but the tests live here because they run against
  * the tree the plugin actually produces. An embed reads exported AST rather
@@ -26,14 +26,14 @@ import {
   getTableHeaderTexts,
   normalizeAnchorId,
   sliceSectionByAnchorId,
-} from "cudoc/query"
+} from "@cudoment/cudoc/query"
 
 const prepare = (input: string): Root => {
   const processor = unified()
     .use(remarkParse)
     .use(remarkMdx)
     .use(remarkGfm)
-    .use(cudocPrepare)
+    .use(cudocPrepare, { headingMetadata: true })
 
   return processor.runSync(processor.parse(input) as Root, {
     value: input,

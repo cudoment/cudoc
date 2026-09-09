@@ -1,6 +1,6 @@
 import Link from "next/link"
 import path from "node:path"
-import { loadAstFile } from "cudoc/node/load-ast-file"
+import { loadAstFile } from "@cudoment/cudoc/node/load-ast-file"
 import {
   findSiblingNode,
   getHeadingBadge,
@@ -8,7 +8,7 @@ import {
   getTableCellText,
   getTableHeaderTexts,
   sliceSectionByAnchorId,
-} from "cudoc/query"
+} from "@cudoment/cudoc/query"
 
 /**
  * Embedding a piece of another document.

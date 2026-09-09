@@ -121,11 +121,24 @@ const validateNode = (
     )
   }
 
-  const isCell = isTableCell(node) || isTableCellElement(node, tableCellElement)
+  const isPortableCell = (value: Node) => {
+    const data = value.data as
+      { hName?: string; _mdxExplicitJsx?: boolean } | undefined
+    return (
+      data?._mdxExplicitJsx !== true && ["td", "th"].includes(data?.hName ?? "")
+    )
+  }
+  const isCell =
+    isTableCell(node) ||
+    isTableCellElement(node, tableCellElement) ||
+    isPortableCell(node)
   const isWithinTableCell = inTableCell || isCell
   const parentAllowsTableList =
     Boolean(parent && isTableCell(parent)) ||
-    Boolean(parent && isTableCellElement(parent, tableCellElement)) ||
+    Boolean(
+      parent &&
+      (isTableCellElement(parent, tableCellElement) || isPortableCell(parent)),
+    ) ||
     (inTableList && parent?.type === "listItem")
 
   const isCurrentTableList = isList(node) && parentAllowsTableList

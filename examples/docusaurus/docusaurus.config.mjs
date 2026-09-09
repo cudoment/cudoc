@@ -1,5 +1,6 @@
 import { cudocRemarkPlugins } from "cudoc-docusaurus"
-import exportAst from "cudoc/embed"
+import embed from "cudoc-remark/embed"
+import exportAst from "@cudoment/cudoc/embed"
 import { cudocOptions } from "../fixtures/cudoc-options.mjs"
 
 /** @type {import('@docusaurus/types').Config} */
@@ -10,6 +11,7 @@ const config = {
   baseUrl: "/",
   onBrokenLinks: "throw",
   markdown: {
+    format: "detect",
     hooks: {
       onBrokenMarkdownLinks: "throw",
     },
@@ -28,6 +30,7 @@ const config = {
            * Before the default plugins, not after: Docusaurus assigns heading
            * ids in its own remark plugins. The anchors must exist by then.
            */
+          remarkPlugins: [[embed, { sourceRoot: "docs" }]],
           beforeDefaultRemarkPlugins: [
             ...cudocRemarkPlugins(cudocOptions),
             [exportAst, { sourceRoot: "docs", outDir: ".cudoc/ast" }],

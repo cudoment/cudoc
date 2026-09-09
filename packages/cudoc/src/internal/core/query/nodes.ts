@@ -13,6 +13,7 @@
  */
 
 import type { Node, Parent } from "unist"
+import type { DocumentNode } from "../../../document.js"
 
 /** Reading order, not tree depth: `before` walks towards the start. */
 export type Direction = "before" | "after"
@@ -130,6 +131,17 @@ const textOfNode = (node: Node, options: NodeTextOptions): string => {
 
   if (!KNOWN_PARENTS.has(node.type) && !includeUnknown) return ""
 
+  if (node.type === "heading")
+    return getNodeText(
+      node.children.filter(
+        (child) =>
+          !["badge", "permalink"].includes(
+            (child as DocumentNode).data?.cudoc?.kind ?? "",
+          ),
+      ),
+      options,
+    ).trim()
+
   if (node.type === "tableRow" || elementName(node) === "tr") {
     return node.children
       .map((child) => textOfNode(child, options))
@@ -205,7 +217,7 @@ const BLOCK_ELEMENTS = new Set([
 const elementName = (node: Node): string | undefined =>
   node.type === "mdxJsxTextElement" || node.type === "mdxJsxFlowElement"
     ? (node as { name?: string }).name
-    : undefined
+    : (node as DocumentNode).data?.hName
 
 const isBlock = (node: Node): boolean =>
   BLOCK_TYPES.has(node.type) || BLOCK_ELEMENTS.has(elementName(node) ?? "")

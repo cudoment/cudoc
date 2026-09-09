@@ -1,3 +1,4 @@
+import "@cudoment/cudoc/styles.css"
 import "./globals.css"
 
 export const metadata = {
