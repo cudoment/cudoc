@@ -238,4 +238,8 @@ npm run format:check
 
 Host examples install separately. Update the relevant guides and API reference alongside changes to APIs or usage workflows.
 
+### Publishing packages
+
+Pushing commits runs CI, not npm publishing. Maintainers run the [Publish workflow](./.github/workflows/publish.yml) manually on the intended commit. It checks all public workspace packages, skips versions already on npm and publishes missing versions in dependency order, then creates package-version tags and GitHub releases for that commit. Partial publication is not rolled back; rerunning skips successful npm publications. Each package needs npm publishing authorization; the workflow uses Trusted Publishing. New packages or missing trust configuration require maintainer setup before unattended releases.
+
 [MIT license](./LICENSE)

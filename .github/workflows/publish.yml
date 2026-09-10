@@ -19,7 +19,7 @@ jobs:
         with:
           node-version: 24
       - id: compare
-        run: node scripts/unpublished-packages.mjs @cudoment/cudoc >> "$GITHUB_OUTPUT"
+        run: node scripts/unpublished-packages.mjs >> "$GITHUB_OUTPUT"
 
   publish:
     name: Publish to npm
@@ -58,5 +58,5 @@ jobs:
             version=$(node -p "require('./$dir/package.json').version")
             tag="$name@$version"
             gh release view "$tag" >/dev/null 2>&1 ||
-              gh release create "$tag" --title "$tag" --generate-notes
+              gh release create "$tag" --target "$GITHUB_SHA" --title "$tag" --generate-notes
           done
