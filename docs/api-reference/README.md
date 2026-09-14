@@ -10,14 +10,14 @@ This reference describes the current implementation: public imports, option defa
 | ------------------------------ | ----------------------------------------------------------------------------- |
 | [Document APIs](./document.md) | Syntax options, compilation, semantic AST, rendering, sections and projection |
 | [Node APIs](./node.md)         | Collection, library files, embedding, datasets, output safety and CLI         |
-| [Adapters](./adapters.md)      | remark, capture, host ordering, VitePress tokens and HTML generation          |
+| [Adapters](./adapters.md)      | remark, capture, host ordering, markdown-it tokens and HTML generation        |
 
 ## Package boundaries
 
 - `@cudoment/cudoc` owns document semantics and reusable AST operations. Node APIs live in explicit `node/*` entry points.
 - `cudoc-remark` connects a remark/MDX pipeline and inserts prepared embeds.
 - `cudoc-docusaurus` and `cudoc-nextra` configure remark ordering and native headings.
-- `cudoc-vitepress` connects the actual Markdown-it pipeline.
+- `cudoc-markdown-it` connects the actual Markdown-it pipeline; `cudoc-vitepress` and `cudoc-eleventy` add one host definition each.
 - `cudoc-html` generates standalone HTML, either collecting Markdown itself or reusing a host's library and prepared embeds. Exported hyperlinks can be local, deployed-host URLs or removed.
 
 The core has no React runtime dependency. React is used by the MDX embedding runtime. Import Node-only entry points from build scripts or server code, not client components.
@@ -26,26 +26,28 @@ The core has no React runtime dependency. React is used by the MDX embedding run
 
 Prefixes below are relative to `@cudoment/cudoc` unless a full package name is shown. The [package exports](../../packages/cudoc/package.json) are the authoritative import boundary.
 
-| Import                                                             | Purpose                                                         | Reference                                                  |
-| ------------------------------------------------------------------ | --------------------------------------------------------------- | ---------------------------------------------------------- |
-| `@cudoment/cudoc`, `/ast`, `/syntax`, `/mdx`                       | AST validation, traversal, selectors and low-level construction | [Core helpers](./document.md#core-helpers)                 |
-| `/document`                                                        | Options and in-place normalization                              | [Document model](./document.md#document-options)           |
-| `/markdown`                                                        | Standalone compilation                                          | [Compilation](./document.md#compilation)                   |
-| `/render`                                                          | HAST and HTML rendering                                         | [Rendering](./document.md#components-and-rendering)        |
-| `/query`, `/sections`                                              | Section selection and query helpers                             | [Sections](./document.md#sections-and-queries)             |
-| `/dataset`                                                         | Immutable projection                                            | [Projection](./document.md#projection)                     |
-| `/node/library`                                                    | Collect and load complete libraries                             | [Collection](./node.md#collection)                         |
-| `/node/resolve-embed`                                              | Parse and resolve embed requests                                | [Embedding](./node.md#embedding)                           |
-| `/node/prepare-embeds`                                             | Prepare/read build-time embed data                              | [Preparation](./node.md#prepared-embeds)                   |
-| `/node/dataset`                                                    | Generate filtered AST directories                               | [Datasets](./node.md#datasets)                             |
-| `/node/storage`                                                    | Filesystem and staged output helpers                            | [Storage](./node.md#storage)                               |
-| `/embed`, `/node/export-ast`, `/node/load-ast-file`, `/node/paths` | Individual AST snapshots and path helpers                       | [Individual snapshots](./node.md#individual-ast-snapshots) |
-| `/transforms/*`                                                    | Low-level syntax transforms                                     | [Core helpers](./document.md#core-helpers)                 |
-| `/styles.css`                                                      | Callout and badge stylesheet                                    | [Stylesheet source](../../packages/cudoc/styles.css)       |
-| `cudoc-remark` and its subpaths                                    | remark integration, capture, TOC and embed runtime              | [remark](./adapters.md#remark)                             |
-| `cudoc-docusaurus`, `cudoc-nextra`                                 | Host plugin arrays                                              | [MDX hosts](./adapters.md#docusaurus-and-nextra)           |
-| `cudoc-vitepress`                                                  | Markdown-it adapter and compiler                                | [VitePress](./adapters.md#vitepress)                       |
-| `cudoc-html`                                                       | Site builder and base CSS                                       | [HTML](./adapters.md#html)                                 |
+| Import                                                             | Purpose                                                         | Reference                                                      |
+| ------------------------------------------------------------------ | --------------------------------------------------------------- | -------------------------------------------------------------- |
+| `@cudoment/cudoc`, `/ast`, `/syntax`, `/mdx`                       | AST validation, traversal, selectors and low-level construction | [Core helpers](./document.md#core-helpers)                     |
+| `/document`                                                        | Options and in-place normalization                              | [Document model](./document.md#document-options)               |
+| `/markdown`                                                        | Standalone compilation                                          | [Compilation](./document.md#compilation)                       |
+| `/render`                                                          | HAST and HTML rendering                                         | [Rendering](./document.md#components-and-rendering)            |
+| `/query`, `/sections`                                              | Section selection and query helpers                             | [Sections](./document.md#sections-and-queries)                 |
+| `/dataset`                                                         | Immutable projection                                            | [Projection](./document.md#projection)                         |
+| `/node/library`                                                    | Collect and load complete libraries                             | [Collection](./node.md#collection)                             |
+| `/node/resolve-embed`                                              | Parse and resolve embed requests                                | [Embedding](./node.md#embedding)                               |
+| `/node/prepare-embeds`                                             | Prepare/read build-time embed data                              | [Preparation](./node.md#prepared-embeds)                       |
+| `/node/dataset`                                                    | Generate filtered AST directories                               | [Datasets](./node.md#datasets)                                 |
+| `/node/storage`                                                    | Filesystem and staged output helpers                            | [Storage](./node.md#storage)                                   |
+| `/embed`, `/node/export-ast`, `/node/load-ast-file`, `/node/paths` | Individual AST snapshots and path helpers                       | [Individual snapshots](./node.md#individual-ast-snapshots)     |
+| `/transforms/*`                                                    | Low-level syntax transforms                                     | [Core helpers](./document.md#core-helpers)                     |
+| `/styles.css`                                                      | Theme-aware callout and badge stylesheet                        | [Host stylesheet](./document.md#host-stylesheet)               |
+| `cudoc-remark` and its subpaths                                    | remark integration, capture, TOC and embed runtime              | [remark](./adapters.md#remark)                                 |
+| `cudoc-docusaurus`, `cudoc-nextra`                                 | Host plugin arrays                                              | [MDX hosts](./adapters.md#docusaurus-and-nextra)               |
+| `cudoc-markdown-it`                                                | Shared markdown-it pipeline for host adapters                   | [markdown-it](./adapters.md#markdown-it)                       |
+| `cudoc-vitepress`                                                  | VitePress host definition and compiler                          | [VitePress and Eleventy](./adapters.md#vitepress-and-eleventy) |
+| `cudoc-eleventy`                                                   | Eleventy host definition, renderer and compiler                 | [VitePress and Eleventy](./adapters.md#vitepress-and-eleventy) |
+| `cudoc-html`                                                       | Site builder and base CSS                                       | [HTML](./adapters.md#html)                                     |
 
 `/embed` is an individual-snapshot Node barrel. It does **not** re-export the document-library or fenced-embed APIs. Import those from their listed `node/*` paths. `/sections` exports `collectSections`; `/query` also includes the lower-level lookup helpers.
 

@@ -1,16 +1,11 @@
 import { defineConfig } from "vitepress"
-import cudoc from "cudoc-vitepress"
 import { loadLibrary } from "@cudoment/cudoc/node/library"
+import { configure } from "../../markdown.mjs"
 export default defineConfig({
   title: "Cudoc documents",
   markdown: {
     headers: true,
-    config(md) {
-      md.use(cudoc, {
-        syntax: { headingAnchor: "both", callout: "both" },
-        library: loadLibrary(".cudoc/documents"),
-      })
-    },
+    config: configure(loadLibrary(".cudoc/documents")),
   },
   themeConfig: {
     sidebar: [

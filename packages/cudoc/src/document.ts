@@ -28,7 +28,14 @@ export type SyntaxOptions = Partial<
   >
 >
 export type Host =
-  "markdown" | "next" | "docusaurus" | "nextra" | "vitepress" | "html" | "docs"
+  | "markdown"
+  | "next"
+  | "docusaurus"
+  | "nextra"
+  | "vitepress"
+  | "eleventy"
+  | "html"
+  | "docs"
 export type DocumentDiagnostic = {
   code: string
   message: string
@@ -305,6 +312,7 @@ export function normalizeDocument(
       "docusaurus",
       "nextra",
       "vitepress",
+      "eleventy",
       "html",
       "docs",
     ].includes(host)
@@ -371,7 +379,7 @@ export function normalizeDocument(
             })
           if (
             isHost(syntax.headingAnchor) &&
-            ["docusaurus", "vitepress"].includes(host)
+            ["docusaurus", "vitepress", "eleventy"].includes(host)
           )
             value = value.replace(/\{#([^\s}]+)\}/g, (_, id) => {
               ids.push(id)
