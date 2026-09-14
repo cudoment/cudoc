@@ -1,7 +1,5 @@
-node_modules/
 .cudoc/
 docs/portable.md
 docs/reference.md
 docs/.vitepress/cache/
 docs/.vitepress/dist/
-site/

@@ -2,7 +2,7 @@
 
 **English** | [한국어](./html.ko.md) · [All guides](./README.md)
 
-Standalone HTML is an optional additional output for cudoc's Markdown extensions and document embedding. Keep Next.js (MDX), Docusaurus, Nextra or VitePress as your primary documentation host and use `cudoc-html` alongside it, reusing the same collected documents and prepared embeds. You do not need to switch hosts or maintain a second document set. It can also be used on its own. The output can be deployed to a static server or opened directly from disk. No application scaffold is required.
+Standalone HTML is an optional additional output for cudoc's Markdown extensions and document embedding. Keep Next.js (MDX), Docusaurus, Nextra, VitePress or Eleventy as your primary documentation host and use `cudoc-html` alongside it, reusing the same collected documents and prepared embeds. You do not need to switch hosts or maintain a second document set. It can also be used on its own. The output can be deployed to a static server or opened directly from disk. No application scaffold is required.
 
 ## Build from Markdown
 
@@ -53,7 +53,7 @@ npx cudoc-html build docs --library .cudoc/documents --out-dir shared-html \
 | `host`               | Point local hyperlinks to the primary deployment; keep external URLs such as HTTPS and `mailto:`. Requires `hostUrl` / `--host-url`. |
 | `none`               | Remove all hyperlinks, including external URLs, while preserving their labels, nested formatting and images.                         |
 
-The policy applies to authored links, raw HTML, embedded sections and tables, generated navigation, TOC and footnotes. Local images and styles remain available in every mode. `none` removes clickable anchors, not rendering resources such as the stylesheet's `<link>` element. It also avoids copying files referenced only by removed hyperlinks.
+A local link that reaches outside `sourceRoot` and every `assetDirs` root cannot be resolved in any policy; the build fails and names both the link and the document that carries it. The policy applies to authored links, raw HTML, embedded sections and tables, generated navigation, TOC and footnotes. Local images and styles remain available in every mode. `none` removes clickable anchors, not rendering resources such as the stylesheet's `<link>` element. It also avoids copying files referenced only by removed hyperlinks.
 
 In `host` mode, set `hostUrl` to the full deployment URL including its base path. For example, with `https://docs.example.com/project/` and a collected route `/docs/start`, both `start.md#setup` and `/docs/start#setup` become `https://docs.example.com/project/docs/start#setup`. Already-prefixed routes do not get a duplicate `/project/`. Query strings and fragments are preserved; a fragment-only link targets the current document on the deployed site. Other local paths resolve against the deployment and the current document's route.
 
@@ -80,6 +80,24 @@ npx cudoc-html build --config site.config.mjs
 ```
 
 `navigation` uses document IDs without extensions. Listed documents come first, with remaining documents following. `css` appends a local CSS file to the built-in stylesheet. If there is no `index.md`, the builder creates an index page. JSON config is also accepted.
+
+The built-in stylesheet follows the viewer's light or dark system setting, needs no script to do so, and keeps every colour in a custom property that both themes define. To restyle the site, point `css` at a file that redefines those properties rather than rewriting the rules. The full token list is in the [adapter reference](./api-reference/adapters.md#html):
+
+```css
+/* custom.css, appended after the built-in stylesheet */
+:root {
+  --accent: #7c4dff;
+  --accent-soft: #ece7fb;
+  --measure: 78ch;
+  --font-sans: "Inter", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --accent: #b39dff;
+    --accent-soft: #2a2244;
+  }
+}
+```
 
 This configuration collects Markdown directly. Add `library` and remove the collection options such as `syntax` when reusing an existing host library.
 
@@ -112,6 +130,6 @@ Run the build again to update the site. Keep `outDir` separate from source, libr
 - Inspect host-specific widgets and assets. Dynamic React/Vue code needs an explicit HTML renderer, and CSS imports, CSS `url()` dependencies and responsive `srcset` resources are not recursively bundled.
 - Keep the primary build and HTML output separate. Recollect and prepare before exporting changed documents. Review the documents/scopes included before sharing; HTML export is not a publication-permission filter.
 
-The repository's [host-library export check](../scripts/check-html-hosts.mjs) verifies all three link policies against four real host libraries and hashes all source, library and primary output files to verify they remain unchanged.
+The repository's [host-library export check](../tests/built/html-export.test.ts) verifies all three link policies against five real host libraries and hashes all source, library and primary output files to verify they remain unchanged.
 
 See [buildSite options and behavior](./api-reference/adapters.md#html) for the programmatic API.

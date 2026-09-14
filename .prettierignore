@@ -1,11 +1,15 @@
 dist/
 node_modules/
 
+# Local host sandbox
+/sandbox/
+
 # Example build output
 examples/*/.next/
 examples/*/.cudoc/
 examples/*/.docusaurus/
 examples/*/build/
+examples/*/_site/
 
 # Synced from examples/fixtures/showcase.mdx
 examples/next-mdx/docs/showcase.mdx

@@ -2,7 +2,7 @@
 
 Connect cudoc Markdown syntax and prepared document embeds to a remark/MDX pipeline.
 
-This separate package is a pipeline adapter, not a second implementation of cudoc's rules. Shared document semantics live in `@cudoment/cudoc`. Use it directly with Next.js/remark; Docusaurus and Nextra adapters already depend on it. VitePress and HTML use their own adapters and do not need this plugin.
+This separate package is a pipeline adapter, not a second implementation of cudoc's rules. Shared document semantics live in `@cudoment/cudoc`. Use it directly with Next.js/remark; Docusaurus and Nextra adapters already depend on it. VitePress and Eleventy share `cudoc-markdown-it`, and HTML uses its own adapter; none of them need this plugin.
 
 ESM · Node.js 20+
 

@@ -16,12 +16,12 @@ import fs from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 const FIXTURE = path.join(ROOT, "examples", "fixtures", "showcase.mdx")
 
 const MARKER_ID = "rebuild-probe"
 const MARKER_TEXT = "Rebuild probe"
-const MARKER_SECTION = `\n## ${MARKER_TEXT} (#${MARKER_ID})\n\nAdded by scripts/check-rebuild.mjs.\n`
+const MARKER_SECTION = `\n## ${MARKER_TEXT} (#${MARKER_ID})\n\nAdded by tests/scripts/rebuild-mdx.mjs.\n`
 const EMBED_SENTENCE = "A heading may carry a badge as well as an id."
 const EMBED_MARKER = "Updated summary from the exported AST."
 

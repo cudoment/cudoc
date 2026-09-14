@@ -8,6 +8,9 @@
   "references": [
     {
       "path": "../cudoc"
+    },
+    {
+      "path": "../cudoc-markdown-it"
     }
   ]
 }

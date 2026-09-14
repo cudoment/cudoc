@@ -8,7 +8,7 @@
 npm install @cudoment/cudoc cudoc-remark remark-gfm @next/mdx @mdx-js/loader @mdx-js/react
 ```
 
-## Markdown 설정
+## 문법 설정
 
 ```js
 // next.config.mjs

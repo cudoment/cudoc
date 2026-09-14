@@ -15,7 +15,14 @@ type SyntaxOptions = Partial<
   >
 >
 type Host =
-  "markdown" | "next" | "docusaurus" | "nextra" | "vitepress" | "html" | "docs"
+  | "markdown"
+  | "next"
+  | "docusaurus"
+  | "nextra"
+  | "vitepress"
+  | "eleventy"
+  | "html"
+  | "docs"
 ```
 
 | `DocumentOptions` 속성 | 기본값               | 계약                                              |
@@ -105,6 +112,12 @@ type RenderOptions = {
 여기서 `components`는 **HTML 렌더러 콜백**이며 의미 매핑이나 React 컴포넌트와 다릅니다. `highlight`는 완성된 HTML 조각을 반환하고 빈 문자열이면 일반 코드 마크업으로 처리합니다. 지원하지 않는 MDX·directive·사용자 노드는 오류를 발생시킵니다. 모듈 export는 실행하지 않으며 raw HTML과 콜백 결과는 정화 없이 전달합니다. 신뢰하는 문서에 사용하거나 소비자가 별도 정화 정책을 적용해야 합니다.
 
 렌더러는 표준 mdast와 HTML 메타데이터를 HAST로 변환합니다. 임베드 루트에서는 `data.cudocEmbedPrefix`로 각주의 접근성 레이블을 구분합니다. `nodeText(node)`는 값을 재귀적으로 이어 붙이고 `visibleHeadingText(node)`는 배지·permalink 자식을 제외합니다. 블록 경계가 중요하면 아래 `getNodeText`를 사용합니다. 이 함수는 정규화된 HTML의 `hName` 블록·표 경계도 반영하며, 제목에서는 배지·permalink 자식을 제외하고 일반 문장의 배지는 유지합니다.
+
+### 호스트 스타일시트
+
+소스: [styles.css](../../packages/cudoc/styles.css). `@cudoment/cudoc/styles.css`로 import합니다. 렌더러가 생성하는 `cudoc-callout`, `cudoc-callout-title`, `cudoc-badge`, `cudoc-embed` 클래스만 처리하며 그 밖의 요소에는 관여하지 않습니다.
+
+호스트의 페이지 안에서 로딩되므로 텍스트 색을 지정하지 않습니다. 본문 색은 호스트 테마에서 상속하고 표면과 강조색만 전환됩니다. 속성은 `--cudoc-wash`, `--cudoc-line`, `--cudoc-accent`, `--cudoc-accent-soft`, `--cudoc-warn`, `--cudoc-warn-wash`, `--cudoc-danger`, `--cudoc-danger-wash`로 이름을 구분해 두었으므로, 호스트 변수를 건드리지 않고 이 속성만 재정의해서 컴포넌트 색을 바꿀 수 있습니다. 테마 신호는 명시도 순서대로 세 가지를 인식합니다. `prefers-color-scheme: dark`, 루트 요소의 `dark` 클래스(VitePress, Nextra), 그리고 `data-theme="dark"`(Docusaurus)입니다. `light` 클래스나 `data-theme="light"`는 시스템이 다크를 선호해도 라이트 팔레트로 되돌리므로, 호스트 자체 토글이 양방향으로 우선합니다. 팔레트는 [HTML 어댑터](./adapters.ko.md#html)의 `siteStyles`와 동일하며, 모든 표면이 라이트와 다크 상속 텍스트 색 양쪽에서 WCAG AA를 충족합니다.
 
 ## 섹션과 쿼리
 

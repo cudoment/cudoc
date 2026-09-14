@@ -23,9 +23,9 @@ export default {
 npx cudoc collect --config cudoc.config.mjs
 ```
 
-문서를 수집하고 임베드를 준비합니다. 같은 입력 디렉터리와 문법 설정으로 호스트를 빌드하거나 실행합니다. [Next.js](./next-mdx.ko.md), [Docusaurus](./docusaurus.ko.md), [Nextra](./nextra.ko.md), [VitePress](./vitepress.ko.md) 연동에서 수집 결과를 소비하도록 설정하세요. [독립 HTML](./html.ko.md)은 빌드 명령 안에서 이 과정을 처리합니다.
+문서를 수집하고 임베드를 준비합니다. 같은 입력 디렉터리와 문법 설정으로 호스트를 빌드하거나 실행합니다. [Next.js](./next-mdx.ko.md), [Docusaurus](./docusaurus.ko.md), [Nextra](./nextra.ko.md), [VitePress](./vitepress.ko.md), [Eleventy](./eleventy.ko.md) 연동에서 수집 결과를 소비하도록 설정하세요. [독립 HTML](./html.ko.md)은 빌드 명령 안에서 이 과정을 처리합니다.
 
-Docusaurus, Nextra, VitePress 수집은 실제 호스트 컴파일러를 사용해야 합니다. 각 가이드에서 실행 가능한 수집기를 제공합니다. 범용 파서로 다시 읽는 것만으로는 호스트 고유 변환을 재현할 수 없습니다. Next.js에 별도 플러그인을 추가했다면 수집기에도 같은 컴파일러 구성을 적용하세요. 사용자 컴파일러에는 `compilerId`가 필요하며, 컴파일러 버전이나 관련 설정을 변경할 때 갱신합니다.
+Docusaurus, Nextra, VitePress, Eleventy 수집은 실제 호스트 컴파일러를 사용해야 합니다. 각 가이드에서 실행 가능한 수집기를 제공합니다. 범용 파서로 다시 읽는 것만으로는 호스트 고유 변환을 재현할 수 없습니다. Next.js에 별도 플러그인을 추가했다면 수집기에도 같은 컴파일러 구성을 적용하세요. 사용자 컴파일러에는 `compilerId`가 필요하며, 컴파일러 버전이나 관련 설정을 변경할 때 갱신합니다.
 
 ## 섹션 가져오기
 
@@ -96,7 +96,7 @@ replace:
 
 문서 수집을 자동으로 반복하는 watcher는 없습니다. 패키지 스크립트의 `dev`, `build` 전에 수집 명령을 연결하세요. 호스트 전용 수집기는 범용 명령 대신 `node collect.mjs`를 사용합니다. 생성된 `.cudoc/`은 버전 관리에서 제외하고 CI에서 다시 생성합니다.
 
-`routeBase`에는 `/docs` 같은 문서 경로 접두사를 지정합니다. VitePress의 `cleanUrls: false`에는 `routeSuffix: ".html"`이 필요합니다. 호스트의 사용자 경로나 frontmatter slug에는 `routes: { "guide/start": "/custom/start" }`를 지정하세요. 자동 추론하지 않습니다. 이 설정으로 요약 표와 임베드 안의 문서 링크를 실제 페이지에 맞춥니다.
+`routeBase`에는 `/docs` 같은 문서 경로 접두사를 지정합니다. VitePress의 `cleanUrls: false`에는 `routeSuffix: ".html"`이, Eleventy의 기본 디렉터리 URL 규칙에는 `routeSuffix: "/"`가 필요합니다. 호스트의 사용자 경로나 frontmatter slug에는 `routes: { "guide/start": "/custom/start" }`를 지정하세요. 자동 추론하지 않습니다. 이 설정으로 요약 표와 임베드 안의 문서 링크를 실제 페이지에 맞춥니다.
 
 ## 문제 해결
 

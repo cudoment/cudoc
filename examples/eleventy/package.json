@@ -1,0 +1,19 @@
+{
+  "name": "cudoc-example-eleventy",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync": "node ../scripts/sync-portable.mjs docs",
+    "build": "npm run sync && node collect.mjs && eleventy"
+  },
+  "dependencies": {
+    "@11ty/eleventy": "3.1.6",
+    "@cudoment/cudoc": "file:../../packages/cudoc",
+    "cudoc-eleventy": "file:../../packages/cudoc-eleventy",
+    "cudoc-markdown-it": "file:../../packages/cudoc-markdown-it",
+    "markdown-it": "14.1.0",
+    "markdown-it-anchor": "9.2.1",
+    "markdown-it-attrs": "4.5.0",
+    "markdown-it-container": "4.0.0"
+  }
+}

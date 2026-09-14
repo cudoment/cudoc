@@ -1,0 +1,56 @@
+{
+  "name": "cudoc-markdown-it",
+  "version": "0.3.0",
+  "description": "Shared markdown-it pipeline for cudoc host adapters",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cudoment/cudoc.git",
+    "directory": "packages/cudoc-markdown-it"
+  },
+  "homepage": "https://github.com/cudoment/cudoc/tree/main/packages/cudoc-markdown-it#readme",
+  "bugs": {
+    "url": "https://github.com/cudoment/cudoc/issues"
+  },
+  "keywords": [
+    "cudoc",
+    "markdown-it",
+    "markdown-it-plugin",
+    "markdown",
+    "mdast"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@cudoment/cudoc": "0.3.0"
+  },
+  "peerDependencies": {
+    "markdown-it": "^14.1.0"
+  },
+  "devDependencies": {
+    "@types/markdown-it": "^14.2.0"
+  },
+  "author": "cudoment",
+  "engines": {
+    "node": ">=20"
+  }
+}

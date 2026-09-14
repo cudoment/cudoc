@@ -5,7 +5,7 @@ Normalize actual VitePress Markdown-it tokens for cudoc syntax, document collect
 ESM · Node.js 20+
 
 ```sh
-npm install @cudoment/cudoc cudoc-vitepress
+npm install @cudoment/cudoc cudoc-markdown-it cudoc-vitepress
 ```
 
 ```js
@@ -21,7 +21,7 @@ const markdown = {
 }
 ```
 
-Import `@cudoment/cudoc/styles.css` in the theme entry. VitePress accepts `.md`, not React `.mdx`. `createDocumentCompiler(md)` reuses the configured renderer for collection and replacements. Embedding requires a collected library and prepared data. This adapter does not use `cudoc-remark`.
+Import `@cudoment/cudoc/styles.css` in the theme entry. VitePress accepts `.md`, not React `.mdx`. `createDocumentCompiler(md)` reuses the configured renderer for collection and replacements. Embedding requires a collected library and prepared data. This adapter shares `cudoc-markdown-it` with `cudoc-eleventy` and does not use `cudoc-remark`.
 
 Choose `host`, `cudoc` or `both` independently for `headingAnchor`, `badge`, `tableCellList`, `callout` and `link`. The representative callout is `> [!NOTE] Title`. Authors do not register cudoc React components in the recommended setup. Syntax-only rendering needs no stored JSON; cross-document embedding requires document collection.
 

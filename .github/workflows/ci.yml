@@ -22,6 +22,10 @@ jobs:
       - run: npm ci
       - run: npm run format:check
       - run: npm run build
+      # `typecheck` covers the test code too, which the packages' own projects
+      # exclude. vitest strips types instead of checking them, so without this
+      # step a test that contradicts a compiler contract would pass in silence.
+      - run: npm run typecheck
       - run: npm run test:run
 
   pack:
@@ -37,7 +41,7 @@ jobs:
       - run: npm run build
       # A packed install is the only check that exports, type declarations and
       # runtime dependencies are actually complete.
-      - run: node scripts/verify-pack.mjs
+      - run: node tests/scripts/packed-consumers.mjs
 
   examples:
     name: Example sites
@@ -63,7 +67,14 @@ jobs:
       - run: npm ci
         working-directory: examples/vitepress
       - run: npm ci
+        working-directory: examples/eleventy
+      - run: npm ci
         working-directory: examples/html
+
+      # Compiles the shared fixtures with each example's own compiler. It needs
+      # the installs above but no site build, so it runs before them and fails
+      # fast on a syntax or normalization regression.
+      - run: npm run test:examples
 
       - run: npm run build
         working-directory: examples/next-mdx
@@ -78,19 +89,20 @@ jobs:
       - run: npm run build
         working-directory: examples/vitepress
       - run: npm run build
+        working-directory: examples/eleventy
+      - run: npm run build
         working-directory: examples/html
-      - name: Native host syntax must normalize with cudoc syntax
-        run: node scripts/check-native-hosts.mjs
-      - name: Portable Markdown must render across all five hosts
-        run: node scripts/compare-portable-hosts.mjs
-      - name: Host libraries must export HTML with each link policy
-        run: node scripts/check-html-hosts.mjs
-      - name: Changed sources must refresh untouched embedding pages
-        run: node scripts/check-portable-rebuild.mjs
+      # Every assertion on a built site: the portable page on all six hosts,
+      # the library export under each link policy, and the MDX showcase across
+      # the three MDX hosts.
+      - name: Built sites must carry the same document semantics
+        run: npm run test:built
 
-      - name: The three hosts must render the same document the same way
-        run: node scripts/compare-hosts.mjs
+      # These rewrite a shared fixture and rebuild the examples, so they run
+      # last and one at a time. See tests/scripts/README.md.
+      - name: Changed sources must refresh untouched embedding pages
+        run: node tests/scripts/rebuild-portable.mjs
       # A remark plugin only runs when MDX is really compiled, so a reused
       # compilation cache can leave a site a version behind while passing.
       - name: An edit must reach every page and every exported AST
-        run: node scripts/check-rebuild.mjs
+        run: node tests/scripts/rebuild-mdx.mjs

@@ -4,7 +4,7 @@
 
 **Markdown에 알림과 중첩 목록 표를 더하고, 다른 문서의 내용을 가져오고, 같은 문서를 HTML로 공유하세요.**
 
-cudoc은 Next.js(MDX), Docusaurus, Nextra, VitePress 등 **문서 호스트**를 지원합니다. 문서 호스트는 문서를 빌드하고 제공하는 정적 사이트 생성기와 웹 프레임워크를 통칭합니다. 사이트에 맞는 어댑터를 한 번 설정하면 문서 작성자는 Markdown 표기만으로 기능을 사용합니다. cudoc 전용 React 컴포넌트를 import하거나 등록할 필요가 없습니다.
+cudoc은 Next.js(MDX), Docusaurus, Nextra, VitePress, Eleventy 등 **문서 호스트**를 지원합니다. 문서 호스트는 문서를 빌드하고 제공하는 정적 사이트 생성기와 웹 프레임워크를 통칭합니다. 사이트에 맞는 어댑터를 한 번 설정하면 문서 작성자는 Markdown 표기만으로 기능을 사용합니다. cudoc 전용 React 컴포넌트를 import하거나 등록할 필요가 없습니다.
 
 핵심 기능의 두 축은 Markdown 문법 확장과 문서 임베드입니다. 독립 HTML은 같은 콘텐츠를 공유하는 **선택적 추가 출력 기능**으로, 지원하는 모든 문서 호스트와 함께 사용할 수 있습니다. 기존 호스트를 대체하거나 별도 문서 사본을 관리할 필요가 없으며, 다른 호스트 없이 단독으로 사용할 수도 있습니다.
 
@@ -117,10 +117,11 @@ npx cudoc-html build docs --out-dir site
 | Docusaurus            | 형식 감지를 적용한 `.md`, `.mdx` | [Docusaurus 설정](./docs/docusaurus.ko.md) |
 | Nextra                | 형식 감지를 적용한 `.md`, `.mdx` | [Nextra 설정](./docs/nextra.ko.md)         |
 | VitePress             | `.md`                            | [VitePress 설정](./docs/vitepress.ko.md)   |
+| Eleventy              | `.md`                            | [Eleventy 설정](./docs/eleventy.ko.md)     |
 
 어떤 호스트를 선택해도 수집 라이브러리에서 [독립 HTML을 추가로 출력](./docs/html.ko.md)할 수 있습니다. HTML 출력은 기존 호스트 대신 선택해야 하는 다른 호스트가 아닙니다.
 
-`.md`는 일반 Markdown으로 처리하므로 `{value}`도 텍스트로 유지합니다. 자신의 React 컴포넌트를 작성하려면 MDX 호스트에서 `.mdx`를 사용합니다. VitePress는 React MDX를 처리하지 않습니다.
+`.md`는 일반 Markdown으로 처리하므로 `{value}`도 텍스트로 유지합니다. 자신의 React 컴포넌트를 작성하려면 MDX 호스트에서 `.mdx`를 사용합니다. VitePress와 Eleventy는 React MDX를 처리하지 않습니다.
 
 | 기능               | 지원 내용                                                                                   |
 | ------------------ | ------------------------------------------------------------------------------------------- |
@@ -217,14 +218,18 @@ npx cudoc-html build docs --library .cudoc/documents --out-dir shared-html \
 
 사용하는 호스트에 필요한 패키지를 선택합니다. ESM과 Node.js 20 이상을 사용합니다.
 
-| 패키지                                                      | 역할                                         |
-| ----------------------------------------------------------- | -------------------------------------------- |
-| [`@cudoment/cudoc`](./packages/cudoc/README.md)             | 공통 문서 처리, 컴파일, 쿼리, 수집, 데이터셋 |
-| [`cudoc-remark`](./packages/cudoc-remark/README.md)         | remark·MDX 파이프라인 연결                   |
-| [`cudoc-docusaurus`](./packages/cudoc-docusaurus/README.md) | Docusaurus 연동                              |
-| [`cudoc-nextra`](./packages/cudoc-nextra/README.md)         | Nextra 연동                                  |
-| [`cudoc-vitepress`](./packages/cudoc-vitepress/README.md)   | VitePress 렌더링과 수집                      |
-| [`cudoc-html`](./packages/cudoc-html/README.md)             | 독립 HTML 생성                               |
+| 패키지                                                        | 역할                                         |
+| ------------------------------------------------------------- | -------------------------------------------- |
+| [`@cudoment/cudoc`](./packages/cudoc/README.md)               | 공통 문서 처리, 컴파일, 쿼리, 수집, 데이터셋 |
+| [`cudoc-remark`](./packages/cudoc-remark/README.md)           | remark·MDX 파이프라인 연결                   |
+| [`cudoc-docusaurus`](./packages/cudoc-docusaurus/README.md)   | Docusaurus 연동                              |
+| [`cudoc-nextra`](./packages/cudoc-nextra/README.md)           | Nextra 연동                                  |
+| [`cudoc-markdown-it`](./packages/cudoc-markdown-it/README.md) | markdown-it 파이프라인 연결                  |
+| [`cudoc-vitepress`](./packages/cudoc-vitepress/README.md)     | VitePress 렌더링과 수집                      |
+| [`cudoc-eleventy`](./packages/cudoc-eleventy/README.md)       | Eleventy 렌더링과 수집                       |
+| [`cudoc-html`](./packages/cudoc-html/README.md)               | 독립 HTML 생성                               |
+
+코어 패키지만 스코프를 사용합니다. npm에 `cudoc` 이름이 이미 있어서 `@cudoment/cudoc`으로 배포하며, 어댑터 패키지들은 스코프 없는 이름을 그대로 씁니다.
 
 이 저장소를 개발하려면 루트에서 실행합니다.
 

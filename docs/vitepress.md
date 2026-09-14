@@ -5,7 +5,7 @@
 Install in an existing VitePress site:
 
 ```sh
-npm install @cudoment/cudoc cudoc-vitepress
+npm install @cudoment/cudoc cudoc-markdown-it cudoc-vitepress
 ```
 
 ## Configure syntax
@@ -34,7 +34,7 @@ import "@cudoment/cudoc/styles.css"
 export default DefaultTheme
 ```
 
-VitePress uses Markdown-it, so it does not use `cudoc-remark`. The adapter works with the actual native token stream and keeps heading/TOC integration. Write `.md`; React `.mdx` is not supported. Static supported native markup can be normalized, but arbitrary Vue expressions and custom plugin tokens are not guaranteed to render through the adapter.
+VitePress uses Markdown-it, so it does not use `cudoc-remark`. It shares `cudoc-markdown-it` with the [Eleventy adapter](./eleventy.md), so both hosts convert the actual native token stream through the same code and keep heading/TOC integration. Write `.md`; React `.mdx` is not supported. Static supported native markup can be normalized, but arbitrary Vue expressions and custom plugin tokens are not guaranteed to render through the adapter.
 
 With the settings above, both `(#id)` and native `{#id}` anchors work, as do `[!WARNING]` blockquotes and native `::: warning Title` containers. `details` retains its expandable behavior.
 
@@ -69,7 +69,7 @@ Run commands from the site project root:
 
 The collector uses `routeSuffix: ".html"` for VitePress's default `cleanUrls: false`. Change collected routes when changing URL behavior, `base`, rewrites or custom routes. Match all Markdown options between collection and rendering, and update `compilerId` after relevant changes. Run collection again and restart development after source edits so the loaded library is refreshed.
 
-See [embedding](./embedding.md), [the runnable config](../examples/vitepress/docs/.vitepress/config.mjs) and [VitePress API internals](./api-reference/adapters.md#vitepress).
+See [embedding](./embedding.md), [the runnable config](../examples/vitepress/docs/.vitepress/config.mjs) and [markdown-it API internals](./api-reference/adapters.md#markdown-it).
 
 ## Also export standalone HTML
 

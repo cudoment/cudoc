@@ -15,7 +15,14 @@ type SyntaxOptions = Partial<
   >
 >
 type Host =
-  "markdown" | "next" | "docusaurus" | "nextra" | "vitepress" | "html" | "docs"
+  | "markdown"
+  | "next"
+  | "docusaurus"
+  | "nextra"
+  | "vitepress"
+  | "eleventy"
+  | "html"
+  | "docs"
 ```
 
 | `DocumentOptions` property | Default                        | Contract                                                      |
@@ -105,6 +112,12 @@ type RenderOptions = {
 These `components` are **HTML renderer callbacks**, distinct from semantic mappings and from React components. `highlight` returns a complete HTML fragment; an empty string falls back to plain code markup. Unsupported MDX/directive/custom nodes throw. Module exports are not executed; raw HTML and callback output are passed through without sanitization. Treat this as a renderer for trusted documentation or add a separate sanitization policy in your consumer.
 
 The renderer maps standard mdast and HTML metadata to HAST. For embedded roots it uses `data.cudocEmbedPrefix` to namespace the footnote accessibility label. `nodeText(node)` concatenates values recursively; `visibleHeadingText(node)` excludes badge/permalink children. Use `getNodeText` below when block boundaries matter. It also respects normalized HTML `hName` block/table boundaries and excludes badge/permalink children from headings, while retaining badges in prose.
+
+### Host stylesheet
+
+Source: [styles.css](../../packages/cudoc/styles.css), imported as `@cudoment/cudoc/styles.css`. It styles the `cudoc-callout`, `cudoc-callout-title`, `cudoc-badge` and `cudoc-embed` class names the renderer emits, and nothing else.
+
+Because it loads inside a host's own page it sets no text colour: body text inherits the host's theme, and only surfaces and accents flip. Its properties are namespaced `--cudoc-wash`, `--cudoc-line`, `--cudoc-accent`, `--cudoc-accent-soft`, `--cudoc-warn`, `--cudoc-warn-wash`, `--cudoc-danger` and `--cudoc-danger-wash`, so a site retheme the components by redefining those without touching host variables. Three theme signals are honoured, in this order of specificity: `prefers-color-scheme: dark`, a `dark` class on the root element (VitePress, Nextra), and `data-theme="dark"` (Docusaurus). A `light` class or `data-theme="light"` restores the light palette even when the system prefers dark, so a host's own toggle wins in both directions. The palette matches `siteStyles` in [the HTML adapter](./adapters.md#html), and every surface clears WCAG AA against both a light and a dark inherited text colour.
 
 ## Sections and queries
 

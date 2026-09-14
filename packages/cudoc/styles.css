@@ -1,33 +1,89 @@
+/**
+ * Callout, badge and embed styles for a host site.
+ *
+ * This stylesheet lives inside someone else's page, so its properties are
+ * namespaced and it never sets a text colour: the body colour is inherited from
+ * the host's own theme. Only the surfaces and accents flip, which keeps the
+ * components readable whether the host renders light or dark.
+ *
+ * Three theme signals are honoured, because a host may follow the system
+ * setting or expose its own toggle: `prefers-color-scheme`, a `dark`/`light`
+ * class (VitePress, Nextra) and `data-theme` (Docusaurus).
+ */
+:root {
+  --cudoc-wash: #f1f5f9;
+  --cudoc-line: #e2e8f0;
+  --cudoc-accent: #1d4ed8;
+  --cudoc-accent-soft: #dbeafe;
+  --cudoc-warn: #b45309;
+  --cudoc-warn-wash: #fef6e7;
+  --cudoc-danger: #b91c1c;
+  --cudoc-danger-wash: #fdeeee;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not(.light):not([data-theme="light"]) {
+    --cudoc-wash: #1b2336;
+    --cudoc-line: #334155;
+    --cudoc-accent: #7cb0fb;
+    --cudoc-accent-soft: #1e3252;
+    --cudoc-warn: #fbbf24;
+    --cudoc-warn-wash: #2b2110;
+    --cudoc-danger: #f87171;
+    --cudoc-danger-wash: #2c1618;
+  }
+}
+:root.dark,
+:root[data-theme="dark"] {
+  --cudoc-wash: #1b2336;
+  --cudoc-line: #334155;
+  --cudoc-accent: #7cb0fb;
+  --cudoc-accent-soft: #1e3252;
+  --cudoc-warn: #fbbf24;
+  --cudoc-warn-wash: #2b2110;
+  --cudoc-danger: #f87171;
+  --cudoc-danger-wash: #2c1618;
+}
+
 .cudoc-badge {
   display: inline-block;
-  padding: 0.05em 0.5em;
-  margin-left: 0.3em;
-  border-radius: 0.3em;
-  background: #e9f0fc;
-  color: #174ea6;
+  margin-left: 0.35em;
+  padding: 0.1em 0.5em;
+  border-radius: 0.75em;
+  background: var(--cudoc-accent-soft);
+  color: var(--cudoc-accent);
   font-size: 0.8em;
   font-weight: 600;
+  white-space: nowrap;
+  vertical-align: 0.08em;
 }
 .cudoc-callout {
-  padding: 0.25rem 1rem;
   margin: 1.5rem 0;
-  border: 1px solid #d6dee9;
-  border-left: 4px solid #174ea6;
-  border-radius: 0.35rem;
-  background: #f4f7fb;
-  color: #172033;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--cudoc-line);
+  border-left: 3px solid var(--cudoc-accent);
+  border-radius: 0.375rem;
+  background: var(--cudoc-wash);
+}
+.cudoc-callout > :first-child {
+  margin-top: 0;
+}
+.cudoc-callout > :last-child {
+  margin-bottom: 0;
 }
 .cudoc-callout-title {
+  display: block;
+  margin-bottom: 0.25rem;
   font-weight: 700;
 }
 .cudoc-callout-warning,
 .cudoc-callout-caution {
-  border-left-color: #936000;
-  background: #fff8e6;
+  border-left-color: var(--cudoc-warn);
+  background: var(--cudoc-warn-wash);
 }
 .cudoc-callout-danger,
 .cudoc-callout-error {
-  border-left-color: #aa2020;
+  border-left-color: var(--cudoc-danger);
+  background: var(--cudoc-danger-wash);
 }
 .cudoc-embed {
   min-width: 0;

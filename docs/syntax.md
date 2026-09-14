@@ -4,7 +4,7 @@
 
 ## Choose syntax per feature
 
-Pass these options to your host adapter. Set `host` when using the generic compiler or remark plugin; the Docusaurus, Nextra, VitePress and HTML adapters choose their own host.
+Pass these options to your host adapter. Set `host` when using the generic compiler or remark plugin; the Docusaurus, Nextra, VitePress, Eleventy and HTML adapters choose their own host.
 
 ```js
 const options = {
@@ -39,18 +39,19 @@ This endpoint is (@Beta).
 [Read the limits](#rate-limits)
 ```
 
-`(#rate-limits)` supplies the heading ID. `(@New)` displays a badge without becoming part of its title or generated ID. Anchors must be unique in a document. Conflicting explicit IDs are an error. Without an explicit anchor, the host generates its usual ID; standalone compilation generates one from the title.
+`(#rate-limits)` supplies the heading ID. `(@New)` displays a badge without becoming part of its title. Anchors must be unique in a document. Conflicting explicit IDs are an error. Without an explicit anchor, the host generates its usual ID; standalone compilation generates one from the title with the badge excluded. A host that slugs a heading before cudoc reads it may fold the badge marker into that generated ID, so give a badged heading an explicit `(#id)` when its anchor has to be stable across hosts.
 
 Badge markers inside links and code remain text. To show syntax literally, use an inline code span or a fenced code block.
 
 Supported host heading forms include:
 
-| Host                | Explicit ID            |
-| ------------------- | ---------------------- |
-| Docusaurus Markdown | `## Title {#id}`       |
-| Docusaurus MDX      | `## Title {/* #id */}` |
-| Nextra              | `## Title [#id]`       |
-| VitePress           | `## Title {#id}`       |
+| Host                | Explicit ID                                  |
+| ------------------- | -------------------------------------------- |
+| Docusaurus Markdown | `## Title {#id}`                             |
+| Docusaurus MDX      | `## Title {/* #id */}`                       |
+| Nextra              | `## Title [#id]`                             |
+| VitePress           | `## Title {#id}`                             |
+| Eleventy            | `## Title {#id}` through `markdown-it-attrs` |
 
 Select `headingAnchor: "both"` to accept these alongside `(#id)`. cudoc's `(#id)` works in both Markdown and MDX without expression escaping.
 
@@ -72,14 +73,15 @@ Built-in types are `NOTE`, `TIP`, `IMPORTANT`, `WARNING` and `CAUTION`, case-ins
 
 With `callout: "host"` or `"both"`, cudoc also recognizes these native forms:
 
-| Host             | Form                                                                          |
-| ---------------- | ----------------------------------------------------------------------------- |
-| Docusaurus       | `:::warning[Title]` followed by body and a closing `:::`                      |
-| VitePress        | `::: warning Title` followed by body and a closing `:::`; GitHub-style alerts |
-| Nextra MDX       | `<Callout type="warning">Body</Callout>`                                      |
-| Docs MDX profile | `<Infobox type="warning" title="Title">Body</Infobox>`                        |
+| Host             | Form                                                                                      |
+| ---------------- | ----------------------------------------------------------------------------------------- |
+| Docusaurus       | `:::warning[Title]` followed by body and a closing `:::`                                  |
+| VitePress        | `::: warning Title` followed by body and a closing `:::`; GitHub-style alerts             |
+| Eleventy         | `::: warning Title` followed by body and a closing `:::`, through `markdown-it-container` |
+| Nextra MDX       | `<Callout type="warning">Body</Callout>`                                                  |
+| Docs MDX profile | `<Infobox type="warning" title="Title">Body</Infobox>`                                    |
 
-Host types `info`/`default`, `danger`/`error`, and `warn` map to `note`, `caution`, and `warning`. VitePress `details` remains expandable content. See the [Docusaurus](./docusaurus.md), [Nextra](./nextra.md) and [VitePress](./vitepress.md) integration notes for parser requirements.
+Host types `info`/`default`, `danger`/`error`, and `warn` map to `note`, `caution`, and `warning`. A `details` container remains expandable content on both markdown-it hosts. Eleventy has no built-in native forms, so `host` mode there normalizes only what the site's own markdown-it plugins produce. See the [Docusaurus](./docusaurus.md), [Nextra](./nextra.md), [VitePress](./vitepress.md) and [Eleventy](./eleventy.md) integration notes for parser requirements.
 
 ### Replacing an Infobox in Docs
 

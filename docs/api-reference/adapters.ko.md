@@ -80,25 +80,71 @@ Docusaurus는 `{ name, getThemePath }`를 반환하는 기본 플러그인과 `.
 
 Docusaurus 예제는 버전별 내부 MDX 프로세서 진입점을 사용합니다. 의존성 업그레이드 때 다시 확인합니다. 호스트 이름만 지정한다고 독립 파싱과 실제 호스트 파이프라인이 같아지지는 않습니다.
 
-## VitePress
+## markdown-it
 
-소스·import: [index.ts](../../packages/cudoc-vitepress/src/index.ts), `cudoc-vitepress`.
+소스: [tokens.ts](../../packages/cudoc-markdown-it/src/tokens.ts), [plugin.ts](../../packages/cudoc-markdown-it/src/plugin.ts), [compiler.ts](../../packages/cudoc-markdown-it/src/compiler.ts), [options.ts](../../packages/cudoc-markdown-it/src/options.ts), [host.ts](../../packages/cudoc-markdown-it/src/host.ts). `cudoc-markdown-it`에서 import합니다.
 
 ```ts
-// 기본 플러그인: md.use(cudocVitePress, options)
-tokensToAst(tokens: Token[], source: string, options?: DocumentOptions): Root
-createDocumentCompiler(md: MarkdownIt): DocumentCompiler
+installHostPlugin(md: MarkdownIt, options: HostPluginOptions, host: MarkdownItHost): void
+createHostCompiler(md: MarkdownIt, host: MarkdownItHost): DocumentCompiler
+tokensToAst(
+  tokens: Token[],
+  source: string,
+  options?: DocumentOptions,
+  conversion?: TokenConversion,
+): Root
+resolveHostOptions(options: HostPluginOptions, adapter: string): HostPluginOptions
 ```
 
-`VitePressOptions`는 `DocumentOptions`에서 `host`/`format`을 빼고 선택적 `onDocument(tree, source, env)`, `library`, `outDir`(준비 데이터 기본 경로 `.cudoc/documents`)을 더합니다. 플러그인은 VitePress·Markdown 의미와 호스트 제목 생성을 사용합니다.
+이 패키지는 markdown-it 계열에서 `cudoc-remark`와 같은 역할을 담당합니다. 공통 구성이 여기에 있고 각 호스트 어댑터는 `MarkdownItHost` 정의만 제공합니다. `HostPluginOptions`는 `DocumentOptions`에서 `host`/`format`을 빼고 선택적 `onDocument(tree, source, env)`, `library`, `outDir`(준비 데이터 기본 경로 `.cudoc/documents`)을 더합니다. `resolveHostOptions`는 플러그인을 설치하는 시점에 실행되므로, 알 수 없는 키나 객체가 아닌 인자, `"host"`가 아닌 `headingIds`는 첫 문서가 아니라 사이트 설정을 불러오는 동안 오류가 됩니다. 플러그인은 해당 호스트의 의미와 `format: "md"`, 호스트 제목 생성을 사용합니다.
 
-실제 Markdown-it 토큰을 호스트 처리 후 mdast로 변환합니다. VitePress의 일부 링크는 인라인 렌더링 시 확정되므로 토큰 사본을 렌더링해 URL을 얻고 원본에 base 경로가 두 번 적용되는 것을 방지합니다. 표 셀 인라인 파싱도 같은 파서를 사용합니다. 호스트 목차가 제목 토큰을 계속 사용할 수 있게 하고, 렌더러 래퍼는 호스트 렌더링의 부수 효과 이후 정규화된 HTML을 제공합니다.
+`MarkdownItHost`는 호스트 생성기마다 다른 동작을 모두 명시합니다.
 
-`env.cudoc`은 `{ tree, source, diagnostics }`, `env.cudocRendered`는 HTML을 저장합니다. `onDocument`는 임베드 확장 전 복제한 트리를 받습니다. 알 수 없는 사용자 토큰은 누락하지 않고 오류를 발생시킵니다. 지원하는 정적 컨테이너·링크·배지를 처리하며 React MDX는 거부하고 동적 Vue 표현식은 평가하지 않습니다.
+| 필드                      | 필수   | 효과                                                                                              |
+| ------------------------- | ------ | ------------------------------------------------------------------------------------------------- |
+| `adapter`                 | 예     | 패키지 이름이며 공통 파이프라인이 발생시키는 모든 오류의 접두사로 사용됩니다.                     |
+| `host`                    | 예     | `normalizeDocument`에 전달되어 네이티브 문법을 선택하는 `Host` 값입니다.                          |
+| `documentId(env)`         | 예     | 호스트의 markdown-it env에서 읽는 수집 문서 ID이며 임베드가 이 값을 기준으로 해석됩니다.          |
+| `compilerEnv(context)`    | 아니오 | 호스트 빌드 밖에서 실행되는 수집 과정에서 그 env를 다시 구성합니다.                               |
+| `token(token, context)`   | 아니오 | 호스트 자체 markdown-it 플러그인이 만든 토큰을 공통 변환보다 먼저 처리합니다.                     |
+| `resolveInlineAttributes` | 아니오 | 링크 목적지를 렌더러 규칙에서 확정하는 호스트를 위해 인라인 토큰 사본을 먼저 렌더링합니다.        |
+| `frontmatter(source)`     | 아니오 | markdown-it 밖에서 frontmatter를 제거하는 호스트를 위해 수집도 같은 토큰에 도달하도록 분리합니다. |
 
-`createDocumentCompiler`는 `env.cudocCollect: true`로 렌더링해 임베드 확장을 생략합니다. frontmatter 처리 후 소스 offset을 복원하고 frontmatter·진단을 반환합니다. `md`에 어댑터가 먼저 설치되어 있어야 하며 치환에도 같은 설정의 렌더러를 사용합니다.
+`tokensToAst`는 실제 markdown-it 토큰을 호스트 처리 후 mdast로 변환하며 Markdown을 두 번 파싱하지 않습니다. 모든 호스트가 공통으로 만드는 블록·인라인 토큰과 함께 `github_alert_*`, `markdown-it-container` 블록을 처리합니다. `container_details_*`는 펼칠 수 있는 `details` 인용문이 되고 그 외 컨테이너는 콜아웃이 됩니다. 호스트의 `token` 훅이 공통 변환보다 먼저 호출되므로 호스트 고유 요소가 기본 변환을 대체할 수 있습니다. 표 셀 인라인 파싱도 같은 설정의 파서를 사용합니다. 매핑이 없는 토큰은 누락하지 않고 `conversion.adapter`를 포함한 오류를 발생시킵니다.
 
-일반 렌더링에서 동기 컴파일러가 있는 라이브러리는 임베드를 직접 처리할 수 있습니다. 컴파일러 없이 로딩한 라이브러리는 `embeds.json`을 읽습니다. 라이브러리 누락, 오래된 소스, 없는 준비 블록은 오류입니다. 렌더러 수명은 [수집기](../../examples/vitepress/collect.mjs), 경로 설정은 [호스트 가이드](../vitepress.ko.md)를 참고하세요.
+변환한 트리가 remark 계열과 같은 의미를 갖도록 세 가지를 처리합니다. markdown-it이 각 셀의 인라인 스타일로만 알려 주는 열 정렬을 표 노드의 `align` 배열로 모읍니다. 제목 퍼머링크는 정규화보다 먼저, 토큰을 변환하는 시점에 `data.cudoc.kind: "permalink"`로 표시하므로 제목 본문을 읽는 모든 변환이 이를 제외할 수 있습니다. 이 퍼머링크의 `href`는 ID가 확정된 뒤에 보정합니다. 그리고 호스트가 제목 없는 `> [!TIP]`에 자기 타입 이름을 제목으로 넣는 경우, 타입을 그대로 반복하는 제목은 제거하므로 같은 Markdown이 모든 호스트에서 같은 콜아웃이 됩니다.
+
+플러그인은 `md.core` 규칙 하나를 추가하므로, cudoc이 읽는 시점에 네이티브 앵커·링크·컨테이너가 이미 토큰으로 존재합니다. 정규화가 끝나면 확정된 제목 ID와 제목 문구를 호스트의 `heading_open` 토큰에 다시 기록하며, 이 동작이 호스트의 제목 앵커와 목차를 일치시킵니다. 이어서 렌더러 래퍼가 호스트 렌더링의 부수 효과 이후 정규화된 HTML을 제공합니다. `env.cudoc`은 `{ tree, source, diagnostics }`, `env.cudocRendered`는 HTML을 저장하고, `onDocument`는 임베드 확장 전 복제한 트리를 받습니다.
+
+일반 렌더링에서 동기 컴파일러가 있는 라이브러리는 임베드를 직접 처리할 수 있습니다. 컴파일러 없이 로딩한 라이브러리는 `embeds.json`을 읽습니다. 라이브러리 누락, 오래된 소스, 없는 준비 블록은 오류입니다.
+
+`createHostCompiler`는 `env.cudocCollect: true`로 렌더링해 임베드 확장을 생략합니다. frontmatter 처리 후 소스 offset을 복원하고 frontmatter·진단을 반환합니다. `md`에 어댑터가 먼저 설치되어 있어야 하며 React `.mdx`는 거부합니다. 치환에도 같은 설정의 렌더러를 사용합니다.
+
+## VitePress와 Eleventy
+
+소스: [VitePress](../../packages/cudoc-vitepress/src/index.ts), [Eleventy](../../packages/cudoc-eleventy/src/index.ts).
+
+두 패키지 모두 기본 markdown-it 플러그인과 `createDocumentCompiler(md)`를 내보내며 `cudoc-markdown-it`에 위임합니다. `VitePressOptions`와 `EleventyOptions`는 모두 `HostPluginOptions`입니다.
+
+```ts
+// 기본 플러그인: md.use(cudocVitePress, options) 또는 md.use(cudocEleventy, options)
+createDocumentCompiler(md: MarkdownIt): DocumentCompiler
+createMarkdownRenderer( // cudoc-eleventy 전용
+  options?: EleventyOptions,
+  configure?: (md: MarkdownIt) => void,
+): MarkdownIt
+```
+
+| 호스트    | 사이트와 수집기가 공유하는 렌더러           | 문서 ID                 | 호스트 정의                                    |
+| --------- | ------------------------------------------- | ----------------------- | ---------------------------------------------- |
+| VitePress | `vitepress`의 `createMarkdownRenderer`      | `env.relativePath`      | `<Badge>` 토큰 변환, `resolveInlineAttributes` |
+| Eleventy  | `cudoc-eleventy`의 `createMarkdownRenderer` | `env.page.filePathStem` | gray-matter frontmatter 분리, 재작성 소스 검사 |
+
+VitePress는 일부 링크를 인라인 렌더링 시점에 확정하므로 정의에 `resolveInlineAttributes`를 설정하고, 파이프라인이 토큰 사본을 렌더링해 URL을 얻으면서 원본 토큰에 base 경로가 두 번 적용되는 것을 방지합니다. `token` 훅은 정적인 `<Badge type="tip" text="1.0" />`을 cudoc 배지로 변환하며, Vue 바인딩이 붙은 배지는 컴포넌트가 실행되기 전까지 문구를 알 수 없으므로 원본 HTML로 남깁니다. 지원하는 정적 컨테이너·링크·배지를 처리하고 동적 Vue 표현식은 평가하지 않습니다.
+
+Eleventy는 페이지 데이터 객체를 markdown-it env로 전달하고 markdown-it보다 먼저 gray-matter로 frontmatter를 제거하므로, 정의에서 `documentId`와 `frontmatter`를 모두 제공합니다. `createMarkdownRenderer`는 Eleventy 자체 렌더러 기본값(`html: true`, 들여쓰기 코드 블록 비활성화)을 적용하고 사이트의 `configure` 콜백을 실행한 뒤 cudoc을 마지막에 설치하므로, 사이트가 등록한 fence 렌더러를 감싸게 됩니다. 사이트 설정 두 가지는 권고가 아니라 계약입니다. 첫째로 `markdownTemplateEngine: false`가 필요한데, `page.rawInput`을 통해 다른 엔진이 소스를 이미 다시 쓴 것을 확인하면 어댑터가 오류를 발생시키기 때문입니다. 둘째로 제목 퍼머링크를 제목 안쪽에 삽입해야 하는데, 제목을 감싸는 퍼머링크는 cudoc이 `(#id)` 앵커를 읽는 제목 본문을 제목 밖으로 옮겨 버리기 때문입니다. 네이티브 문법은 사이트가 등록한 플러그인에서 나오므로 `{#id}`에는 `markdown-it-attrs`, `::: warning 제목`에는 `markdown-it-container`가 필요합니다.
+
+렌더러 수명은 각 수집기([VitePress](../../examples/vitepress/collect.mjs), [Eleventy](../../examples/eleventy/collect.mjs)), 경로 설정은 각 호스트 가이드([VitePress](../vitepress.ko.md), [Eleventy](../eleventy.ko.md))를 참고하세요.
 
 ## HTML
 
@@ -139,6 +185,22 @@ buildSite(options: SiteOptions): {
 
 렌더링은 `renderDocument`와 기본 highlight.js를 사용하며 알 수 없는 언어는 이스케이프한 코드로 표시합니다. `renderOptions`로 기본 렌더링 옵션을 재정의하고 명시적인 컴포넌트 콜백을 전달합니다. frontmatter `title`은 탐색·페이지 제목, `lang`은 언어(기본 `en`)입니다. 생성기는 CSS·탐색·목차를 추가하며 필요하면 index를 생성합니다.
 
+`siteStyles`는 토큰으로 구성되며 테마를 인식하는 스타일시트입니다. 라이트 팔레트를 `:root`의 사용자 정의 속성으로 정의하고 `prefers-color-scheme: dark`에서는 그 속성만 다시 정의하므로, 스크립트 없이 시스템 설정이 테마를 선택합니다. 인쇄 블록을 제외하면 어떤 규칙에도 색을 직접 쓰지 않으며, 두 테마 모두에서 모든 전경·표면 조합이 WCAG AA를 충족합니다. 본문 텍스트는 4.5:1, 포커스 링은 3:1입니다.
+
+| 토큰 묶음    | 속성                                                                                          | 용도                                                           |
+| ------------ | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| 표면         | `--canvas`, `--paper`, `--wash`, `--row-alt`                                                  | 페이지 바닥, 본문 표면, 코드와 패널 채움, 표의 교차 행         |
+| 텍스트       | `--ink`, `--muted`, `--faint`                                                                 | 본문 색, 보조 문장, 작은 레이블                                |
+| 선           | `--line`, `--line-soft`                                                                       | 영역 구분선과 행 구분선                                        |
+| 강조와 상태  | `--accent`, `--accent-soft`, `--warn`, `--warn-wash`, `--danger`, `--danger-wash`             | 링크와 활성 내비게이션, 그리고 콜아웃 심각도마다 대응하는 표면 |
+| 코드         | `--code-keyword`, `--code-string`, `--code-comment`, `--code-number`                          | highlight.js 토큰 색                                           |
+| 타이포그래피 | `--font-sans`, `--font-mono`, `--text-xs` … `--text-3xl`, `--leading-body`, `--leading-tight` | 폰트 스택과 모듈러 스케일                                      |
+| 레이아웃     | `--space-1` … `--space-12`, `--radius`, `--measure`, `--head-h`, `--ease`                     | 4px 간격 격자, 모서리 반경, 한 줄 길이 상한, 헤더 높이, 전환   |
+
+글자 크기는 고정 픽셀 루트가 아니라 브라우저의 기본 크기에서 확대·축소하므로 독자의 글자 크기 설정을 존중합니다. `html`이 `font-size: 100%`이고 본문은 `--text-base`(0.9375rem)에 `--leading-body`(1.7)를 적용합니다. 폰트 스택은 IBM Plex Sans와 JetBrains Mono를 먼저 지정하고 플랫폼 UI 폰트와 한글 폰트로 이어지며, 어떤 폰트도 내려받지 않으므로 `file://`과 오프라인에서 그대로 동작합니다. 본문은 `--measure`(72ch)로 한 줄 길이를 제한하고, 제목과 표, 코드 블록, 콜아웃은 본문 열 전체 폭을 사용합니다.
+
+페이지 구조는 고정 헤더와 고정 문서 사이드바, 제목 목차가 그 열 양옆에 놓인 형태이며 1024px에서 두 열, 768px에서 한 열로 접힙니다. 한 열이 되면 내비게이션 대상의 높이가 2.75rem으로 커집니다. 표는 전체 테두리 격자 대신 가로 구분선과 교차 행 배경, 레이블 형태의 머리글, 고정폭 숫자를 사용하며 페이지를 넓히지 않고 가로로 스크롤합니다. 상호작용 상태는 `--ease`로 전환하고 `prefers-reduced-motion`에서는 1ms로 줄어듭니다. `css`는 이 스타일 뒤에 덧붙여지므로 규칙을 다시 쓰지 않고 속성만 재정의해서 디자인을 바꿉니다. 인쇄 규칙은 흰 바탕에 검은 글자를 강제하고, 헤더와 두 내비게이션 열을 숨기고, 줄 길이 제한을 해제하고, 표 머리글을 페이지마다 반복합니다.
+
 ### HTML 링크와 자산
 
 [links.ts](../../packages/cudoc-html/src/links.ts)는 소스 ID와 수집된 경로에서 링크 대상을 해석합니다. Markdown 경로는 소스 ID, 고유 URL 경로는 라우트를 우선합니다. 루트 기준·소스 기준·배포 기본 경로 포함·커스텀 경로를 지원하며 쿼리와 프래그먼트를 보존합니다.
@@ -151,7 +213,7 @@ buildSite(options: SiteOptions): {
 
 렌더링 자원(`src`, 작성한 스타일시트 `<link href>`)은 별도로 처리하며 로컬 자원은 모든 모드에서 로컬에 유지합니다. 소스 문서 디렉터리를 기준으로 `sourceRoot`에서 찾은 뒤 선택적 배포 기본 경로를 제거한 URL 루트 경로로 `assetDirs`를 탐색합니다. 참조 파일은 복사하고 상대 출력 URL로 연결하며 외부 자원은 그대로 유지합니다. CSS import·`url()` 의존성·`srcset` 후보를 재귀적으로 묶는 번들러는 아닙니다.
 
-잘못된 링크 모드·URL, 빈 입력, 없는 탐색 ID, 자산 누락, 자산·출력 충돌, 동일 출력 경로를 공유하는 서로 다른 자산, 미지원 노드, 잘못된 출력 디렉터리는 오류입니다. 소스·라이브러리·자산 루트와 출력이 겹치면 쓰기 전에 거부합니다. 사이트는 임시 디렉터리에서 생성해 교체하므로 실패 시 이전 사이트를 보존합니다. 수집 모드에서는 라이브러리와 사이트 출력이 별개이므로 사이트 실패 시 새 라이브러리를 되돌리지는 않습니다. 재사용 모드에서는 라이브러리를 변경하지 않습니다. HTML은 정화하지 않고 React·Vue 코드는 실행하지 않습니다. 사이트 기본 구조에 클라이언트 JavaScript 의존성은 없습니다.
+잘못된 링크 모드·URL, 빈 입력, 없는 탐색 ID, 자산 누락, 자산·출력 충돌, 동일 출력 경로를 공유하는 서로 다른 자산, 미지원 노드, 잘못된 출력 디렉터리는 오류입니다. `sourceRoot`와 모든 `assetDirs` 루트를 벗어나는 로컬 하이퍼링크나 리소스는 URL과 그것을 담고 있는 문서를 함께 알리는 로컬 대상 누락 오류로 보고하며, 해당 루트 밖에서 복사하지 않습니다. 소스·라이브러리·자산 루트와 출력이 겹치면 쓰기 전에 거부합니다. 사이트는 임시 디렉터리에서 생성해 교체하므로 실패 시 이전 사이트를 보존합니다. 수집 모드에서는 라이브러리와 사이트 출력이 별개이므로 사이트 실패 시 새 라이브러리를 되돌리지는 않습니다. 재사용 모드에서는 라이브러리를 변경하지 않습니다. HTML은 정화하지 않고 React·Vue 코드는 실행하지 않습니다. 사이트 기본 구조에 클라이언트 JavaScript 의존성은 없습니다.
 
 CLI([소스](../../packages/cudoc-html/src/cli.ts)):
 

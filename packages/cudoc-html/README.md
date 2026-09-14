@@ -1,6 +1,6 @@
 # cudoc-html
 
-Add an optional HTML output alongside your documentation host (Next.js with MDX, Docusaurus, Nextra or VitePress), reusing its collected content and prepared embeds. Keep the primary site and document sources unchanged. The generated directory can be deployed or shared as local files, and can also be built without another host.
+Add an optional HTML output alongside your documentation host (Next.js with MDX, Docusaurus, Nextra, VitePress or Eleventy), reusing its collected content and prepared embeds. Keep the primary site and document sources unchanged. The generated directory can be deployed or shared as local files, and can also be built without another host.
 
 ESM · Node.js 20+
 

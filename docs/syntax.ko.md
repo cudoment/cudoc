@@ -4,7 +4,7 @@
 
 ## 기능별 문법 선택
 
-호스트 어댑터에 다음 옵션을 전달합니다. 범용 컴파일러나 remark 플러그인에서는 `host`를 지정하고, Docusaurus·Nextra·VitePress·HTML 어댑터에서는 해당 호스트가 자동으로 선택됩니다.
+호스트 어댑터에 다음 옵션을 전달합니다. 범용 컴파일러나 remark 플러그인에서는 `host`를 지정하고, Docusaurus·Nextra·VitePress·Eleventy·HTML 어댑터에서는 해당 호스트가 자동으로 선택됩니다.
 
 ```js
 const options = {
@@ -39,18 +39,19 @@ const options = {
 [요청 제한 확인](#rate-limits)
 ```
 
-`(#rate-limits)`는 제목 ID를 지정합니다. `(@New)`는 제목 텍스트나 자동 ID에 포함되지 않는 배지를 표시합니다. 한 문서의 앵커는 고유해야 하며 서로 다른 명시적 ID가 충돌하면 오류가 발생합니다. 앵커를 생략하면 호스트의 기본 ID 규칙을 따르고, 독립 컴파일에서는 제목에서 ID를 생성합니다.
+`(#rate-limits)`는 제목 ID를 지정합니다. `(@New)`는 제목 텍스트에 포함되지 않는 배지를 표시합니다. 한 문서의 앵커는 고유해야 하며 명시 ID가 충돌하면 오류입니다. 명시 앵커가 없으면 호스트가 평소대로 ID를 생성하고, 단독 컴파일에서는 배지를 제외한 제목으로 생성합니다. cudoc이 읽기 전에 제목을 슬러그로 만드는 호스트는 배지 표기를 그 자동 ID에 포함시킬 수 있으므로, 배지가 붙은 제목의 앵커가 호스트마다 같아야 한다면 `(#id)`를 명시하세요.
 
 링크와 코드 안의 배지 표기는 텍스트로 유지됩니다. 문법 자체를 보여주려면 인라인 코드나 코드 블록을 사용합니다.
 
 지원하는 호스트 제목 표기는 다음과 같습니다.
 
-| 호스트              | 명시적 ID             |
-| ------------------- | --------------------- |
-| Docusaurus Markdown | `## 제목 {#id}`       |
-| Docusaurus MDX      | `## 제목 {/* #id */}` |
-| Nextra              | `## 제목 [#id]`       |
-| VitePress           | `## 제목 {#id}`       |
+| 호스트              | 명시적 ID                                  |
+| ------------------- | ------------------------------------------ |
+| Docusaurus Markdown | `## 제목 {#id}`                            |
+| Docusaurus MDX      | `## 제목 {/* #id */}`                      |
+| Nextra              | `## 제목 [#id]`                            |
+| VitePress           | `## 제목 {#id}`                            |
+| Eleventy            | `markdown-it-attrs`를 통한 `## 제목 {#id}` |
 
 `headingAnchor: "both"`를 선택하면 `(#id)`와 함께 사용할 수 있습니다. cudoc의 `(#id)`는 Markdown과 MDX 모두에서 표현식 이스케이프 없이 사용할 수 있습니다.
 
@@ -72,14 +73,15 @@ const options = {
 
 `callout: "host"` 또는 `"both"`에서는 다음 고유 문법도 인식합니다.
 
-| 호스트          | 표기                                                              |
-| --------------- | ----------------------------------------------------------------- |
-| Docusaurus      | `:::warning[제목]` 다음에 본문을 쓰고 `:::`로 닫기                |
-| VitePress       | `::: warning 제목` 다음에 본문을 쓰고 `:::`로 닫기; GitHub식 알림 |
-| Nextra MDX      | `<Callout type="warning">본문</Callout>`                          |
-| Docs MDX 프로필 | `<Infobox type="warning" title="제목">본문</Infobox>`             |
+| 호스트          | 표기                                                                              |
+| --------------- | --------------------------------------------------------------------------------- |
+| Docusaurus      | `:::warning[제목]` 다음에 본문을 쓰고 `:::`로 닫기                                |
+| VitePress       | `::: warning 제목` 다음에 본문을 쓰고 `:::`로 닫기; GitHub식 알림                 |
+| Eleventy        | `markdown-it-container`를 통한 `::: warning 제목` 다음에 본문을 쓰고 `:::`로 닫기 |
+| Nextra MDX      | `<Callout type="warning">본문</Callout>`                                          |
+| Docs MDX 프로필 | `<Infobox type="warning" title="제목">본문</Infobox>`                             |
 
-호스트 타입 `info`/`default`, `danger`/`error`, `warn`은 각각 `note`, `caution`, `warning`으로 정규화합니다. VitePress의 `details`는 펼칠 수 있는 콘텐츠로 유지됩니다. 파서 설정은 [Docusaurus](./docusaurus.ko.md), [Nextra](./nextra.ko.md), [VitePress](./vitepress.ko.md) 가이드를 참고하세요.
+호스트 타입 `info`/`default`, `danger`/`error`, `warn`은 각각 `note`, `caution`, `warning`으로 정규화합니다. `details` 컨테이너는 두 markdown-it 호스트 모두에서 펼칠 수 있는 콘텐츠로 유지됩니다. Eleventy에는 기본 제공되는 네이티브 표기가 없으므로, `host` 모드는 사이트가 직접 등록한 markdown-it 플러그인이 만든 토큰만 정규화합니다. 파서 설정은 [Docusaurus](./docusaurus.ko.md), [Nextra](./nextra.ko.md), [VitePress](./vitepress.ko.md), [Eleventy](./eleventy.ko.md) 가이드를 참고하세요.
 
 ### Docs에서 Infobox 대체
 
