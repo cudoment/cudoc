@@ -42,21 +42,68 @@ jobs:
       - run: npm run format:check
       - run: npm run build
       - run: npm run test:run
-      # Dependencies are published before the packages that depend on them.
-      - name: Publish each unpublished package
+      # Publishing needs no npm token: the registry trusts this workflow
+      # through OIDC. That trust is configured per package on npm, and a
+      # package without it fails with a 404 that does not say so, which is why
+      # the step below translates the failure.
+      - name: Confirm the OIDC identity this run will publish as
         run: |
-          for dir in ${{ needs.check.outputs.packages }}; do
-            echo "publishing $dir"
-            npm publish --workspace "$dir" --provenance --access public
-          done
-      - name: Tag and release
+          if [ -z "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then
+            echo "::error::No OIDC token available. The job needs id-token: write."
+            exit 1
+          fi
+          echo "publishing as repo:$GITHUB_REPOSITORY, workflow $(basename "$GITHUB_WORKFLOW_REF" | cut -d@ -f1)"
+
+      # Dependencies are published before the packages that depend on them, and
+      # each package is tagged as soon as it lands. A run that stops halfway
+      # then leaves tags for exactly what reached the registry, so re-running
+      # picks up from there instead of guessing.
+      - name: Publish and tag each unpublished package
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          published=""
           for dir in ${{ needs.check.outputs.packages }}; do
             name=$(node -p "require('./$dir/package.json').name")
             version=$(node -p "require('./$dir/package.json').version")
+            echo "::group::publishing $name@$version"
+            if ! npm publish --workspace "$dir" --provenance --access public; then
+              echo "::endgroup::"
+              echo "::error title=$name failed to publish::See the trusted publishing note below."
+              {
+                echo "### Publishing stopped at \`$name@$version\`"
+                echo
+                echo "A 404 on \`PUT\` means npm did not accept this workflow as a"
+                echo "trusted publisher for that package, not that the package is"
+                echo "missing. npm returns 404 rather than 403 so that a stranger"
+                echo "cannot probe which package names exist."
+                echo
+                echo "Configure it on npm under the package's Settings, or under"
+                echo "the account's Packages page for a name that does not exist"
+                echo "yet, with:"
+                echo
+                echo "- Organization or user: the account that owns \`$name\`"
+                echo "- Repository: \`$GITHUB_REPOSITORY\`"
+                echo "- Workflow: \`publish.yml\`"
+                echo
+                if [ -n "$published" ]; then
+                  echo "Already published and tagged in this run:$published"
+                  echo
+                  echo "Re-running skips those and resumes here."
+                else
+                  echo "Nothing was published in this run."
+                fi
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 1
+            fi
+            echo "::endgroup::"
             tag="$name@$version"
             gh release view "$tag" >/dev/null 2>&1 ||
               gh release create "$tag" --target "$GITHUB_SHA" --title "$tag" --generate-notes
+            published="$published $tag"
           done
+          {
+            echo "### Published"
+            echo
+            for tag in $published; do echo "- \`$tag\`"; done
+          } >> "$GITHUB_STEP_SUMMARY"
