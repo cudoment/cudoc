@@ -4,7 +4,7 @@
 
 **Add callouts and nested lists in tables to Markdown, reuse content from other documents, and share the same documents as HTML.**
 
-cudoc supports **documentation hosts**: the site generators and web frameworks that build and serve your documents, including Next.js (MDX), Docusaurus, Nextra and VitePress. Configure the adapter for your site once, then use the features through Markdown. Authors do not import or register cudoc React components.
+cudoc supports **documentation hosts**: the site generators and web frameworks that build and serve your documents, including Next.js (MDX), Docusaurus, Nextra, VitePress and Eleventy. Configure the adapter for your site once, then use the features through Markdown. Authors do not import or register cudoc React components.
 
 The two core capabilities are Markdown extensions and document embedding. Standalone HTML is an optional additional output for the same content, available alongside every supported documentation host. It does not replace your host or require a separate set of documents; it can also be used on its own.
 
@@ -117,10 +117,11 @@ Each host guide covers packages, plugin ordering, stylesheet integration and col
 | Docusaurus               | `.md`, `.mdx` with format detection | [Docusaurus setup](./docs/docusaurus.md) |
 | Nextra                   | `.md`, `.mdx` with format detection | [Nextra setup](./docs/nextra.md)         |
 | VitePress                | `.md`                               | [VitePress setup](./docs/vitepress.md)   |
+| Eleventy                 | `.md`                               | [Eleventy setup](./docs/eleventy.md)     |
 
 Regardless of the host you choose, you can also [export standalone HTML](./docs/html.md) from its collected library. HTML export is an additional output, not another host you must choose instead.
 
-`.md` is parsed as ordinary Markdown, so `{value}` remains text. Use `.mdx` on an MDX host to author your own React components. VitePress does not process React MDX.
+`.md` is parsed as ordinary Markdown, so `{value}` remains text. Use `.mdx` on an MDX host to author your own React components. VitePress and Eleventy do not process React MDX.
 
 | Feature             | Supported behavior                                                                                                |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------- |
@@ -217,14 +218,18 @@ The policy applies to body content, embeds, navigation and TOC. Local images and
 
 Choose the packages required for your host. Packages use ESM and Node.js 20+.
 
-| Package                                                     | Purpose                                                                   |
-| ----------------------------------------------------------- | ------------------------------------------------------------------------- |
-| [`@cudoment/cudoc`](./packages/cudoc/README.md)             | Shared document processing, compilation, queries, collection and datasets |
-| [`cudoc-remark`](./packages/cudoc-remark/README.md)         | Connect remark and MDX pipelines                                          |
-| [`cudoc-docusaurus`](./packages/cudoc-docusaurus/README.md) | Docusaurus integration                                                    |
-| [`cudoc-nextra`](./packages/cudoc-nextra/README.md)         | Nextra integration                                                        |
-| [`cudoc-vitepress`](./packages/cudoc-vitepress/README.md)   | VitePress rendering and collection                                        |
-| [`cudoc-html`](./packages/cudoc-html/README.md)             | Standalone HTML generation                                                |
+| Package                                                       | Purpose                                                                   |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| [`@cudoment/cudoc`](./packages/cudoc/README.md)               | Shared document processing, compilation, queries, collection and datasets |
+| [`cudoc-remark`](./packages/cudoc-remark/README.md)           | Connect remark and MDX pipelines                                          |
+| [`cudoc-docusaurus`](./packages/cudoc-docusaurus/README.md)   | Docusaurus integration                                                    |
+| [`cudoc-nextra`](./packages/cudoc-nextra/README.md)           | Nextra integration                                                        |
+| [`cudoc-markdown-it`](./packages/cudoc-markdown-it/README.md) | Connect markdown-it pipelines                                             |
+| [`cudoc-vitepress`](./packages/cudoc-vitepress/README.md)     | VitePress rendering and collection                                        |
+| [`cudoc-eleventy`](./packages/cudoc-eleventy/README.md)       | Eleventy rendering and collection                                         |
+| [`cudoc-html`](./packages/cudoc-html/README.md)               | Standalone HTML generation                                                |
+
+Only the core package is scoped: `cudoc` was already taken on npm, so it publishes as `@cudoment/cudoc`. The adapters keep their plain names.
 
 To develop this repository, run from the root:
 

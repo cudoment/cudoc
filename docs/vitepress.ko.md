@@ -5,7 +5,7 @@
 기존 VitePress 사이트에서 설치합니다.
 
 ```sh
-npm install @cudoment/cudoc cudoc-vitepress
+npm install @cudoment/cudoc cudoc-markdown-it cudoc-vitepress
 ```
 
 ## 문법 설정
@@ -34,7 +34,7 @@ import "@cudoment/cudoc/styles.css"
 export default DefaultTheme
 ```
 
-VitePress는 Markdown-it을 사용하므로 `cudoc-remark`를 사용하지 않습니다. 어댑터는 실제 호스트 토큰을 처리하고 제목·목차 연동을 유지합니다. 문서는 `.md`로 작성하며 React `.mdx`는 지원하지 않습니다. 지원하는 정적 호스트 표기는 정규화할 수 있지만 임의의 Vue 표현식이나 사용자 플러그인 토큰이 어댑터를 통해 모두 렌더링되는 것은 아닙니다.
+VitePress는 Markdown-it을 사용하므로 `cudoc-remark`를 사용하지 않습니다. [Eleventy 어댑터](./eleventy.ko.md)와 `cudoc-markdown-it`을 공유하기 때문에, 두 호스트가 실제 호스트 토큰을 같은 코드로 처리하고 제목·목차 연동을 유지합니다. 문서는 `.md`로 작성하며 React `.mdx`는 지원하지 않습니다. 지원하는 정적 호스트 표기는 정규화할 수 있지만 임의의 Vue 표현식이나 사용자 플러그인 토큰이 어댑터를 통해 모두 렌더링되는 것은 아닙니다.
 
 위 설정에서는 `(#id)`와 호스트의 `{#id}`, `[!WARNING]` 인용문과 호스트의 `::: warning 제목` 컨테이너를 함께 사용할 수 있습니다. `details`는 펼치기 동작을 유지합니다.
 
@@ -69,7 +69,7 @@ md.use(cudoc, {
 
 수집기는 기본 `cleanUrls: false`에 맞춰 `routeSuffix: ".html"`을 사용합니다. URL 규칙, `base`, rewrite, 사용자 경로를 바꾸면 수집 경로도 변경하세요. 수집과 렌더링의 Markdown 옵션을 맞추고 관련 변경마다 `compilerId`를 갱신합니다. 문서 수정 후 다시 수집하고 개발 서버를 재시작해 메모리의 라이브러리도 갱신합니다.
 
-[임베드 가이드](./embedding.ko.md), [실행 설정](../examples/vitepress/docs/.vitepress/config.mjs), [VitePress API 내부 동작](./api-reference/adapters.ko.md#vitepress)을 참고하세요.
+[임베드 가이드](./embedding.ko.md), [실행 설정](../examples/vitepress/docs/.vitepress/config.mjs), [markdown-it API 내부 동작](./api-reference/adapters.ko.md#markdown-it)을 참고하세요.
 
 ## 독립 HTML도 함께 생성
 

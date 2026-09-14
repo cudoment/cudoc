@@ -1,4 +1,5 @@
-import type { List, Root, Table, TableCell } from "mdast"
+import type { List, Root, Table } from "mdast"
+import type { CudocTableCell } from "@cudoment/cudoc/ast"
 import type { MdxJsxFlowElement, MdxJsxTextElement } from "mdast-util-mdx-jsx"
 import { unified } from "unified"
 import remarkParse from "remark-parse"
@@ -46,13 +47,18 @@ export const getTable = (tree: Root): Table => {
   return table
 }
 
-export const getTableCell = (tree: Root, cellIndex = 1): TableCell => {
+/**
+ * The cell type is cudoc's own: `mdast`'s `TableCell` only admits phrasing
+ * content, and putting a list inside a cell is the whole point of the
+ * transform under test.
+ */
+export const getTableCell = (tree: Root, cellIndex = 1): CudocTableCell => {
   const table = getTable(tree)
   const row = table.children[1]
   if (!row) throw new Error("table body row not found")
   const cell = row.children[cellIndex]
   if (!cell) throw new Error(`table cell ${cellIndex} not found`)
-  return cell
+  return cell as CudocTableCell
 }
 
 export const findJsxElement = (
@@ -85,8 +91,8 @@ export const attributeValue = (
   return typeof attribute?.value === "string" ? attribute.value : undefined
 }
 
-export const isList = (node: unknown): node is List =>
-  Boolean(node) && (node as List).type === "list"
+export const isList = (node: { type: string } | undefined): node is List =>
+  node?.type === "list"
 
 /** Collects the visible text of a subtree, for readable assertions. */
 export const textOf = (node: unknown): string => {

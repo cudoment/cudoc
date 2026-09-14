@@ -20,10 +20,11 @@ Markdown extensions and document embedding are the two core capabilities. Standa
 | Docusaurus site              | [Docusaurus](./docusaurus.md)     | `.md`, `.mdx` with format detection |
 | Nextra site                  | [Nextra](./nextra.md)             | `.md`, `.mdx` with format detection |
 | VitePress site               | [VitePress](./vitepress.md)       | `.md`; React MDX is unsupported     |
+| Eleventy site                | [Eleventy](./eleventy.md)         | `.md`; React MDX is unsupported     |
 
 Syntax-only integration stops after host configuration. For cross-document embedding, add collection and preparation before starting the host. The [embedding guide](./embedding.md) explains when to run those steps again.
 
-Standalone HTML can accompany any of the four host integrations. Reuse the host's collected library to keep native semantics and prepared embeds, and choose local links, deployment links or no hyperlinks. See [exporting alongside a site](./html.md#export-alongside-an-existing-site).
+Standalone HTML can accompany any of the five host integrations. Reuse the host's collected library to keep native semantics and prepared embeds, and choose local links, deployment links or no hyperlinks. See [exporting alongside a site](./html.md#export-alongside-an-existing-site).
 
 ## For developers
 

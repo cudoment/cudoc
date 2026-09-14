@@ -23,9 +23,9 @@ Run:
 npx cudoc collect --config cudoc.config.mjs
 ```
 
-This collects documents and prepares embeds. Then build or start your host using the same source directory and syntax settings. Configure the [Next.js](./next-mdx.md), [Docusaurus](./docusaurus.md), [Nextra](./nextra.md) or [VitePress](./vitepress.md) integration to consume the collected results. [Standalone HTML](./html.md) performs these steps inside its build command.
+This collects documents and prepares embeds. Then build or start your host using the same source directory and syntax settings. Configure the [Next.js](./next-mdx.md), [Docusaurus](./docusaurus.md), [Nextra](./nextra.md), [VitePress](./vitepress.md) or [Eleventy](./eleventy.md) integration to consume the collected results. [Standalone HTML](./html.md) performs these steps inside its build command.
 
-Docusaurus, Nextra and VitePress collection must use the actual configured host compiler. Their guides link to runnable collectors. A generic second parse cannot reproduce every native transform. If your Next.js setup adds custom plugins, use a matching compiler there too. Custom compilers require a `compilerId`, updated when compiler versions or relevant settings change.
+Docusaurus, Nextra, VitePress and Eleventy collection must use the actual configured host compiler. Their guides link to runnable collectors. A generic second parse cannot reproduce every native transform. If your Next.js setup adds custom plugins, use a matching compiler there too. Custom compilers require a `compilerId`, updated when compiler versions or relevant settings change.
 
 ## Reuse a section
 
@@ -96,7 +96,7 @@ External reference definitions needed by the selected content remain available. 
 
 There is no automatic document-collection watcher. Add collection before both `dev` and `build` in your package scripts. Host-native collectors use `node collect.mjs` instead of the generic command. Keep generated `.cudoc/` output out of source control and regenerate it in CI.
 
-Set `routeBase` to the host's document prefix, such as `/docs`. VitePress with `cleanUrls: false` needs `routeSuffix: ".html"`. Supply `routes: { "guide/start": "/custom/start" }` for custom host routes or frontmatter slugs; those are not inferred automatically. This makes summary links and embedded document links target actual pages.
+Set `routeBase` to the host's document prefix, such as `/docs`. VitePress with `cleanUrls: false` needs `routeSuffix: ".html"`, and Eleventy's default directory URLs need `routeSuffix: "/"`. Supply `routes: { "guide/start": "/custom/start" }` for custom host routes or frontmatter slugs; those are not inferred automatically. This makes summary links and embedded document links target actual pages.
 
 ## Resolve problems
 

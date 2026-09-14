@@ -8,7 +8,7 @@ Add cudoc to an existing Next.js App Router application. Match `@next/mdx` to yo
 npm install @cudoment/cudoc cudoc-remark remark-gfm @next/mdx @mdx-js/loader @mdx-js/react
 ```
 
-## Configure Markdown
+## Configure syntax
 
 ```js
 // next.config.mjs

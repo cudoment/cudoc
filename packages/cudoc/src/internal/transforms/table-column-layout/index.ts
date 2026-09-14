@@ -144,10 +144,15 @@ const readHeadingText = (
 ): string =>
   stripDelimited(
     getInlineText(
+      // A host that inserts a permalink into the heading must not change the
+      // title this rule matches on, so generated children are dropped the same
+      // way `visibleHeadingText` drops them.
       heading.children.filter(
         (node) =>
-          (node.data as { cudoc?: { kind?: string } } | undefined)?.cudoc
-            ?.kind !== "badge",
+          !["badge", "permalink"].includes(
+            (node.data as { cudoc?: { kind?: string } } | undefined)?.cudoc
+              ?.kind ?? "",
+          ),
       ),
     ),
     options.metadataDelimiters,
