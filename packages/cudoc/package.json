@@ -1,6 +1,6 @@
 {
   "name": "@cudoment/cudoc",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Reusable document ASTs: validation, queries, export and loading for cross-document embedding.",
   "keywords": [
     "cudoc",

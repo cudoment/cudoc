@@ -1,7 +1,17 @@
 {
   "name": "cudoc-remark",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Remark plugin for cudoc: heading anchors, badges, table cell lists and table column layout, each configurable.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cudoment/cudoc.git",
+    "directory": "packages/cudoc-remark"
+  },
+  "homepage": "https://github.com/cudoment/cudoc/tree/main/packages/cudoc-remark#readme",
+  "bugs": {
+    "url": "https://github.com/cudoment/cudoc/issues"
+  },
   "keywords": [
     "cudoc",
     "remark",
@@ -10,17 +20,6 @@
     "markdown",
     "mdast"
   ],
-  "homepage": "https://github.com/cudoment/cudoc/tree/main/packages/cudoc-remark#readme",
-  "bugs": {
-    "url": "https://github.com/cudoment/cudoc/issues"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/cudoment/cudoc.git",
-    "directory": "packages/cudoc-remark"
-  },
-  "license": "MIT",
-  "author": "cudoment",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -75,15 +74,15 @@
     "README.md",
     "LICENSE"
   ],
-  "engines": {
-    "node": ">=20"
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "tsc --build",
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "@cudoment/cudoc": "0.2.0",
+    "@cudoment/cudoc": "0.3.0",
     "estree-util-value-to-estree": "^3.5.0",
     "mdast-util-mdx-jsx": "^3.2.0",
     "remark-gfm": "^4.0.1",
@@ -106,5 +105,9 @@
     "react": {
       "optional": true
     }
+  },
+  "author": "cudoment",
+  "engines": {
+    "node": ">=20"
   }
 }
