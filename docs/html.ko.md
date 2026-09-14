@@ -2,7 +2,7 @@
 
 [English](./html.md) | **한국어** · [전체 가이드](./README.ko.md)
 
-독립 HTML은 cudoc의 Markdown 문법 확장과 문서 임베드를 활용하는 선택적 추가 출력 기능입니다. Next.js(MDX), Docusaurus, Nextra, VitePress를 기본 문서 호스트로 유지하면서 `cudoc-html`로 같은 수집 문서와 준비된 임베드를 재사용합니다. 호스트를 바꾸거나 별도 문서 사본을 관리할 필요가 없으며, 다른 호스트 없이 단독으로 사용할 수도 있습니다. 정적 서버에 배포하거나 디스크에서 바로 열 수 있으며 별도 애플리케이션 구조를 만들 필요가 없습니다.
+독립 HTML은 cudoc의 Markdown 문법 확장과 문서 임베드를 활용하는 선택적 추가 출력 기능입니다. Next.js(MDX), Docusaurus, Nextra, VitePress, Eleventy를 기본 문서 호스트로 유지하면서 `cudoc-html`로 같은 수집 문서와 준비된 임베드를 재사용합니다. 호스트를 바꾸거나 별도 문서 사본을 관리할 필요가 없으며, 다른 호스트 없이 단독으로 사용할 수도 있습니다. 정적 서버에 배포하거나 디스크에서 바로 열 수 있으며 별도 애플리케이션 구조를 만들 필요가 없습니다.
 
 ## Markdown에서 생성
 
@@ -53,7 +53,7 @@ npx cudoc-html build docs --library .cudoc/documents --out-dir shared-html \
 | `host`              | 내부 하이퍼링크를 기본 사이트의 배포 경로로 연결합니다. HTTPS, `mailto:` 등 외부 URL은 유지합니다. `hostUrl` / `--host-url`이 필수입니다. |
 | `none`              | 외부 URL을 포함한 모든 하이퍼링크를 제거하고 텍스트·중첩 서식·이미지는 유지합니다.                                                        |
 
-작성한 링크, raw HTML, 임베드 본문·표, 생성된 탐색 메뉴·목차·각주에 모두 적용합니다. 로컬 이미지와 스타일은 모든 모드에서 유지합니다. `none`은 클릭 가능한 앵커를 제거하며 스타일시트의 `<link>` 같은 렌더링 자원은 유지합니다. 제거한 하이퍼링크에서만 참조하는 파일은 복사하지 않습니다.
+`sourceRoot`와 모든 `assetDirs` 루트를 벗어나는 로컬 링크는 어떤 정책에서도 해석할 수 없으므로 빌드가 실패하며, 그 링크와 링크를 담고 있는 문서를 함께 알려 줍니다. 작성한 링크, raw HTML, 임베드 본문·표, 생성된 탐색 메뉴·목차·각주에 모두 적용합니다. 로컬 이미지와 스타일은 모든 모드에서 유지합니다. `none`은 클릭 가능한 앵커를 제거하며 스타일시트의 `<link>` 같은 렌더링 자원은 유지합니다. 제거한 하이퍼링크에서만 참조하는 파일은 복사하지 않습니다.
 
 `host`에서는 기본 경로까지 포함한 전체 배포 URL을 지정합니다. 예를 들어 `hostUrl`이 `https://docs.example.com/project/`이고 수집된 문서 경로가 `/docs/start`이면 `start.md#setup`과 `/docs/start#setup` 모두 `https://docs.example.com/project/docs/start#setup`으로 연결합니다. 이미 기본 경로가 포함된 문서 경로에는 `/project/`를 중복 추가하지 않습니다. 쿼리와 프래그먼트는 유지하고, `#setup` 같은 링크는 배포된 현재 문서로 연결합니다. 그 밖의 내부 경로는 배포 URL과 현재 문서 경로를 기준으로 해석합니다.
 
@@ -80,6 +80,24 @@ npx cudoc-html build --config site.config.mjs
 ```
 
 `navigation`에는 확장자 없는 문서 ID를 지정합니다. 지정한 문서가 먼저 나오고 나머지가 뒤에 이어집니다. `css`는 기본 스타일 뒤에 로컬 CSS 파일을 추가합니다. `index.md`가 없으면 시작 페이지를 생성합니다. JSON 설정도 사용할 수 있습니다.
+
+기본 스타일은 사용자의 라이트·다크 시스템 설정을 따르며, 그 동작에 스크립트가 필요하지 않고 모든 색을 두 테마가 함께 정의하는 사용자 정의 속성에 담고 있습니다. 디자인을 바꾸려면 규칙을 다시 쓰지 말고 그 속성만 재정의하는 파일을 `css`에 지정합니다. 전체 토큰 목록은 [어댑터 레퍼런스](./api-reference/adapters.ko.md#html)에 있습니다.
+
+```css
+/* custom.css, 기본 스타일 뒤에 덧붙습니다 */
+:root {
+  --accent: #7c4dff;
+  --accent-soft: #ece7fb;
+  --measure: 78ch;
+  --font-sans: "Inter", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --accent: #b39dff;
+    --accent-soft: #2a2244;
+  }
+}
+```
 
 위 설정은 Markdown을 직접 수집합니다. 기존 호스트 라이브러리를 재사용하려면 `library`를 추가하고 `syntax` 같은 수집 옵션은 제거합니다.
 
@@ -112,6 +130,6 @@ const renderOptions = {
 - 호스트 고유 위젯과 자산을 확인합니다. 동적 React·Vue 코드는 별도 HTML 렌더러가 필요하며 CSS import·`url()` 의존성과 반응형 `srcset` 자원은 재귀적으로 묶지 않습니다.
 - 기본 사이트와 HTML 출력 디렉터리를 분리합니다. 문서 변경 후 다시 수집·준비하고 출력합니다. 공유 전 포함 문서와 스코프를 검토합니다. HTML 출력은 공개 권한 필터가 아닙니다.
 
-저장소의 [호스트 라이브러리 출력 검사](../scripts/check-html-hosts.mjs)는 네 실제 호스트 라이브러리에 세 링크 정책을 적용하고, 소스·라이브러리·기본 사이트의 모든 출력 파일을 해시로 비교해 변경되지 않았는지 검증합니다.
+저장소의 [호스트 라이브러리 출력 검사](../scripts/check-html-hosts.mjs)는 다섯 실제 호스트 라이브러리에 세 링크 정책을 적용하고, 소스·라이브러리·기본 사이트의 모든 출력 파일을 해시로 비교해 변경되지 않았는지 검증합니다.
 
 코드에서 사용하려면 [buildSite 옵션과 동작](./api-reference/adapters.ko.md#html)을 참고하세요.
