@@ -130,6 +130,6 @@ Run the build again to update the site. Keep `outDir` separate from source, libr
 - Inspect host-specific widgets and assets. Dynamic React/Vue code needs an explicit HTML renderer, and CSS imports, CSS `url()` dependencies and responsive `srcset` resources are not recursively bundled.
 - Keep the primary build and HTML output separate. Recollect and prepare before exporting changed documents. Review the documents/scopes included before sharing; HTML export is not a publication-permission filter.
 
-The repository's [host-library export check](../scripts/check-html-hosts.mjs) verifies all three link policies against four real host libraries and hashes all source, library and primary output files to verify they remain unchanged.
+The repository's [host-library export check](../tests/built/html-export.test.ts) verifies all three link policies against five real host libraries and hashes all source, library and primary output files to verify they remain unchanged.
 
 See [buildSite options and behavior](./api-reference/adapters.md#html) for the programmatic API.

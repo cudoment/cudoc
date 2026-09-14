@@ -1,7 +1,21 @@
 import { describe, it, expect, afterEach } from "vitest"
-import { createMarkdownRenderer, disposeMdItInstance } from "vitepress"
+import type MarkdownIt from "markdown-it"
+import {
+  createMarkdownRenderer,
+  disposeMdItInstance,
+  type MarkdownRenderer,
+} from "vitepress"
 import cudocVitePress, { createDocumentCompiler } from "../src/index.js"
 import { collectSections } from "@cudoment/cudoc/query"
+
+/**
+ * VitePress inlines its own `MarkdownIt` interface into its declaration file
+ * instead of re-exporting `@types/markdown-it`, so the two describe the same
+ * runtime object under two nominally distinct types. The documented setup is
+ * JavaScript and never meets this, so the conversion belongs here, once,
+ * rather than widening the adapter's own parameter type.
+ */
+const asMarkdownIt = (md: MarkdownRenderer) => md as unknown as MarkdownIt
 
 afterEach(() => disposeMdItInstance())
 describe("actual VitePress Markdown compiler", () => {
@@ -9,7 +23,7 @@ describe("actual VitePress Markdown compiler", () => {
     const md = await createMarkdownRenderer(process.cwd(), {
       headers: true,
       config(md) {
-        md.use(cudocVitePress, {
+        asMarkdownIt(md).use(cudocVitePress, {
           syntax: { headingAnchor: "both", callout: "both" },
         })
       },
@@ -28,7 +42,7 @@ describe("actual VitePress Markdown compiler", () => {
     expect(html).toContain('data-callout="warning"')
     expect(html).toContain('data-callout="note"')
     expect(html).toContain("Portable title")
-    const result = createDocumentCompiler(md)(source, {
+    const result = createDocumentCompiler(asMarkdownIt(md))(source, {
       id: "guide",
       filePath: "guide.md",
       options: {},
@@ -43,7 +57,9 @@ describe("actual VitePress Markdown compiler", () => {
 it("captures native link destinations inside and outside extended table cells", async () => {
   const md = await createMarkdownRenderer(process.cwd(), {
     config(md) {
-      md.use(cudocVitePress, { syntax: { callout: "cudoc", badge: "both" } })
+      asMarkdownIt(md).use(cudocVitePress, {
+        syntax: { callout: "cudoc", badge: "both" },
+      })
     },
   })
   const env: Record<string, unknown> = {

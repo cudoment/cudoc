@@ -8,6 +8,9 @@
       "path": "./packages/cudoc-remark"
     },
     {
+      "path": "./packages/cudoc-markdown-it"
+    },
+    {
       "path": "./packages/cudoc-docusaurus"
     },
     {
@@ -15,6 +18,9 @@
     },
     {
       "path": "./packages/cudoc-vitepress"
+    },
+    {
+      "path": "./packages/cudoc-eleventy"
     },
     {
       "path": "./packages/cudoc-html"

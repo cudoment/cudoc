@@ -1,0 +1,29 @@
+{
+  // The packages' own projects deliberately compile only `src`, so without this
+  // project the test code would never be type checked: vitest strips types with
+  // esbuild instead of checking them, and a test that contradicts a compiler
+  // contract would pass in silence.
+  //
+  // It reads the packages through their published names, which resolve to
+  // `dist` through the workspace symlinks, so `npm run build` has to come first.
+  // The root `typecheck` script does that.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "jsx": "react-jsx",
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "markdown-it": ["./node_modules/@types/markdown-it/index.d.mts"]
+    }
+  },
+  "include": [
+    "packages/*/__tests__/**/*.ts",
+    "packages/*/__tests__/**/*.tsx",
+    "tests/**/*.ts"
+  ]
+}

@@ -17,6 +17,12 @@ import {
 declare module "mdast" {
   interface RootData {
     cudocEmbedPrefix?: string
+    /**
+     * The schema version, under its default field name. A caller may rename the
+     * field through `AstVersionOptions.field`, so reading it back generically
+     * still goes through `resolveAstVersion`.
+     */
+    cudocAstVersion?: number
   }
 }
 

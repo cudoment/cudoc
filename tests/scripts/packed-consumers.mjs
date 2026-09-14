@@ -12,9 +12,10 @@ import { execFileSync } from "node:child_process"
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
+import { fileURLToPath } from "node:url"
 import { build } from "esbuild"
 
-const ROOT = process.cwd()
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 const PACKAGES_DIR = path.join(ROOT, "packages")
 
 const run = (command, args, cwd = ROOT) =>
@@ -137,6 +138,10 @@ console.log("standalone Markdown collection, rendering and prepared embeds verif
       ...tarballs,
       "@types/react@^19",
       "@types/mdast@^4",
+      // A declared peer of the markdown-it adapters, which a real consumer
+      // installs through its host; the Eleventy adapter imports it at runtime.
+      "markdown-it@^14",
+      "@types/markdown-it@^14",
     ],
     workspace,
   )
@@ -196,6 +201,16 @@ import type { CudocDocusaurusOptions } from "cudoc-docusaurus"
 import type { CudocNextraOptions } from "cudoc-nextra"
 import type { HostPluginOptions, CudocRemarkOptions } from "cudoc-remark"
 import { buildSite, type SiteOptions, type SiteLinkMode } from "cudoc-html"
+import type MarkdownIt from "markdown-it"
+import {
+  installHostPlugin,
+  createHostCompiler,
+  tokensToAst,
+  type MarkdownItHost,
+  type HostPluginOptions as MarkdownItOptions,
+} from "cudoc-markdown-it"
+import cudocVitePress, { createDocumentCompiler as vitePressCompiler, type VitePressOptions } from "cudoc-vitepress"
+import cudocEleventy, { createMarkdownRenderer, createDocumentCompiler as eleventyCompiler, type EleventyOptions } from "cudoc-eleventy"
 const linkMode: SiteLinkMode = "host"
 const siteOptions: SiteOptions = { sourceRoot: "docs", outDir: "html", library: ".cudoc/documents", links: linkMode, hostUrl: "https://example.com/docs/", assetDirs: ["public"], renderOptions: { components: { Notice: () => "<p>Notice</p>" } } }
 const siteBuilder: (options: SiteOptions) => { documentCount: number } = buildSite
@@ -219,6 +234,25 @@ docusaurus({ toc: { exportName: "customToc" } })
 // @ts-expect-error An alternate export name must not enable the removed feature.
 nextra({ toc: { exportName: "customToc" } })
 const nextOptions: CudocRemarkOptions = { toc: { exportName: "toc" } }
+const markdownItHost: MarkdownItHost = { adapter: "cudoc-my-host", host: "markdown", documentId: () => "guide" }
+const markdownItOptions: MarkdownItOptions = { syntax: { callout: "both" }, outDir: ".cudoc/documents" }
+const vitePressOptions: VitePressOptions = markdownItOptions
+const eleventyOptions: EleventyOptions = markdownItOptions
+// @ts-expect-error The markdown-it hosts have no remark TOC option.
+const markdownItHasToc: MarkdownItOptions = { toc: false }
+// headingIds stays in the type; only "host" passes the runtime check, which
+// the adapter tests cover.
+const markdownItHeadingIds: MarkdownItOptions = { headingIds: "host" }
+const markdownItPlugins: ((md: MarkdownIt, options?: MarkdownItOptions) => void)[] = [cudocVitePress, cudocEleventy]
+const eleventyRenderer: MarkdownIt = createMarkdownRenderer(eleventyOptions, (md) => md.disable("code"))
+const markdownItCompilers = [
+  createHostCompiler(eleventyRenderer, markdownItHost),
+  vitePressCompiler(eleventyRenderer),
+  eleventyCompiler(eleventyRenderer),
+]
+installHostPlugin(eleventyRenderer, vitePressOptions, markdownItHost)
+const converted = tokensToAst(eleventyRenderer.parse("# Title", {}), "# Title", {}, { adapter: "cudoc-my-host" })
+console.log(markdownItPlugins.length, markdownItCompilers.length, converted.type)
 `,
   )
   process.stdout.write(
