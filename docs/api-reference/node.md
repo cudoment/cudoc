@@ -110,7 +110,7 @@ resolveDocumentEmbeds(library: Library, documentId: string): Root
 // resolveDocumentEmbedsAsync(library, documentId)
 ```
 
-`parseEmbedSpec` parses YAML and validates supported top-level/selection keys, source lists, rendering choices and replacement rules. `sources` must be nonempty. The default render is `section`; default table columns are title/link/summary. Selection behavior is defined in [document queries](./document.md#sections-and-queries).
+`parseEmbedSpec` parses YAML and validates supported top-level, selection and replacement keys, source lists, rendering choices and replacement rules. Unknown keys are rejected at all three levels and the message lists the known ones; `flags` without `regex: true` is an error rather than a silently ignored value. `parseEmbedBlock(value, documentId, number?)` wraps it so a failure names the document, the block and, for a parser error, its line and column. `sources` must be nonempty. The default render is `section`; default table columns are title/link/summary. Selection behavior is defined in [document queries](./document.md#sections-and-queries).
 
 References resolve relative to `context.documentId`, or from the document root when beginning with `/`. `.md`/`.mdx` and `#anchor` are supported. URLs, backslash paths, root escapes and missing documents fail. An anchorless source without a selector uses its whole document.
 
@@ -151,6 +151,28 @@ embedKey(documentId: string, value: string, index: number): string
 `PreparedEmbeds` contains `schemaVersion: 1`, `configuration`, `sourceHashes: Record<string,string>`, `blocks: Record<string,Root>`. Keys are `documentId:index:sha256(fenceValue)`, with block numbering starting at 1. `readPreparedEmbeds` checks schema, manifest configuration, current document source hash and manifest document hashes. Missing or stale data throws and requests recollection. It is not a live source watcher.
 
 Collection publishes the library directory; preparation publishes its file afterward. They are separate publication boundaries. If preparation fails after a successful collection, rerun preparation/collection before building the host. Do not claim that the entire multi-step build rolls back as a single transaction.
+
+## Reference checking
+
+Source/import: [node/check.ts](../../packages/cudoc/src/node/check.ts), `@cudoment/cudoc/node/check`; [node/report.ts](../../packages/cudoc/src/node/report.ts), `@cudoment/cudoc/node/report`.
+
+`checkReferences(library: Library, options?: CheckOptions): CheckResult` walks every document and returns `{ issues, documentCount, checkedReferences }`. It reads only; nothing is written and the library is not modified.
+
+`ReferenceIssue` carries `code`, `severity` (`"error"` or `"warning"`), `documentId`, `sourcePath`, `message`, `reference` (the author's own text), an optional `position`, and for `missing-anchor` and `missing-embed-anchor` an `available` array naming the anchors the target document really has. Codes are `missing-document`, `missing-anchor`, `missing-asset`, `missing-embed-source`, `missing-embed-anchor`, `invalid-embed-spec`, `duplicate-anchor`, `empty-anchor`, `unstable-anchor-link`, `unmatched-embed-replacement` and `unportable-embed-component`. The last three are warnings.
+
+`CheckOptions` accepts `ignore` (codes dropped from the result), `assetDirs`, `withoutBase` and `sourceRoot`, defaulting to the library's own root. Local links and images resolve through [`resolveLocalTarget`](../../packages/cudoc/src/node/local-target.ts), the same function `cudoc-html` copies assets with, so the checker and the exporter cannot disagree about whether a target exists.
+
+Positions are recovered from `document.source.text` rather than the stored tree, because collection strips `position` when it persists an AST. The search prefers an occurrence terminated by a Markdown destination delimiter, so `guide.md#limit` does not report the line holding `guide.md#limits`; a duplicate anchor reports its later declaration. A reference the source no longer contains yields no position rather than a wrong one.
+
+`formatCheckResult(result: CheckResult): string` renders the result grouped by document with `line:column` prefixes, showing at most four `available` anchors before summarising the rest.
+
+`invalid-embed-spec` covers a block that `parseEmbedSpec` rejects. The reported position is the fence line plus the parser's own line when it has one, so the coordinate is the file's rather than the block's, and the parser's block-relative `at line N, column M` suffix is removed from the message instead of being repeated.
+
+`unmatched-embed-replacement` recomputes the source slices `transformedSection` cuts — `source.sections[anchor]` bounded by `end` or `ownEnd`, or the whole `source.text` for a whole-document embed — and applies the rules in order to each, recording which found something. A rule is reported only when it matched no slice, because a rule list runs against every selected section and one aimed at a single section misses the rest by design. An unusable pattern counts as matched; that is the resolver's error to raise.
+
+`unportable-embed-component` inspects what an embed would actually copy. The selection is applied with [`collectSections`](../../packages/cudoc/src/sections.ts), the same function the resolver uses, so `includeChildren: false` and `select` narrow the inspected tree the way they narrow the copy, and a `render: { type: table }` embed is skipped because only heading text travels. A node whose type begins with `mdx` or ends with `Directive` is reported, excluding `mdxjsEsm` and `yaml`, which [`documentToHast`](../../packages/cudoc/src/render.ts) drops rather than refusing. When `select.anchors` names a section that does not exist, `collectSections` throws and that is reported as `missing-embed-anchor` rather than swallowed, because the build raises the same error.
+
+`collectAnchors(tree: Root)` returns `{ id, explicit }` for every heading anchor. `explicit` reflects `data.cudoc.explicitId`, which is what separates an author's anchor from a slugger's, and therefore what `unstable-anchor-link` keys on.
 
 ## Datasets
 
@@ -199,7 +221,8 @@ Source: [cli.ts](../../packages/cudoc/src/node/cli.ts).
 
 ```sh
 cudoc collect --config cudoc.config.mjs
+cudoc check --config cudoc.config.mjs [--format json] [--strict]
 cudoc dataset --config dataset.config.json
 ```
 
-Only these commands and the exact `--config <path>` argument form are accepted. ESM files must default-export a configuration object; `.json` files are parsed directly. Paths inside config resolve from the invoking working directory, not the config's directory. `collect` runs collection and preparation; a supplied compiler may be sync or async. Successful commands print JSON summaries; errors go to stderr and set exit code 1. There is no watch command. HTML CLI is documented in [adapters](./adapters.md#html).
+Only these commands and the `--config <path>` argument form are accepted. ESM files must default-export a configuration object; `.json` files are parsed directly. Paths inside config resolve from the invoking working directory, not the config's directory. `collect` runs collection and preparation; a supplied compiler may be sync or async. `check` collects the same way and then runs [reference checking](#reference-checking) against the result, reading the optional `check` key of the same configuration; it writes nothing. Its exit code is 1 when any error is reported, or when `--strict` is given and anything at all is. `collect` and `dataset` print JSON summaries; errors go to stderr and set exit code 1. There is no watch command. HTML CLI is documented in [adapters](./adapters.md#html).

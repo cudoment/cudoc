@@ -11,6 +11,8 @@ import { buildDocuments, loadLibrary } from "../src/node/library.js"
 import {
   resolveDocumentEmbeds,
   resolveEmbed,
+  parseEmbedSpec,
+  parseEmbedBlock,
 } from "../src/node/resolve-embed.js"
 import { projectAst, docsDatasetProjection } from "../src/dataset.js"
 import { generateDataset } from "../src/node/dataset.js"
@@ -95,19 +97,29 @@ describe("portable Markdown", () => {
       renderDocument(compileDocument("<Unknown />", { format: "mdx" }).tree),
     ).toThrow("no portable renderer")
   })
-  it("rejects conflicting and duplicate explicit IDs", () => {
+  it("rejects one heading that declares two different IDs", () => {
     expect(() =>
       compileDocument("## Title (#one) {#two}", {
         host: "docusaurus",
         syntax: { headingAnchor: "both" },
       }),
     ).toThrow("conflicting heading")
-    expect(() => compileDocument("## A (#same)\n\n## B (#same)")).toThrow(
-      "duplicate heading",
-    )
     expect(() => resolveSyntax({ callout: "off" as never })).toThrow(
       "syntax.callout",
     )
+  })
+  it("reports two headings sharing an ID instead of failing the compile", () => {
+    // Two headings claiming one ID is a problem across a document set, not a
+    // malformed heading, so `cudoc check` collects every one at once rather
+    // than the compile stopping at the first. Hosts suffix duplicates instead
+    // of failing, so throwing here was stricter than the site itself.
+    const { diagnostics } = compileDocument("## A (#same)\n\n## B (#same)")
+
+    expect(diagnostics).toHaveLength(1)
+    expect(diagnostics[0]).toMatchObject({
+      code: "duplicate-heading-id",
+      message: "duplicate heading ID: same",
+    })
   })
 })
 describe("stored source and embedding", () => {
@@ -350,4 +362,61 @@ it("lays out component-free tables and validates their semantic cell lists", () 
   expect(lists.length).toBeGreaterThan(0)
   lists[0].spread = true
   expect(() => validateAstContract(tree)).toThrow("table list spread")
+})
+
+describe("embed spec validation", () => {
+  const spec = (body: string) => () => parseEmbedSpec(body)
+  const rule = (extra: string) =>
+    spec(`sources: [a.md]\nreplace:\n  - find: "a"\n    replace: "b"\n${extra}`)
+
+  it("names the key a typo produced and what was expected instead", () => {
+    // `regexp` used to pass, turning a pattern into a literal that matches
+    // nothing. Nothing later in the pipeline said so.
+    expect(rule("    regexp: true\n")).toThrow('unknown key "regexp"')
+    expect(rule("    regexp: true\n")).toThrow("find, replace, regex, flags")
+  })
+
+  it("rejects flags that cannot do anything", () => {
+    expect(rule('    flags: "gi"\n')).toThrow("no effect without regex: true")
+    expect(rule('    regex: true\n    flags: "gi"\n')).not.toThrow()
+  })
+
+  it("separates the ways a rule can be wrong", () => {
+    expect(
+      spec('sources: [a.md]\nreplace:\n  - find: ""\n    replace: "b"\n'),
+    ).toThrow("replace[0].find must be a non-empty string")
+    expect(spec('sources: [a.md]\nreplace:\n  - find: "a"\n')).toThrow(
+      "replace[0].replace must be a string",
+    )
+    expect(
+      spec('sources: [a.md]\nreplace:\n  - fnd: "a"\n    replace: "b"\n'),
+    ).toThrow('unknown key "fnd"')
+    expect(spec("sources: [a.md]\nreplace: not-a-list\n")).toThrow(
+      "replace must be an array of rules",
+    )
+  })
+
+  it("lists the known keys at every level, not just two of them", () => {
+    expect(spec("sources: [a.md]\nreplaces: []\n")).toThrow(
+      "Known options: sources, select, render, replace",
+    )
+    expect(spec("sources: [a.md]\nselect:\n  anchor: [x]\n")).toThrow(
+      "Known selections: anchors, titles, depth, includeChildren",
+    )
+  })
+
+  it("names the document and block a bad spec came from", () => {
+    // A bare parser error says `line 3, column 17` and stops there, which is
+    // not enough to find the block in a repository of documents.
+    expect(() =>
+      parseEmbedBlock(
+        'sources: [a.md]\nreplace:\n  - find: "**x**\n',
+        "guide",
+        2,
+      ),
+    ).toThrow(/guide, embed block 2, line \d+, column \d+: Missing closing/)
+    expect(() => parseEmbedBlock("sources: []\n", "guide", 1)).toThrow(
+      "cudoc: guide, embed block 1:",
+    )
+  })
 })

@@ -35,6 +35,32 @@ changes how it slugs headings or renders containers shows up here first. The
 built tier answers a different question: not whether the compiler produces the
 right tree, but whether the page a reader actually opens carries it.
 
+## Adding a feature
+
+Every integration suite is a table crossed with `HOST_CASES`. Adding a row runs
+that case on every installed host; adding a host to
+[`integration/hosts.ts`](./integration/hosts.ts) runs every existing case on it.
+Nothing else has to change.
+
+| Suite                           | The table              | One row is                         |
+| ------------------------------- | ---------------------- | ---------------------------------- |
+| `integration/syntax.test.ts`    | assertions in the body | a syntax feature in the fixture    |
+| `integration/native.test.ts`    | `NATIVE`               | a host's own spelling of a feature |
+| `integration/embedding.test.ts` | `SHAPES`               | an embed shape                     |
+| `integration/check.test.ts`     | `CASES`                | a reference diagnostic             |
+
+Two suites also guard against the table drifting from what ships: `embedding`
+asserts its row count matches the embed blocks in the fixture, and `check`
+asserts its rows cover every code the checker can emit. A feature added to one
+side without the other fails rather than going unverified.
+
+Hosts legitimately differ, and a case that cannot hold everywhere says so
+instead of forcing uniformity. Docusaurus and Nextra re-slug headings after
+cudoc, so a duplicate explicit anchor never reaches the tree there; Docusaurus's
+MDX loader refuses to compile a document whose image does not resolve. Both
+suites assert the property that matters — the problem does not ship — rather
+than demanding the same diagnostic from every host.
+
 ## Fixtures
 
 [`fixtures/showcase.md`](./fixtures/showcase.md) carries every configurable

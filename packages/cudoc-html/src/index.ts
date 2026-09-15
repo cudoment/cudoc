@@ -12,6 +12,7 @@ import {
   type StoredDocument,
 } from "@cudoment/cudoc/node/library"
 import { resolveDocumentEmbeds } from "@cudoment/cudoc/node/resolve-embed"
+import { resolveLocalTarget } from "@cudoment/cudoc/node/local-target"
 import { renderDocument, type RenderOptions } from "@cudoment/cudoc/render"
 import {
   publishDirectory,
@@ -759,56 +760,35 @@ export function buildSite({
   ])
   publishDirectory(sourceRoot, outDir, (staging) => {
     const copied = new Map<string, string>()
-    /** `safePath`, but an escaping path is a non-match rather than a throw. */
-    const containedPath = (root: string, relative: string) => {
-      try {
-        return safePath(root, relative)
-      } catch {
-        return undefined
-      }
-    }
     const copyAsset = (url: string, doc: StoredDocument): string => {
-      if (/^(?:#|[a-z][\w+.-]*:|\/\/)/i.test(url)) return url
-      const [, pathname, suffix] = url.match(/^([^?#]*)(.*)$/)!
-      const decoded = decodeURIComponent(pathname)
-      const relative = path.posix.normalize(
-        decoded.startsWith("/")
-          ? decoded.slice(1)
-          : path.posix.join(path.posix.dirname(doc.sourcePath), decoded),
-      )
-      const rootPath = targets
-        .withoutBase(decoded.startsWith("/") ? decoded : `/${relative}`)
-        .replace(/^\//, "")
-      const candidates = [
-        { root: sourceRoot, relative },
-        ...assetDirs.map((root) => ({ root, relative: rootPath })),
-      ]
-      for (const candidate of candidates) {
-        // A link that reaches outside its root is not a candidate here. Letting
-        // it fall through to the error below names the link and the document
-        // that carries it, which is what an author needs to fix it.
-        const source = containedPath(candidate.root, candidate.relative)
-        if (!source || !fs.existsSync(source) || !fs.statSync(source).isFile())
-          continue
-        const asset = candidate.relative
-        if (reservedOutputs.has(asset.toLowerCase()))
-          throw new Error(
-            `cudoc-html: asset collides with generated output: ${asset}`,
-          )
-        const previous = copied.get(asset.toLowerCase())
-        if (previous && previous !== fs.realpathSync(source))
-          throw new Error(
-            `cudoc-html: different assets share output path: ${asset}`,
-          )
-        const destination = safePath(staging, asset)
-        fs.mkdirSync(path.dirname(destination), { recursive: true })
-        fs.copyFileSync(source, destination)
-        copied.set(asset.toLowerCase(), fs.realpathSync(source))
-        return `${relativeLink(doc.id, asset)}${suffix}`
-      }
-      throw new Error(
-        `cudoc-html: missing local target ${url} in ${doc.id}; check sourceRoot and assetDirs`,
-      )
+      const target = resolveLocalTarget(url, doc.sourcePath, {
+        sourceRoot,
+        assetDirs,
+        withoutBase: targets.withoutBase,
+      })
+      if (target.kind === "external") return url
+      // A link reaching outside every root resolves to nothing, and the error
+      // below names the link and the document carrying it, which is what an
+      // author needs to fix it.
+      if (target.kind === "missing")
+        throw new Error(
+          `cudoc-html: missing local target ${url} in ${doc.id}; check sourceRoot and assetDirs`,
+        )
+      const asset = target.relative
+      if (reservedOutputs.has(asset.toLowerCase()))
+        throw new Error(
+          `cudoc-html: asset collides with generated output: ${asset}`,
+        )
+      const previous = copied.get(asset.toLowerCase())
+      if (previous && previous !== fs.realpathSync(target.source))
+        throw new Error(
+          `cudoc-html: different assets share output path: ${asset}`,
+        )
+      const destination = safePath(staging, asset)
+      fs.mkdirSync(path.dirname(destination), { recursive: true })
+      fs.copyFileSync(target.source, destination)
+      copied.set(asset.toLowerCase(), fs.realpathSync(target.source))
+      return `${relativeLink(doc.id, asset)}${target.suffix}`
     }
     const writePage = (page: string, doc: StoredDocument) => {
       const tree = fromHtml(page)
