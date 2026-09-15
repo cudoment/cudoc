@@ -2,21 +2,22 @@
 
 **English** | [한국어](./docusaurus.ko.md) · [All guides](./README.md)
 
-Install in an existing Docusaurus site:
+Follow the steps in order. Steps 1–3 enable the Markdown extensions. Steps 4–6 add document embedding, which is what lets one document reuse another. Step 7 is optional.
+
+## Step 1 — Install
 
 ```sh
 npm install @cudoment/cudoc cudoc-remark cudoc-docusaurus
 ```
 
-## Configure syntax
+## Step 2 — Register the remark plugins
 
-Merge the following into your existing config:
+Merge this into `docusaurus.config.mjs`, keeping your site's other settings:
 
 ```js
 import { cudocRemarkPlugins } from "cudoc-docusaurus"
 
 export default {
-  // Retain the site's other required settings.
   markdown: { format: "detect" },
   presets: [
     [
@@ -34,49 +35,59 @@ export default {
 }
 ```
 
+It must be `beforeDefaultRemarkPlugins`, not `remarkPlugins`. cudoc assigns heading anchors, and Docusaurus generates its own heading IDs and table of contents afterwards. Running cudoc second would leave the two disagreeing.
+
+## Step 3 — Import the stylesheet
+
 Add to `src/css/custom.css`:
 
 ```css
 @import "@cudoment/cudoc/styles.css";
 ```
 
-Use `beforeDefaultRemarkPlugins` so cudoc anchors exist before native heading IDs and TOC processing. The adapter sets `host: "docusaurus"` and lets Docusaurus handle generated IDs and TOC. No cudoc theme plugin or component registration is needed for this configuration.
+This styles callouts and badges. It sets no text colour of its own, so it follows your site's light and dark themes.
 
-Format detection keeps `.md` as Markdown and `.mdx` as MDX. To accept native admonitions and heading IDs alongside cudoc markers, set `syntax: { headingAnchor: "both", callout: "both" }`. Supported forms are listed in the [syntax guide](./syntax.md).
+**Stop here if you only want the syntax extensions.** Start your site and the features in [Markdown syntax](./syntax.md) work. Continue for document embedding.
 
-## Add embeds
+## Step 4 — Add the embed plugin
 
-Import the embed plugin and add it to the docs plugin's `remarkPlugins`, after native processing:
+Inside the same `docs` options, after native processing:
 
 ```js
 import embed from "cudoc-remark/embed"
 
-// Inside presets → classic → docs:
-remarkPlugins: [[embed, {
-  sourceRoot: "docs",
-  outDir: ".cudoc/documents",
-}]],
+// presets → classic → docs:
+remarkPlugins: [[embed, { sourceRoot: "docs", outDir: ".cudoc/documents" }]],
 ```
 
-Use [the Docusaurus collector](../examples/docusaurus/collect.mjs) as `collect.mjs` in your site. It calls the actual Docusaurus MDX processor, captures native transformations, then prepares embeds. It uses an internal processor entry point pinned to the example's dependency version; check it when changing Docusaurus versions.
+## Step 5 — Add the collector
 
-Set `sourceRoot`, `outDir` and `routeBase` to match the site. Keep syntax options and native Markdown settings identical in collection and rendering. If you enable `both` above, update both the collector's document options and its `cudocRemarkPlugins` call. Supply `routes` for custom slugs and update `compilerId` when relevant settings change.
+Copy [the example collector](../examples/docusaurus/collect.mjs) to `collect.mjs` in your site root. It runs the actual Docusaurus MDX processor, captures what Docusaurus does to the document, and prepares the embeds.
+
+Set `sourceRoot`, `outDir` and `routeBase` to match your site. **Collection and rendering must agree**: the same syntax options, the same native Markdown settings. If you change one, change the other.
+
+> The collector imports an internal Docusaurus processor entry point, pinned to a specific version. Re-check it when you upgrade Docusaurus.
+
+## Step 6 — Collect before every build
 
 ```json
 {
   "scripts": {
     "collect": "node collect.mjs",
+    "check": "cudoc check --config cudoc.config.mjs",
     "start": "npm run collect && docusaurus start",
-    "build": "npm run collect && docusaurus build"
+    "build": "npm run collect && npm run check && docusaurus build"
   }
 }
 ```
 
-Recollect after source edits; there is no collection watcher. The plugin inserts prepared embeds automatically. See [embedding](./embedding.md), the [runnable site](../examples/docusaurus/docusaurus.config.mjs) and [adapter internals](./api-reference/adapters.md#docusaurus-and-nextra).
+There is no collection watcher, so collection has to run before the site does. The embed plugin inserts the prepared content automatically.
 
-## Also export standalone HTML
+`cudoc check` reports every broken link, anchor, image and embed in one pass, and exits non-zero, so a broken reference stops the build before the site is generated. → [Reference checking](./check.md)
 
-After collection and preparation above, install `cudoc-html` to export the same documents as shareable files. Use a separate output directory from the primary site.
+## Step 7 — Optionally export standalone HTML
+
+Reuse the library you just collected to produce a shareable HTML bundle:
 
 ```sh
 npm install cudoc-html
@@ -84,4 +95,41 @@ npx cudoc-html build docs --library .cudoc/documents --out-dir shared-html \
   --links host --host-url https://docs.example.com/project/
 ```
 
-Match `--host-url` and collected routes to the actual deployment. Choose `--links relative` for local navigation or `--links none` to remove all hyperlinks. See [standalone HTML](./html.md) for assets and custom component rendering.
+Your Docusaurus build and its collected data are not modified. → [Standalone HTML](./html.md)
+
+---
+
+## What you can now write
+
+| Feature                     | Example                            | Details                                                    |
+| --------------------------- | ---------------------------------- | ---------------------------------------------------------- |
+| Explicit heading anchors    | `## Limits (#limits)`              | [Syntax](./syntax.md#anchors-and-badges)                   |
+| Heading badges              | `## Limits (#limits) (@New)`       | [Syntax](./syntax.md#anchors-and-badges)                   |
+| Callouts with titles        | `> [!NOTE] Before you start`       | [Syntax](./syntax.md#callouts)                             |
+| Nested lists in table cells | `- Account<br />-- Verified email` | [Syntax](./syntax.md#lists-inside-table-cells)             |
+| Embed a whole document      | `sources: [reference.md]`          | [Embedding](./embedding.md#reuse-a-section)                |
+| Embed one section           | `sources: [reference.md#limits]`   | [Embedding](./embedding.md#reuse-a-section)                |
+| Heading summary table       | `select: { depth: 2 }`             | [Embedding](./embedding.md#create-a-heading-summary-table) |
+| Replace text in the copy    | `replace: [{ find, replace }]`     | [Embedding](./embedding.md#find-and-replace)               |
+
+## Docusaurus specifics
+
+**Native syntax alongside cudoc syntax.** Docusaurus admonitions and `{#id}` heading IDs keep working. To have cudoc normalize them too, so that embedded copies and HTML export carry the same semantics:
+
+```js
+cudocRemarkPlugins({ syntax: { headingAnchor: "both", callout: "both" } })
+```
+
+Supported native forms are listed in the [syntax guide](./syntax.md).
+
+**Format detection.** `markdown: { format: "detect" }` keeps `.md` as plain Markdown, where `{value}` stays literal text, and treats `.mdx` as MDX. Author your own React components in `.mdx`. → [Choosing `.md` or `.mdx`](./README.md#choosing-md-or-mdx)
+
+**No theme plugin.** This setup needs no cudoc theme plugin and no component registration. Authors write Markdown.
+
+**Custom slugs.** Supply `routes` to the collector when your document IDs and URLs differ, and bump `compilerId` when you change settings that affect compilation.
+
+## Next
+
+- [Document embedding](./embedding.md) — selection, multiple sources, refresh rules
+- [Adapter internals](./api-reference/adapters.md#docusaurus-and-nextra) — ordering, capture, what the adapter sets
+- [Runnable example](../examples/docusaurus/docusaurus.config.mjs) — a working site

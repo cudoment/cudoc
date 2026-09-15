@@ -2,13 +2,17 @@
 
 **English** | [한국어](./vitepress.ko.md) · [All guides](./README.md)
 
-Install in an existing VitePress site:
+Follow the steps in order. Steps 1–3 enable the Markdown extensions. Steps 4–6 add document embedding, which is what lets one document reuse another. Step 7 is optional.
+
+## Step 1 — Install
 
 ```sh
 npm install @cudoment/cudoc cudoc-markdown-it cudoc-vitepress
 ```
 
-## Configure syntax
+VitePress uses markdown-it, not remark, so it does not use `cudoc-remark`.
+
+## Step 2 — Register the plugin
 
 ```js
 // docs/.vitepress/config.mjs
@@ -26,7 +30,11 @@ export default defineConfig({
 })
 ```
 
-Import `@cudoment/cudoc/styles.css` from your theme entry. If using the default theme, create or extend `docs/.vitepress/theme/index.js`:
+`both` is the recommended starting point here: VitePress sites usually already contain `{#id}` anchors and `::: warning` containers, and `both` lets cudoc normalize those alongside its own syntax rather than making you rewrite them.
+
+## Step 3 — Import the stylesheet
+
+From your theme entry. Create or extend `docs/.vitepress/theme/index.js`:
 
 ```js
 import DefaultTheme from "vitepress/theme"
@@ -34,20 +42,18 @@ import "@cudoment/cudoc/styles.css"
 export default DefaultTheme
 ```
 
-VitePress uses Markdown-it, so it does not use `cudoc-remark`. It shares `cudoc-markdown-it` with the [Eleventy adapter](./eleventy.md), so both hosts convert the actual native token stream through the same code and keep heading/TOC integration. Write `.md`; React `.mdx` is not supported. Static supported native markup can be normalized, but arbitrary Vue expressions and custom plugin tokens are not guaranteed to render through the adapter.
+**Stop here if you only want the syntax extensions.** Run your site and the features in [Markdown syntax](./syntax.md) work. Continue for document embedding.
 
-With the settings above, both `(#id)` and native `{#id}` anchors work, as do `[!WARNING]` blockquotes and native `::: warning Title` containers. `details` retains its expandable behavior.
+## Step 4 — Add the collector
 
-## Add embeds
+Copy [the example collector](../examples/vitepress/collect.mjs) to `collect.mjs` in your site root. It configures the real VitePress renderer with the same cudoc options, passes `createDocumentCompiler(md)` to collection, and prepares the embeds.
 
-Use [the VitePress collector](../examples/vitepress/collect.mjs) as `collect.mjs`. It configures the real VitePress renderer with the same cudoc options, passes `createDocumentCompiler(md)` to collection, and prepares embeds.
-
-Then add a library to the plugin configuration:
+## Step 5 — Load the library into the renderer
 
 ```js
 import { loadLibrary } from "@cudoment/cudoc/node/library"
 
-// Inside markdown.config(md):
+// inside markdown.config(md):
 md.use(cudoc, {
   syntax: { headingAnchor: "both", callout: "both" },
   library: loadLibrary(".cudoc/documents"),
@@ -55,25 +61,24 @@ md.use(cudoc, {
 })
 ```
 
-Run commands from the site project root:
+**Collection and rendering must agree** on every Markdown option. If you change one, change the other, and bump `compilerId` when relevant settings change.
+
+## Step 6 — Collect before every build
 
 ```json
 {
   "scripts": {
     "collect": "node collect.mjs",
+    "check": "cudoc check --config cudoc.config.mjs",
     "dev": "npm run collect && vitepress dev docs",
-    "build": "npm run collect && vitepress build docs"
+    "build": "npm run collect && npm run check && vitepress build docs"
   }
 }
 ```
 
-The collector uses `routeSuffix: ".html"` for VitePress's default `cleanUrls: false`. Change collected routes when changing URL behavior, `base`, rewrites or custom routes. Match all Markdown options between collection and rendering, and update `compilerId` after relevant changes. Run collection again and restart development after source edits so the loaded library is refreshed.
+There is no collection watcher. After editing a source document, run collection again **and restart the dev server** so the loaded library is refreshed.
 
-See [embedding](./embedding.md), [the runnable config](../examples/vitepress/docs/.vitepress/config.mjs) and [markdown-it API internals](./api-reference/adapters.md#markdown-it).
-
-## Also export standalone HTML
-
-After collection and preparation above, install `cudoc-html` to export the same documents as shareable files. Use a separate output directory from the primary site.
+## Step 7 — Optionally export standalone HTML
 
 ```sh
 npm install cudoc-html
@@ -81,4 +86,39 @@ npx cudoc-html build docs --library .cudoc/documents --out-dir shared-html \
   --links host --host-url https://docs.example.com/project/
 ```
 
-Match `--host-url` and collected routes to the actual deployment. Choose `--links relative` for local navigation or `--links none` to remove all hyperlinks. See [standalone HTML](./html.md) for assets and custom component rendering.
+Your VitePress build and its collected data are not modified. → [Standalone HTML](./html.md)
+
+---
+
+## What you can now write
+
+| Feature                     | Example                            | Details                                                    |
+| --------------------------- | ---------------------------------- | ---------------------------------------------------------- |
+| Explicit heading anchors    | `## Limits (#limits)`              | [Syntax](./syntax.md#anchors-and-badges)                   |
+| Native heading anchors      | `## Limits {#limits}`              | [Syntax](./syntax.md#anchors-and-badges)                   |
+| Heading badges              | `## Limits (#limits) (@New)`       | [Syntax](./syntax.md#anchors-and-badges)                   |
+| Callouts with titles        | `> [!NOTE] Before you start`       | [Syntax](./syntax.md#callouts)                             |
+| Native containers           | `::: warning Title`                | [Syntax](./syntax.md#callouts)                             |
+| Nested lists in table cells | `- Account<br />-- Verified email` | [Syntax](./syntax.md#lists-inside-table-cells)             |
+| Embed a whole document      | `sources: [reference.md]`          | [Embedding](./embedding.md#reuse-a-section)                |
+| Embed one section           | `sources: [reference.md#limits]`   | [Embedding](./embedding.md#reuse-a-section)                |
+| Heading summary table       | `select: { depth: 2 }`             | [Embedding](./embedding.md#create-a-heading-summary-table) |
+| Replace text in the copy    | `replace: [{ find, replace }]`     | [Embedding](./embedding.md#find-and-replace)               |
+
+`details` containers keep their expandable behaviour.
+
+## VitePress specifics
+
+**Routes carry `.html`.** The collector uses `routeSuffix: ".html"` to match VitePress's default `cleanUrls: false`. Change the collected routes when you change URL behaviour, `base`, rewrites or custom routes.
+
+**Markdown only.** Write `.md`. React `.mdx` is not processed. → [Choosing `.md` or `.mdx`](./README.md#choosing-md-or-mdx)
+
+**Static markup normalizes; dynamic Vue does not.** A static `<Badge type="tip" text="1.0" />` becomes a cudoc badge. A badge carrying a Vue binding stays raw HTML, because its text is not known until the component runs. Arbitrary Vue expressions and custom plugin tokens are not guaranteed to travel through an embed.
+
+**Shared with Eleventy.** This adapter and the [Eleventy adapter](./eleventy.md) both sit on `cudoc-markdown-it`, so the two hosts convert the actual native token stream through the same code and keep heading and TOC integration identical.
+
+## Next
+
+- [Document embedding](./embedding.md) — selection, multiple sources, refresh rules
+- [markdown-it internals](./api-reference/adapters.md#markdown-it) — token conversion and host definitions
+- [Runnable example](../examples/vitepress/docs/.vitepress/config.mjs) — a working site

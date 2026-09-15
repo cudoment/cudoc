@@ -19,7 +19,7 @@ export async function prepareEmbeds(
   library: Library,
   outDir = ".cudoc/documents",
 ): Promise<PreparedEmbeds> {
-  const { resolveEmbedAsync, parseEmbedSpec } =
+  const { resolveEmbedAsync, parseEmbedBlock } =
     await import("./resolve-embed.js")
   const prepared: PreparedEmbeds = {
     schemaVersion: 1,
@@ -34,10 +34,11 @@ export async function prepareEmbeds(
       if (node.type === "code" && node.lang === "cudoc-embed") {
         const number = ++index
         prepared.blocks[embedKey(document.id, node.value!, number)] =
-          await resolveEmbedAsync(library, parseEmbedSpec(node.value!), {
-            documentId: document.id,
-            prefix: `embed-${number}`,
-          })
+          await resolveEmbedAsync(
+            library,
+            parseEmbedBlock(node.value!, document.id, number),
+            { documentId: document.id, prefix: `embed-${number}` },
+          )
       }
       for (const child of node.children ?? []) await collect(child)
     }

@@ -2,20 +2,60 @@
 
 **English** | [한국어](./html.ko.md) · [All guides](./README.md)
 
-Standalone HTML is an optional additional output for cudoc's Markdown extensions and document embedding. Keep Next.js (MDX), Docusaurus, Nextra, VitePress or Eleventy as your primary documentation host and use `cudoc-html` alongside it, reusing the same collected documents and prepared embeds. You do not need to switch hosts or maintain a second document set. It can also be used on its own. The output can be deployed to a static server or opened directly from disk. No application scaffold is required.
+Standalone HTML is an optional additional output for cudoc's Markdown extensions and document embedding. Keep Next.js, Docusaurus, Nextra, VitePress or Eleventy as your primary documentation host and use `cudoc-html` alongside it, reusing the same collected documents and prepared embeds. You do not need to switch hosts or maintain a second document set. It can also be used on its own. The output can be deployed to a static server or opened directly from disk. No application scaffold is required.
 
-## Build from Markdown
+## Your first site, from an empty directory
+
+Node.js 20+ and npm. No site, no framework, no config file.
 
 ```sh
 npm install @cudoment/cudoc cudoc-html
+```
+
+Write two documents. `docs/reference.md` holds the facts:
+
+```md
+# Reference
+
+## Limits (#limits)
+
+The limit is 100 requests per minute.
+
+## Authentication (#authentication)
+
+Send an access token with each request.
+```
+
+`docs/index.md` reuses them instead of repeating them:
+
+````md
+# Product guide
+
+> [!NOTE] About this guide
+> The table below is generated from the reference document.
+
+```cudoc-embed
+sources: [reference.md]
+select: { depth: 2 }
+render: { type: table }
+```
+````
+
+Build:
+
+```sh
 npx cudoc-html build docs --out-dir site
 ```
 
-Write `.md` documents under `docs/`. See the [first-site walkthrough](../README.md#getting-started) for complete content with embeds. The builder collects the documents, resolves embeds and writes HTML, styles and local assets. It adds navigation, a heading TOC, callouts, scrollable tables and highlighted code.
+Open `site/index.html`. You get a styled site with navigation, a heading table of contents, and a summary table whose rows link into `reference.html`. Edit a document, run the command again, and every page that references it updates with it.
+
+Share the whole `site/` directory or deploy it to any static host. Nothing in the output needs a server, a bundler or a CDN: it opens from `file://` as readily as from a URL.
+
+The builder collects the documents, resolves embeds and writes HTML, styles and local assets. It adds navigation, a heading TOC, callouts, scrollable tables and highlighted code.
 
 ## Export alongside an existing site
 
-Run the collector from your [host guide](./README.md#choose-a-host) first. It must capture the actual host compiler's output and prepare any embeds. Install `cudoc-html` in that project and create `site.config.mjs`:
+Run the collector from your [host guide](./README.md#set-up-your-site) first. It must capture the actual host compiler's output and prepare any embeds. Install `cudoc-html` in that project and create `site.config.mjs`:
 
 ```js
 export default {

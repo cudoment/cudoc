@@ -1,6 +1,6 @@
 {
   "name": "cudoc-html",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Build portable HTML documentation sites with cudoc",
   "license": "MIT",
   "repository": {
@@ -41,7 +41,7 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "@cudoment/cudoc": "0.3.0",
+    "@cudoment/cudoc": "0.4.0",
     "hast-util-from-html": "^2.0.3",
     "hast-util-to-html": "^9.0.5",
     "highlight.js": "^11.12.0"

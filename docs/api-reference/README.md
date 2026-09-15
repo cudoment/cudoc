@@ -12,6 +12,25 @@ This reference describes the current implementation: public imports, option defa
 | [Node APIs](./node.md)         | Collection, library files, embedding, datasets, output safety and CLI         |
 | [Adapters](./adapters.md)      | remark, capture, host ordering, markdown-it tokens and HTML generation        |
 
+## Packages
+
+Install only what your host needs. ESM, Node.js 20+. Each [usage guide](../README.md) opens with the exact install line for its host.
+
+| Package                                                           | Purpose                                                                   |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| [`@cudoment/cudoc`](../../packages/cudoc/README.md)               | Shared document processing, compilation, queries, collection and datasets |
+| [`cudoc-remark`](../../packages/cudoc-remark/README.md)           | Connect remark and MDX pipelines                                          |
+| [`cudoc-docusaurus`](../../packages/cudoc-docusaurus/README.md)   | Docusaurus integration                                                    |
+| [`cudoc-nextra`](../../packages/cudoc-nextra/README.md)           | Nextra integration                                                        |
+| [`cudoc-markdown-it`](../../packages/cudoc-markdown-it/README.md) | Connect markdown-it pipelines                                             |
+| [`cudoc-vitepress`](../../packages/cudoc-vitepress/README.md)     | VitePress rendering and collection                                        |
+| [`cudoc-eleventy`](../../packages/cudoc-eleventy/README.md)       | Eleventy rendering and collection                                         |
+| [`cudoc-html`](../../packages/cudoc-html/README.md)               | Standalone HTML generation                                                |
+
+Next.js needs no adapter package of its own. `@next/mdx` hands over the remark pipeline directly, and there is no native heading-id or table-of-contents pass to order cudoc against, so `cudoc-remark` with `host: "next"` is the whole integration. The Docusaurus and Nextra adapters exist because those hosts do have such a pass. → [MDX hosts](./adapters.md#docusaurus-and-nextra)
+
+Only the core package is scoped: `cudoc` was already taken on npm, so it publishes as `@cudoment/cudoc`.
+
 ## Package boundaries
 
 - `@cudoment/cudoc` owns document semantics and reusable AST operations. Node APIs live in explicit `node/*` entry points.
@@ -38,6 +57,7 @@ Prefixes below are relative to `@cudoment/cudoc` unless a full package name is s
 | `/node/resolve-embed`                                              | Parse and resolve embed requests                                | [Embedding](./node.md#embedding)                               |
 | `/node/prepare-embeds`                                             | Prepare/read build-time embed data                              | [Preparation](./node.md#prepared-embeds)                       |
 | `/node/dataset`                                                    | Generate filtered AST directories                               | [Datasets](./node.md#datasets)                                 |
+| `/node/check`, `/node/report`                                      | Whole-library reference checking and its rendering              | [Reference checking](./node.md#reference-checking)             |
 | `/node/storage`                                                    | Filesystem and staged output helpers                            | [Storage](./node.md#storage)                                   |
 | `/embed`, `/node/export-ast`, `/node/load-ast-file`, `/node/paths` | Individual AST snapshots and path helpers                       | [Individual snapshots](./node.md#individual-ast-snapshots)     |
 | `/transforms/*`                                                    | Low-level syntax transforms                                     | [Core helpers](./document.md#core-helpers)                     |

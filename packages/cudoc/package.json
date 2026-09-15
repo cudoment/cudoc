@@ -1,6 +1,6 @@
 {
   "name": "@cudoment/cudoc",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Reusable document ASTs: validation, queries, export and loading for cross-document embedding.",
   "keywords": [
     "cudoc",
@@ -91,6 +91,18 @@
     "./node/library": {
       "types": "./dist/node/library.d.ts",
       "default": "./dist/node/library.js"
+    },
+    "./node/local-target": {
+      "types": "./dist/node/local-target.d.ts",
+      "default": "./dist/node/local-target.js"
+    },
+    "./node/check": {
+      "types": "./dist/node/check.d.ts",
+      "default": "./dist/node/check.js"
+    },
+    "./node/report": {
+      "types": "./dist/node/report.d.ts",
+      "default": "./dist/node/report.js"
     },
     "./node/dataset": {
       "types": "./dist/node/dataset.d.ts",
