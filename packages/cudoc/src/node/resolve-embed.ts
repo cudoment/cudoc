@@ -22,13 +22,19 @@ export type EmbedSpec = {
 }
 export type EmbedContext = { documentId: string; prefix?: string }
 
+const SPEC_KEYS = ["sources", "select", "render", "replace"]
+const SELECTION_KEYS = ["anchors", "titles", "depth", "includeChildren"]
+const REPLACEMENT_KEYS = ["find", "replace", "regex", "flags"]
+
 export function parseEmbedSpec(value: string): EmbedSpec {
   const spec = parseYaml(value, { maxAliasCount: 100 })
   if (!spec || typeof spec !== "object" || Array.isArray(spec))
     throw new Error("cudoc: embed must be a YAML mapping")
   for (const key of Object.keys(spec))
-    if (!["sources", "select", "render", "replace"].includes(key))
-      throw new Error(`cudoc: unknown embed option ${key}`)
+    if (!SPEC_KEYS.includes(key))
+      throw new Error(
+        `cudoc: unknown embed option "${key}". Known options: ${SPEC_KEYS.join(", ")}`,
+      )
   if (
     !Array.isArray(spec.sources) ||
     !spec.sources.length ||
@@ -51,8 +57,10 @@ export function parseEmbedSpec(value: string): EmbedSpec {
     if (typeof spec.select !== "object" || Array.isArray(spec.select))
       throw new Error("cudoc: select must be a mapping")
     for (const key of Object.keys(spec.select))
-      if (!["anchors", "titles", "depth", "includeChildren"].includes(key))
-        throw new Error(`cudoc: unknown selection ${key}`)
+      if (!SELECTION_KEYS.includes(key))
+        throw new Error(
+          `cudoc: unknown selection "${key}". Known selections: ${SELECTION_KEYS.join(", ")}`,
+        )
     if (
       spec.select.includeChildren !== undefined &&
       typeof spec.select.includeChildren !== "boolean"
@@ -66,21 +74,76 @@ export function parseEmbedSpec(value: string): EmbedSpec {
       )
         throw new Error(`cudoc: select.${key} must be strings`)
   }
-  if (
-    spec.replace !== undefined &&
-    (!Array.isArray(spec.replace) ||
-      spec.replace.some(
-        (r: Replacement) =>
-          !r ||
-          typeof r.find !== "string" ||
-          !r.find ||
-          typeof r.replace !== "string" ||
-          (r.flags !== undefined && typeof r.flags !== "string") ||
-          (r.regex !== undefined && typeof r.regex !== "boolean"),
-      ))
-  )
-    throw new Error("cudoc: invalid replacement rules")
+  if (spec.replace !== undefined) {
+    if (!Array.isArray(spec.replace))
+      throw new Error("cudoc: replace must be an array of rules")
+    spec.replace.forEach((rule: Replacement, index: number) => {
+      const at = `replace[${index}]`
+      if (!rule || typeof rule !== "object" || Array.isArray(rule))
+        throw new Error(`cudoc: ${at} must be a mapping`)
+      // Rejected rather than ignored, for the same reason the two levels above
+      // reject theirs: `regexp` instead of `regex` silently turns a pattern
+      // into a literal that matches nothing, and nothing later says so.
+      for (const key of Object.keys(rule))
+        if (!REPLACEMENT_KEYS.includes(key))
+          throw new Error(
+            `cudoc: ${at}: unknown key "${key}". Known keys: ${REPLACEMENT_KEYS.join(", ")}`,
+          )
+      if (typeof rule.find !== "string" || !rule.find)
+        throw new Error(`cudoc: ${at}.find must be a non-empty string`)
+      if (typeof rule.replace !== "string")
+        throw new Error(`cudoc: ${at}.replace must be a string`)
+      if (rule.regex !== undefined && typeof rule.regex !== "boolean")
+        throw new Error(`cudoc: ${at}.regex must be true or false`)
+      if (rule.flags !== undefined) {
+        if (typeof rule.flags !== "string")
+          throw new Error(`cudoc: ${at}.flags must be a string`)
+        if (!rule.regex)
+          throw new Error(
+            `cudoc: ${at}.flags has no effect without regex: true`,
+          )
+      }
+    })
+  }
   return spec
+}
+
+/** A YAML parser error carries where it gave up; a validation error does not. */
+type Located = { linePos?: [{ line: number; col: number }, ...unknown[]] }
+
+/**
+ * Parses one fenced block, naming the document and block when it fails.
+ *
+ * A bare YAML error reads `Missing closing "quote at line 3, column 24` and
+ * stops there, which is a poor thing to hand an author: line 3 of which block
+ * of which document? Every caller that walks fenced blocks knows both, so the
+ * context is attached here instead of being repeated at each of them.
+ */
+export function parseEmbedBlock(
+  value: string,
+  documentId: string,
+  number?: number,
+): EmbedSpec {
+  try {
+    return parseEmbedSpec(value)
+  } catch (cause) {
+    const at = (cause as Located).linePos?.[0]
+    const where = [
+      documentId,
+      number === undefined ? "embed block" : `embed block ${number}`,
+      at && `line ${at.line}, column ${at.col}`,
+    ]
+      .filter(Boolean)
+      .join(", ")
+    // The parser repeats its coordinate inside the message; `where` already
+    // carries it, and saying it twice reads like two different places.
+    const message = (cause as Error).message
+      .replace(/^cudoc: /, "")
+      .split("\n")[0]
+      .replace(/\s*at line \d+, column \d+:?\s*$/, "")
+      .trim()
+    throw new Error(`cudoc: ${where}: ${message}`, { cause })
+  }
 }
 
 export function resolveDocumentReference(
@@ -352,8 +415,10 @@ export function resolveEmbed(
             if (!node.children) return
             node.children = node.children.flatMap((child) => {
               if (child.type === "code" && child.lang === "cudoc-embed")
-                return expand(parseEmbedSpec(child.value!), document.id)
-                  .children as unknown as DocumentNode[]
+                return expand(
+                  parseEmbedBlock(child.value!, document.id),
+                  document.id,
+                ).children as unknown as DocumentNode[]
               expandNodes(child)
               return [child]
             })
@@ -439,11 +504,14 @@ export function resolveDocumentEmbeds(
   const expand = (node: DocumentNode) => {
     if (!node.children) return
     node.children = node.children.flatMap((child) => {
-      if (child.type === "code" && child.lang === "cudoc-embed")
-        return resolveEmbed(library, parseEmbedSpec(child.value!), {
-          documentId,
-          prefix: `embed-${++index}`,
-        }).children as unknown as DocumentNode[]
+      if (child.type === "code" && child.lang === "cudoc-embed") {
+        const number = ++index
+        return resolveEmbed(
+          library,
+          parseEmbedBlock(child.value!, documentId, number),
+          { documentId, prefix: `embed-${number}` },
+        ).children as unknown as DocumentNode[]
+      }
       expand(child)
       return [child]
     })

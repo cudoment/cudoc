@@ -2,21 +2,22 @@
 
 [English](./docusaurus.md) | **한국어** · [전체 가이드](./README.ko.md)
 
-기존 Docusaurus 사이트에서 설치합니다.
+순서대로 따라가시면 됩니다. 1–3단계는 Markdown 문법 확장을 켭니다. 4–6단계는 문서 임베딩을 더합니다. 한 문서가 다른 문서를 재사용할 수 있게 해 주는 기능입니다. 7단계는 선택 사항입니다.
+
+## 1단계 — 설치
 
 ```sh
 npm install @cudoment/cudoc cudoc-remark cudoc-docusaurus
 ```
 
-## 문법 설정
+## 2단계 — remark 플러그인 등록
 
-기존 설정에 다음 내용을 합칩니다.
+`docusaurus.config.mjs`에 아래를 병합하고, 사이트의 다른 설정은 그대로 두십시오.
 
 ```js
 import { cudocRemarkPlugins } from "cudoc-docusaurus"
 
 export default {
-  // 사이트의 다른 필수 설정은 유지합니다.
   markdown: { format: "detect" },
   presets: [
     [
@@ -34,49 +35,59 @@ export default {
 }
 ```
 
+`remarkPlugins`가 아니라 반드시 `beforeDefaultRemarkPlugins`여야 합니다. cudoc이 제목 앵커를 배정하고 나면 Docusaurus가 그 뒤에 자체 제목 id와 목차를 만듭니다. cudoc을 나중에 실행하면 둘이 서로 어긋난 채로 남습니다.
+
+## 3단계 — 스타일시트 가져오기
+
 `src/css/custom.css`에 추가합니다.
 
 ```css
 @import "@cudoment/cudoc/styles.css";
 ```
 
-호스트의 제목 ID와 목차 처리 전에 cudoc 앵커가 존재하도록 `beforeDefaultRemarkPlugins`를 사용합니다. 어댑터는 `host: "docusaurus"`를 설정하고 자동 ID와 목차는 Docusaurus에 맡깁니다. 이 설정에는 cudoc 테마 플러그인이나 컴포넌트 등록이 필요하지 않습니다.
+콜아웃과 배지에 스타일을 입힙니다. 자체 텍스트 색상을 지정하지 않으므로 사이트의 라이트·다크 테마를 그대로 따릅니다.
 
-형식 감지는 `.md`를 Markdown, `.mdx`를 MDX로 처리합니다. 호스트 알림과 제목 ID를 cudoc 표기와 함께 허용하려면 `syntax: { headingAnchor: "both", callout: "both" }`를 지정합니다. 지원 표기는 [문법 가이드](./syntax.ko.md)를 참고하세요.
+**문법 확장만 필요하시면 여기서 멈추셔도 됩니다.** 사이트를 실행하면 [Markdown 문법](./syntax.ko.md)의 기능들이 동작합니다. 문서 임베딩이 필요하시면 계속 진행하십시오.
 
-## 임베드 추가
+## 4단계 — 임베드 플러그인 추가
 
-임베드 플러그인을 import하고 호스트 기본 처리 뒤에 실행되는 docs 플러그인의 `remarkPlugins`에 추가합니다.
+같은 `docs` 옵션 안에서, 네이티브 처리 뒤에 둡니다.
 
 ```js
 import embed from "cudoc-remark/embed"
 
-// presets → classic → docs 내부:
-remarkPlugins: [[embed, {
-  sourceRoot: "docs",
-  outDir: ".cudoc/documents",
-}]],
+// presets → classic → docs:
+remarkPlugins: [[embed, { sourceRoot: "docs", outDir: ".cudoc/documents" }]],
 ```
 
-[Docusaurus 수집기](../examples/docusaurus/collect.mjs)를 사이트의 `collect.mjs`로 사용합니다. 실제 Docusaurus MDX 프로세서를 호출하고 호스트 변환을 캡처한 뒤 임베드를 준비합니다. 예제 의존성 버전에 맞춘 내부 프로세서 진입점을 사용하므로 Docusaurus 버전을 변경할 때 확인해야 합니다.
+## 5단계 — 수집기 추가
 
-`sourceRoot`, `outDir`, `routeBase`를 사이트에 맞춥니다. 수집과 렌더링의 문법 옵션 및 호스트 Markdown 설정은 같아야 합니다. 위에서 `both`를 켰다면 수집기의 문서 옵션과 `cudocRemarkPlugins` 호출도 함께 변경합니다. 사용자 slug는 `routes`에 지정하고 관련 설정이 바뀌면 `compilerId`를 갱신합니다.
+[예제 수집기](../examples/docusaurus/collect.mjs)를 사이트 루트에 `collect.mjs`로 복사하십시오. 실제 Docusaurus MDX 프로세서를 실행해서 Docusaurus가 문서에 가하는 변환을 그대로 포착한 뒤 임베드를 준비합니다.
+
+`sourceRoot`, `outDir`, `routeBase`를 사이트에 맞게 설정하십시오. **수집과 렌더링은 반드시 일치해야 합니다.** 같은 문법 옵션, 같은 네이티브 Markdown 설정을 써야 하며, 한쪽을 바꾸면 다른 쪽도 바꿔야 합니다.
+
+> 수집기는 Docusaurus의 내부 프로세서 진입점을 버전에 고정해서 가져옵니다. Docusaurus를 올리실 때 다시 확인하십시오.
+
+## 6단계 — 빌드 전마다 수집 실행
 
 ```json
 {
   "scripts": {
     "collect": "node collect.mjs",
+    "check": "cudoc check --config cudoc.config.mjs",
     "start": "npm run collect && docusaurus start",
-    "build": "npm run collect && docusaurus build"
+    "build": "npm run collect && npm run check && docusaurus build"
   }
 }
 ```
 
-문서 수정 후 다시 수집하세요. 수집 watcher는 없습니다. 플러그인이 준비된 임베드를 자동으로 삽입합니다. [임베드 가이드](./embedding.ko.md), [실행 사이트](../examples/docusaurus/docusaurus.config.mjs), [어댑터 내부 동작](./api-reference/adapters.ko.md#docusaurus와-nextra)을 참고하세요.
+수집 감시 기능이 없으므로 사이트보다 먼저 수집이 돌아야 합니다. 준비된 내용은 임베드 플러그인이 알아서 삽입합니다.
 
-## 독립 HTML도 함께 생성
+`cudoc check`는 깨진 링크와 앵커, 이미지, 임베드를 한 번에 전부 보고하고 종료 코드를 0이 아닌 값으로 냅니다. 사이트가 생성되기 전에 빌드가 멈춥니다. → [참조 검사](./check.ko.md)
 
-위 수집과 준비가 끝나면 `cudoc-html`을 설치하고 같은 결과로 공유용 HTML을 추가 생성할 수 있습니다. 기본 사이트와 출력 경로를 분리합니다.
+## 7단계 — 독립 HTML도 내보내기 (선택)
+
+방금 수집한 라이브러리를 재사용해 전달용 HTML 묶음을 만듭니다.
 
 ```sh
 npm install cudoc-html
@@ -84,4 +95,41 @@ npx cudoc-html build docs --library .cudoc/documents --out-dir shared-html \
   --links host --host-url https://docs.example.com/project/
 ```
 
-`--host-url`과 수집된 문서 경로를 실제 배포 URL에 맞춥니다. `--links relative`는 로컬 탐색, `--links none`은 전체 하이퍼링크 제거입니다. 자산 경로와 사용자 컴포넌트 설정은 [독립 HTML 가이드](./html.ko.md)를 참고하세요.
+Docusaurus 빌드 결과와 수집 데이터는 변경되지 않습니다. → [독립 HTML](./html.ko.md)
+
+---
+
+## 이제 쓸 수 있는 것
+
+| 기능               | 예시                             | 자세히                                          |
+| ------------------ | -------------------------------- | ----------------------------------------------- |
+| 명시적 제목 앵커   | `## 한도 (#limits)`              | [문법](./syntax.ko.md#앵커와-배지)              |
+| 제목 배지          | `## 한도 (#limits) (@New)`       | [문법](./syntax.ko.md#앵커와-배지)              |
+| 제목이 있는 콜아웃 | `> [!NOTE] 시작하기 전에`        | [문법](./syntax.ko.md#알림)                     |
+| 표 셀 안 중첩 목록 | `- 계정<br />-- 이메일 인증`     | [문법](./syntax.ko.md#표-셀-내부-목록)          |
+| 문서 전체 임베드   | `sources: [reference.md]`        | [임베딩](./embedding.ko.md#섹션-가져오기)       |
+| 한 절 임베드       | `sources: [reference.md#limits]` | [임베딩](./embedding.ko.md#섹션-가져오기)       |
+| 제목 요약 표       | `select: { depth: 2 }`           | [임베딩](./embedding.ko.md#제목-요약-표-만들기) |
+| 사본의 문구 치환   | `replace: [{ find, replace }]`   | [임베딩](./embedding.ko.md#찾기바꾸기)          |
+
+## Docusaurus에서 알아 둘 점
+
+**네이티브 문법과 함께 쓰기.** Docusaurus의 admonition과 `{#id}` 제목 id는 그대로 동작합니다. cudoc이 그것들까지 정규화하게 하면 임베드한 사본과 HTML 출력이 같은 의미를 갖게 됩니다.
+
+```js
+cudocRemarkPlugins({ syntax: { headingAnchor: "both", callout: "both" } })
+```
+
+지원하는 네이티브 형태는 [문법 가이드](./syntax.ko.md)에 정리되어 있습니다.
+
+**형식 자동 판별.** `markdown: { format: "detect" }`는 `.md`를 평범한 Markdown으로 두어 `{value}`가 그대로 글자로 남게 하고, `.mdx`는 MDX로 다룹니다. 직접 만든 React 컴포넌트는 `.mdx`에 작성하십시오. → [`.md`와 `.mdx` 선택](./README.ko.md#md와-mdx-선택)
+
+**테마 플러그인 불필요.** 이 구성에는 cudoc 테마 플러그인도, 컴포넌트 등록도 필요 없습니다. 작성자는 Markdown만 씁니다.
+
+**커스텀 슬러그.** 문서 id와 URL이 다르면 수집기에 `routes`를 넘기시고, 컴파일에 영향을 주는 설정을 바꾸셨다면 `compilerId`를 올리십시오.
+
+## 다음으로
+
+- [문서 임베딩](./embedding.ko.md) — 선택, 다중 소스, 갱신 규칙
+- [어댑터 내부 동작](./api-reference/adapters.ko.md#docusaurus와-nextra) — 순서, 캡처, 어댑터가 설정하는 값
+- [실행 가능한 예제](../examples/docusaurus/docusaurus.config.mjs) — 동작하는 사이트

@@ -21,7 +21,7 @@ Default settings produce component-free output in both `.md` and `.mdx`; `syntax
 
 Choose `host`, `cudoc` or `both` independently for `headingAnchor`, `badge`, `tableCellList`, `callout` and `link`. The representative callout is `> [!NOTE] Title`. Authors do not register cudoc React components in the recommended setup. Syntax-only rendering needs no stored JSON; cross-document embedding requires document collection.
 
-- [Usage guide](https://github.com/cudoment/cudoc/tree/main/docs/next-mdx.md) · [한국어 가이드](https://github.com/cudoment/cudoc/tree/main/docs/next-mdx.ko.md)
+- [Usage guide](https://github.com/cudoment/cudoc/tree/main/docs/next.md) · [한국어 가이드](https://github.com/cudoment/cudoc/tree/main/docs/next.ko.md)
 - [Markdown syntax](https://github.com/cudoment/cudoc/tree/main/docs/syntax.md)
 - [Embedding](https://github.com/cudoment/cudoc/tree/main/docs/embedding.md)
 - [Standalone HTML alongside a host](https://github.com/cudoment/cudoc/tree/main/docs/html.md#export-alongside-an-existing-site)

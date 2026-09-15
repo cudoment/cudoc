@@ -606,7 +606,12 @@ export function normalizeDocument(
   for (const node of headings) {
     const id = node.data?.hProperties?.id
     if (typeof id === "string") {
-      if (ids.has(id)) fail(node, `duplicate heading ID: ${id}`)
+      // Reported rather than thrown: two headings claiming one id is a
+      // problem across a document set, and `cudoc check` collects those so an
+      // author sees every one at once. Hosts suffix duplicates instead of
+      // failing, so throwing here was also stricter than the site itself.
+      if (ids.has(id))
+        warn(node, "duplicate-heading-id", `duplicate heading ID: ${id}`)
       ids.add(id)
     }
   }

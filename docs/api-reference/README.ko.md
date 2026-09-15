@@ -12,6 +12,25 @@
 | [Node API](./node.ko.md)     | 수집, 라이브러리 파일, 임베드, 데이터셋, 출력 보호, CLI |
 | [어댑터](./adapters.ko.md)   | remark, 캡처, 호스트 순서, markdown-it 토큰, HTML 생성  |
 
+## 패키지
+
+호스트에 필요한 것만 설치하십시오. ESM이며 Node.js 20 이상이 필요합니다. 각 [사용 가이드](../README.ko.md)의 첫 단계에 그 호스트의 정확한 설치 명령이 있습니다.
+
+| 패키지                                                            | 역할                                         |
+| ----------------------------------------------------------------- | -------------------------------------------- |
+| [`@cudoment/cudoc`](../../packages/cudoc/README.md)               | 공통 문서 처리, 컴파일, 쿼리, 수집, 데이터셋 |
+| [`cudoc-remark`](../../packages/cudoc-remark/README.md)           | remark와 MDX 파이프라인 연결                 |
+| [`cudoc-docusaurus`](../../packages/cudoc-docusaurus/README.md)   | Docusaurus 통합                              |
+| [`cudoc-nextra`](../../packages/cudoc-nextra/README.md)           | Nextra 통합                                  |
+| [`cudoc-markdown-it`](../../packages/cudoc-markdown-it/README.md) | markdown-it 파이프라인 연결                  |
+| [`cudoc-vitepress`](../../packages/cudoc-vitepress/README.md)     | VitePress 렌더링과 수집                      |
+| [`cudoc-eleventy`](../../packages/cudoc-eleventy/README.md)       | Eleventy 렌더링과 수집                       |
+| [`cudoc-html`](../../packages/cudoc-html/README.md)               | 독립 HTML 생성                               |
+
+Next.js에는 전용 어댑터 패키지가 없습니다. `@next/mdx`가 remark 파이프라인을 그대로 넘겨주고, cudoc이 순서를 맞춰야 할 네이티브 제목 ID 처리나 목차 처리도 없기 때문에, `host: "next"`를 준 `cudoc-remark` 하나가 통합의 전부입니다. Docusaurus와 Nextra에 어댑터가 있는 이유는 그 호스트들에 그런 처리가 있기 때문입니다. → [MDX 호스트](./adapters.ko.md#docusaurus와-nextra)
+
+코어 패키지만 스코프를 사용합니다. npm에 `cudoc` 이름이 이미 있어서 `@cudoment/cudoc`으로 배포합니다.
+
 ## 패키지 경계
 
 - `@cudoment/cudoc`은 문서 의미와 재사용 가능한 AST 연산을 소유합니다. Node API는 명시적인 `node/*` 진입점에 둡니다.
@@ -38,6 +57,7 @@
 | `/node/resolve-embed`                                              | 임베드 요청 해석과 처리                         | [임베드](./node.ko.md#임베드)                                 |
 | `/node/prepare-embeds`                                             | 빌드 전 임베드 데이터 준비·읽기                 | [준비](./node.ko.md#준비된-임베드)                            |
 | `/node/dataset`                                                    | 필터링한 AST 디렉터리 생성                      | [데이터셋](./node.ko.md#데이터셋)                             |
+| `/node/check`, `/node/report`                                      | 라이브러리 전체 참조 검사와 출력 서식           | [참조 검사](./node.ko.md#참조-검사)                           |
 | `/node/storage`                                                    | 파일시스템과 임시 디렉터리 기반 출력            | [저장](./node.ko.md#저장)                                     |
 | `/embed`, `/node/export-ast`, `/node/load-ast-file`, `/node/paths` | 개별 AST 스냅샷과 경로                          | [개별 스냅샷](./node.ko.md#개별-ast-스냅샷)                   |
 | `/transforms/*`                                                    | 하위 문법 변환                                  | [코어 도우미](./document.ko.md#코어-도우미)                   |
