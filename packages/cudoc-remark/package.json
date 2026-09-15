@@ -1,6 +1,6 @@
 {
   "name": "cudoc-remark",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Remark plugin for cudoc: heading anchors, badges, table cell lists and table column layout, each configurable.",
   "license": "MIT",
   "repository": {
@@ -82,7 +82,7 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "@cudoment/cudoc": "0.3.0",
+    "@cudoment/cudoc": "0.4.0",
     "estree-util-value-to-estree": "^3.5.0",
     "mdast-util-mdx-jsx": "^3.2.0",
     "remark-gfm": "^4.0.1",

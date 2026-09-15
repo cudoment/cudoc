@@ -117,14 +117,22 @@ import { renderDocument } from "@cudoment/cudoc/render"
 import { buildDocuments } from "@cudoment/cudoc/node/library"
 import { resolveDocumentEmbeds } from "@cudoment/cudoc/node/resolve-embed"
 import { prepareEmbeds } from "@cudoment/cudoc/node/prepare-embeds"
+import { checkReferences } from "@cudoment/cudoc/node/check"
+import { formatCheckResult } from "@cudoment/cudoc/node/report"
 fs.mkdirSync("markdown")
 fs.writeFileSync("markdown/api.md", "# API (#api)\\n\\n> [!NOTE] Title\\n> Literal {value}.")
+fs.writeFileSync("markdown/guide.md", "# Guide (#guide)\\n\\n[typo](api.md#apis)\\n")
 const library = buildDocuments({ sourceRoot: "markdown", outDir: "portable-data" })
 await prepareEmbeds(library, "portable-data")
 assert.match(renderDocument(resolveDocumentEmbeds(library, "api")), /data-callout="note"/)
 assert.match(renderDocument(compileDocument("Literal {value}").tree), /{value}/)
 assert.ok(fs.existsSync(new URL(import.meta.resolve("@cudoment/cudoc/styles.css"))))
-console.log("standalone Markdown collection, rendering and prepared embeds verified")
+// The documented import path, not the source file: the unit tests reach
+// report.ts relatively, so only a packed consumer proves it is exported.
+const check = checkReferences(library)
+assert.deepEqual(check.issues.map((issue) => issue.code), ["missing-anchor"])
+assert.match(formatCheckResult(check), /missing-anchor/)
+console.log("standalone Markdown collection, rendering, prepared embeds and reference checking verified")
 `,
   )
   process.stdout.write(run("node", ["portable-check.mjs"], workspace))

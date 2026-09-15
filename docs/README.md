@@ -1,33 +1,69 @@
-# cudoc usage guide
+# cudoc guides
 
 **English** | [한국어](./README.ko.md) · [Project home](../README.md)
 
-Markdown extensions and document embedding are the two core capabilities. Standalone HTML is optional additional output, usable alongside any supported documentation host or on its own. A documentation host is the site generator or web framework that builds and serves the primary site. Configuration belongs in the site setup; document authors write ordinary Markdown and cudoc markers.
+Guides teach the workflow. The [API reference](./api-reference/README.md) holds signatures, defaults and contracts.
 
-## Learn in order
+## Set up your site
 
-1. [Getting started](../README.md#getting-started): create a document and build HTML.
-2. [Markdown syntax](./syntax.md): choose syntax per feature and write callouts, anchors, badges and tables.
-3. [Document embedding](./embedding.md): collect documents, select sections, create summary tables and replace text.
-4. [AST datasets](./dataset.md): filter compiled documents for your own consumer.
-5. [Standalone HTML](./html.md): export files alongside your main site and choose a hyperlink policy.
+Each guide is a numbered walkthrough: install, configure, wire up collection, build. Every step is a copy-pasteable command or file, so you can work through one yourself or hand it to a coding agent. Every guide ends with a table of what you can then write, and the host-specific details worth knowing.
 
-## Choose a host
+| Your site            | Guide                           |
+| -------------------- | ------------------------------- |
+| **Next.js**          | [Next.js →](./next.md)          |
+| **Docusaurus**       | [Docusaurus →](./docusaurus.md) |
+| **Nextra**           | [Nextra →](./nextra.md)         |
+| **VitePress**        | [VitePress →](./vitepress.md)   |
+| **Eleventy**         | [Eleventy →](./eleventy.md)     |
+| **No generator yet** | [Standalone HTML →](./html.md)  |
 
-| Host                         | Guide                             | Document format                     |
-| ---------------------------- | --------------------------------- | ----------------------------------- |
-| Existing Next.js application | [Next.js with MDX](./next-mdx.md) | `.md`, `.mdx`                       |
-| Docusaurus site              | [Docusaurus](./docusaurus.md)     | `.md`, `.mdx` with format detection |
-| Nextra site                  | [Nextra](./nextra.md)             | `.md`, `.mdx` with format detection |
-| VitePress site               | [VitePress](./vitepress.md)       | `.md`; React MDX is unsupported     |
-| Eleventy site                | [Eleventy](./eleventy.md)         | `.md`; React MDX is unsupported     |
+Setting up syntax extensions alone stops after host configuration. Document embedding needs collection to run before the site build; each guide marks where that line falls.
 
-Syntax-only integration stops after host configuration. For cross-document embedding, add collection and preparation before starting the host. The [embedding guide](./embedding.md) explains when to run those steps again.
+## Choosing `.md` or `.mdx`
 
-Standalone HTML can accompany any of the five host integrations. Reuse the host's collected library to keep native semantics and prepared embeds, and choose local links, deployment links or no hyperlinks. See [exporting alongside a site](./html.md#export-alongside-an-existing-site).
+**Every cudoc feature works the same in both.** Anchors, badges, callouts and lists inside table cells compile to plain HTML elements on every host and in either format, so nothing in this project asks you to write `.mdx`. The choice is about your own content: `.mdx` exists so that _you_ can author React components.
 
-## For developers
+The format is decided **per file, by its extension**, not per project. Collection reads the extension the same way the host does, so one directory can hold both.
 
-[API reference](./api-reference/README.md) documents imports, signatures, defaults, AST metadata, persistence and compiler ordering. [Examples](../examples/README.md) provide executable host integrations and validation commands.
+| Your site       | `.md` | `.mdx`                         | How the choice is made                        |
+| --------------- | ----- | ------------------------------ | --------------------------------------------- |
+| Next.js         | yes   | yes                            | `format: "detect"` in the `@next/mdx` options |
+| Docusaurus      | yes   | yes                            | `markdown: { format: "detect" }`              |
+| Nextra          | yes   | yes                            | `format: "detect"` in `mdxOptions`            |
+| VitePress       | yes   | no                             | markdown-it has no MDX parser                 |
+| Eleventy        | yes   | no                             | markdown-it has no MDX parser                 |
+| Standalone HTML | yes   | needs a renderer per component | components have nowhere to resolve from       |
 
-The current scope covers syntax, embedding, AST projection and HTML generation. Link monitoring and replacement of a separate Docs project are not included. Native syntax support is limited to the forms listed in the guides; arbitrary host plugins and dynamic components do not automatically become portable.
+The two markdown-it hosts do not mangle an `.mdx` file they cannot read. Collection stops with the reason:
+
+```
+cudoc-vitepress: markdown-it hosts compile Markdown .md documents, not React .mdx
+```
+
+That is a parser boundary rather than a policy. Components are still available on those hosts by their own route: VitePress renders Vue components written directly in `.md`, and cudoc normalizes the static forms of them. → [VitePress](./vitepress.md#vitepress-specifics)
+
+### What a component costs you
+
+A component renders only where it is registered. That is fine in the document that owns it, and it stops being fine once an embed copies that section into another document, because standalone HTML export has no registry to resolve the name against. [`cudoc check`](./check.md#the-unportable-component-warning) reports that at check time instead of leaving it for export time.
+
+So the rule of thumb is narrow: keep sections that other documents embed in Markdown, and put components wherever else you like.
+
+## Learn the features
+
+| Guide                                | What it covers                                                                    |
+| ------------------------------------ | --------------------------------------------------------------------------------- |
+| [Markdown syntax](./syntax.md)       | Anchors, badges, callouts, lists inside table cells, column layouts, syntax modes |
+| [Document embedding](./embedding.md) | Collection, section selection, summary tables, find-and-replace, refresh rules    |
+| [Standalone HTML](./html.md)         | Direct builds, export alongside a host, hyperlink policies, assets, configuration |
+| [Reference checking](./check.md)     | Finding broken links, anchors, images and embeds across the whole document set    |
+| [AST datasets](./dataset.md)         | Filtering compiled documents into AST JSON for indexing and other consumers       |
+
+## Reference and examples
+
+[API reference](./api-reference/README.md) documents public imports, signatures, option defaults, AST metadata, persistence and compiler ordering. [Runnable examples](../examples/README.md) are working host integrations you can build locally.
+
+## Scope
+
+cudoc covers Markdown syntax normalization, cross-document embedding, AST projection and HTML generation. Configuration belongs in the site setup; authors write ordinary Markdown and cudoc markers, and never import or register cudoc components.
+
+Native syntax support is limited to the forms each guide lists. Arbitrary host plugins and dynamic components do not automatically become portable: a component whose content depends on runtime state cannot travel through an embed or into exported HTML. Link monitoring and collection watching are not provided.
