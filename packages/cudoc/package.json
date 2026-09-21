@@ -175,6 +175,6 @@
     }
   },
   "bin": {
-    "cudoc": "./dist/node/cli.js"
+    "cudoc": "dist/node/cli.js"
   }
 }
