@@ -208,11 +208,24 @@ export async function printPdfs(
   return pages
 }
 
-/** Resolves playwright-core's CLI so an installer runs the matching revision. */
+/**
+ * Resolves playwright-core's CLI so an installer runs the matching revision.
+ * The package exports no subpath for it, so the path comes from the `bin`
+ * field of its manifest, which is exported.
+ */
 export const browserInstallCommand = (): [string, string[]] => {
   const require = createRequire(import.meta.url)
+  const manifestPath = require.resolve("playwright-core/package.json")
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as {
+    bin?: string | Record<string, string>
+  }
+  const bin =
+    typeof manifest.bin === "string"
+      ? manifest.bin
+      : manifest.bin?.["playwright-core"]
+  if (!bin) throw new Error("cudoc-export: playwright-core declares no CLI")
   return [
     process.execPath,
-    [require.resolve("playwright-core/cli.js"), "install", BROWSER_CHANNEL],
+    [path.join(path.dirname(manifestPath), bin), "install", BROWSER_CHANNEL],
   ]
 }

@@ -12,6 +12,7 @@ import os from "node:os"
 import path from "node:path"
 import {
   browserAvailable,
+  browserInstallCommand,
   pdfPageCount,
   printPdfs,
   runningTemplate,
@@ -169,5 +170,15 @@ suite("printing", () => {
 describe("browser absence", () => {
   it("reports a path that does not exist as unavailable", async () => {
     expect(await browserAvailable("/nonexistent/chrome")).toBe(false)
+  })
+
+  it("names playwright-core's own CLI for the install, through its manifest", () => {
+    // The package exports no `./cli.js` subpath, so resolving it by name
+    // fails; the command has to come from the `bin` field instead.
+    const [command, args] = browserInstallCommand()
+    expect(command).toBe(process.execPath)
+    expect(fs.existsSync(args[0]!)).toBe(true)
+    expect(args[0]).toMatch(/playwright-core[\\/]cli\.js$/)
+    expect(args.slice(1)).toEqual(["install", "chromium-headless-shell"])
   })
 })
