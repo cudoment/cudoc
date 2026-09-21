@@ -71,6 +71,6 @@
     "node": ">=20"
   },
   "bin": {
-    "cudoc-export": "./dist/cli.js"
+    "cudoc-export": "dist/cli.js"
   }
 }

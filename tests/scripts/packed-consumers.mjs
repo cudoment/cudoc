@@ -8,7 +8,7 @@
  * consumer installing from npm gets something that works.
  */
 
-import { execFileSync } from "node:child_process"
+import { execFileSync, spawn } from "node:child_process"
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
@@ -39,6 +39,68 @@ const packages = fs
     ),
   }))
   .filter(({ manifest }) => !manifest.private)
+
+/**
+ * The installed `cudoc` command in watch mode: a first pass, a second pass
+ * after one file changes that compiles only that file, and a clean exit on
+ * SIGINT. Runs where the standalone product is installed, against the
+ * Markdown the portable check wrote.
+ */
+async function watchCheck(cwd) {
+  fs.writeFileSync(
+    path.join(cwd, "watch.config.json"),
+    JSON.stringify({ sourceRoot: "markdown", outDir: "watch-data" }),
+  )
+  const child = spawn(
+    path.join(cwd, "node_modules/.bin/cudoc"),
+    ["collect", "--config", "watch.config.json", "--watch"],
+    { cwd, stdio: ["ignore", "pipe", "inherit"] },
+  )
+  const passes = []
+  let buffered = ""
+  let wake = () => {}
+  child.stdout.on("data", (chunk) => {
+    buffered += chunk
+    const lines = buffered.split("\n")
+    buffered = lines.pop()
+    for (const line of lines) if (line.trim()) passes.push(JSON.parse(line))
+    wake()
+  })
+  const exit = new Promise((resolve) => child.on("exit", resolve))
+  const until = async (condition, what) => {
+    const deadline = Date.now() + 30_000
+    while (!condition()) {
+      if (Date.now() > deadline) {
+        child.kill("SIGKILL")
+        throw new Error(`cudoc collect --watch: timed out waiting for ${what}`)
+      }
+      await new Promise((resolve) => {
+        wake = resolve
+        setTimeout(resolve, 200)
+      })
+    }
+  }
+  try {
+    await until(() => passes.length >= 1, "the first pass")
+    if (passes[0].compiled.length !== 2)
+      throw new Error(
+        `first pass compiled ${JSON.stringify(passes[0].compiled)}`,
+      )
+    fs.appendFileSync(path.join(cwd, "markdown/guide.md"), "\nMore.\n")
+    await until(() => passes.length >= 2, "the pass after a change")
+    if (
+      JSON.stringify(passes[1].compiled) !== '["guide"]' ||
+      passes[1].reused !== 1
+    )
+      throw new Error(`second pass compiled ${JSON.stringify(passes[1])}`)
+    child.kill("SIGINT")
+    const code = await exit
+    if (code !== 0) throw new Error(`cudoc collect --watch exited with ${code}`)
+    console.log("installed cudoc collect --watch verified")
+  } finally {
+    if (child.exitCode === null) child.kill("SIGKILL")
+  }
+}
 
 const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "cudoc-pack-"))
 console.log(`verifying packed installs in ${workspace}`)
@@ -139,6 +201,7 @@ console.log("standalone Markdown collection, rendering, prepared embeds and refe
 `,
   )
   process.stdout.write(run("node", ["portable-check.mjs"], workspace))
+  await watchCheck(workspace)
 
   run(
     "npm",
