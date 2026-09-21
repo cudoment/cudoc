@@ -12,6 +12,8 @@
  * browser is missing, the export says so and names this command.
  */
 
+import fs from "node:fs"
+import path from "node:path"
 import { createRequire } from "node:module"
 import { spawnSync } from "node:child_process"
 
@@ -26,9 +28,15 @@ for (const name of SKIP)
 
 try {
   const require = createRequire(import.meta.url)
-  const cli = require.resolve("playwright-core/cli.js")
-  // Installing through the resolved playwright-core guarantees the revision
-  // matches the one `launch()` will look for at run time.
+  // playwright-core exports no subpath for its CLI; its manifest names the
+  // file under `bin`. Installing through the resolved package guarantees the
+  // revision matches the one `launch()` will look for at run time.
+  const manifestPath = require.resolve("playwright-core/package.json")
+  const { bin } = JSON.parse(fs.readFileSync(manifestPath, "utf8"))
+  const cli = path.join(
+    path.dirname(manifestPath),
+    typeof bin === "string" ? bin : bin["playwright-core"],
+  )
   const result = spawnSync(process.execPath, [cli, "install", CHANNEL], {
     stdio: "inherit",
   })
