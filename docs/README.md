@@ -8,14 +8,14 @@ Guides teach the workflow. The [API reference](./api-reference/README.md) holds 
 
 Each guide is a numbered walkthrough: install, configure, wire up collection, build. Every step is a copy-pasteable command or file, so you can work through one yourself or hand it to a coding agent. Every guide ends with a table of what you can then write, and the host-specific details worth knowing.
 
-| Your site            | Guide                           |
-| -------------------- | ------------------------------- |
-| **Next.js**          | [Next.js →](./next.md)          |
-| **Docusaurus**       | [Docusaurus →](./docusaurus.md) |
-| **Nextra**           | [Nextra →](./nextra.md)         |
-| **VitePress**        | [VitePress →](./vitepress.md)   |
-| **Eleventy**         | [Eleventy →](./eleventy.md)     |
-| **No generator yet** | [Standalone HTML →](./html.md)  |
+| Your site            | Guide                            |
+| -------------------- | -------------------------------- |
+| **Next.js**          | [Next.js →](./next.md)           |
+| **Docusaurus**       | [Docusaurus →](./docusaurus.md)  |
+| **Nextra**           | [Nextra →](./nextra.md)          |
+| **VitePress**        | [VitePress →](./vitepress.md)    |
+| **Eleventy**         | [Eleventy →](./eleventy.md)      |
+| **No generator yet** | [Standalone HTML →](./export.md) |
 
 Setting up syntax extensions alone stops after host configuration. Document embedding needs collection to run before the site build; each guide marks where that line falls.
 
@@ -50,13 +50,13 @@ So the rule of thumb is narrow: keep sections that other documents embed in Mark
 
 ## Learn the features
 
-| Guide                                | What it covers                                                                    |
-| ------------------------------------ | --------------------------------------------------------------------------------- |
-| [Markdown syntax](./syntax.md)       | Anchors, badges, callouts, lists inside table cells, column layouts, syntax modes |
-| [Document embedding](./embedding.md) | Collection, section selection, summary tables, find-and-replace, refresh rules    |
-| [Standalone HTML](./html.md)         | Direct builds, export alongside a host, hyperlink policies, assets, configuration |
-| [Reference checking](./check.md)     | Finding broken links, anchors, images and embeds across the whole document set    |
-| [AST datasets](./dataset.md)         | Filtering compiled documents into AST JSON for indexing and other consumers       |
+| Guide                                | What it covers                                                                                      |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| [Markdown syntax](./syntax.md)       | Anchors, badges, callouts, lists inside table cells, column layouts, syntax modes                   |
+| [Document embedding](./embedding.md) | Collection, section selection, summary tables, find-and-replace, refresh rules                      |
+| [Export](./export.md)                | Standalone HTML, PDF and Word, alongside a host or alone; hyperlink policies, assets, configuration |
+| [Reference checking](./check.md)     | Finding broken links, anchors, images and embeds across the whole document set                      |
+| [AST datasets](./dataset.md)         | Filtering compiled documents into AST JSON for indexing and other consumers                         |
 
 ## Reference and examples
 

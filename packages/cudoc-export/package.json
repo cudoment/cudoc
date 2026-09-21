@@ -1,0 +1,76 @@
+{
+  "name": "cudoc-export",
+  "version": "0.5.0",
+  "description": "Export cudoc documentation as a standalone HTML site, PDF and Word from one collection",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cudoment/cudoc.git",
+    "directory": "packages/cudoc-export"
+  },
+  "homepage": "https://github.com/cudoment/cudoc#readme",
+  "bugs": {
+    "url": "https://github.com/cudoment/cudoc/issues"
+  },
+  "keywords": [
+    "cudoc",
+    "html",
+    "pdf",
+    "docx",
+    "word",
+    "static-site",
+    "markdown",
+    "documentation"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./docx": {
+      "types": "./dist/docx.d.ts",
+      "default": "./dist/docx.js"
+    },
+    "./pdf": {
+      "types": "./dist/pdf.d.ts",
+      "default": "./dist/pdf.js"
+    },
+    "./print": {
+      "types": "./dist/print.d.ts",
+      "default": "./dist/print.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "install-browser.mjs"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc --build && npm run build:browser",
+    "build:browser": "tsc -p tsconfig.browser.json && esbuild src/browser/cudoc-annotations.ts src/browser/cudoc-annotations.css src/browser/cudoc-theme.ts --bundle --format=iife --target=es2020 --outdir=dist/browser --log-level=warning",
+    "clean": "rm -rf dist *.tsbuildinfo",
+    "postinstall": "node ./install-browser.mjs"
+  },
+  "dependencies": {
+    "@cudoment/cudoc": "0.5.0",
+    "docx": "^9.7.1",
+    "hast-util-from-html": "^2.0.3",
+    "hast-util-to-html": "^9.0.5",
+    "highlight.js": "^11.12.0",
+    "playwright-core": "^1.63.0"
+  },
+  "author": "cudoment",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "cudoc-export": "./dist/cli.js"
+  }
+}

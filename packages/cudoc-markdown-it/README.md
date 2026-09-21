@@ -32,6 +32,6 @@ Choose `host`, `cudoc` or `both` independently for `headingAnchor`, `badge`, `ta
 - [VitePress guide](https://github.com/cudoment/cudoc/tree/main/docs/vitepress.md) · [Eleventy guide](https://github.com/cudoment/cudoc/tree/main/docs/eleventy.md)
 - [Markdown syntax](https://github.com/cudoment/cudoc/tree/main/docs/syntax.md)
 - [Embedding](https://github.com/cudoment/cudoc/tree/main/docs/embedding.md)
-- [Standalone HTML alongside a host](https://github.com/cudoment/cudoc/tree/main/docs/html.md#export-alongside-an-existing-site)
+- [Standalone HTML alongside a host](https://github.com/cudoment/cudoc/tree/main/docs/export.md#export-alongside-an-existing-site)
 - [API reference](https://github.com/cudoment/cudoc/tree/main/docs/api-reference/adapters.md#markdown-it)
 - [Runnable examples](https://github.com/cudoment/cudoc/tree/main/examples/README.md)

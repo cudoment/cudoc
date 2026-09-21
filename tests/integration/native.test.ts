@@ -16,7 +16,7 @@ import type { Root } from "mdast"
 import { buildDocuments } from "@cudoment/cudoc/node/library"
 import { collectSections } from "@cudoment/cudoc/query"
 import { renderDocument } from "@cudoment/cudoc/render"
-import { buildSite } from "cudoc-html"
+import { buildSite } from "cudoc-export"
 import { HOST_CASES, type HostCase } from "./hosts.js"
 
 /** The portable half, identical for every host. */

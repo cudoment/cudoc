@@ -9,10 +9,15 @@
 import fs from "node:fs"
 import path from "node:path"
 import { safePath } from "./storage.js"
+import { candidateFiles, type ResolvedRoot } from "./roots.js"
 
 export type LocalTargetRoots = {
-  /** The document source root. A document-relative path resolves here first. */
-  sourceRoot: string
+  /**
+   * The roots documents were collected from. A document-relative path
+   * resolves in the library's own coordinates first, so it reaches a file
+   * under whichever root holds that library path.
+   */
+  roots: readonly ResolvedRoot[]
   /** Extra roots holding host assets, such as `public` or `static`. */
   assetDirs?: string[]
   /**
@@ -20,6 +25,12 @@ export type LocalTargetRoots = {
    * routing. Defaults to identity for a site served from the domain root.
    */
   withoutBase?: (pathname: string) => string
+  /**
+   * Root-relative path prefixes that another application serves on the same
+   * host, such as `/sdk`. A link into one is external: not checked, not
+   * copied, not rewritten.
+   */
+  externalPaths?: string[]
 }
 
 export type LocalTarget =
@@ -36,22 +47,48 @@ const containedPath = (root: string, relative: string) => {
   }
 }
 
+/** A fragment, a scheme or a protocol-relative URL: nothing on this disk. */
+export const externalUrl = (url: string): boolean =>
+  /^(?:#|[a-z][\w+.-]*:|\/\/)/i.test(url)
+
+/**
+ * Whether a root-relative URL falls under one of the configured external
+ * prefixes. `/sdk` covers `/sdk` and `/sdk/…`, not `/sdk-tools`.
+ */
+export function isExternalPath(
+  url: string,
+  prefixes: readonly string[] | undefined,
+): boolean {
+  if (!prefixes?.length || !url.startsWith("/") || url.startsWith("//"))
+    return false
+  const pathname = url.match(/^[^?#]*/)![0]
+  return prefixes.some((prefix) => {
+    const clean = `/${prefix.replace(/^\/+|\/+$/g, "")}`
+    return (
+      clean !== "/" && (pathname === clean || pathname.startsWith(`${clean}/`))
+    )
+  })
+}
+
 /**
  * Resolves one URL against the document that carries it.
  *
- * A fragment, scheme or protocol-relative URL is external and left alone. A
- * document-relative path resolves against `sourceRoot`; a root-relative one is
- * also tried against each asset directory, after the deployment base is
- * removed. A path that escapes every root is reported as missing rather than
- * resolved, so the caller names the link and its document instead of a
- * traversal that means nothing to an author.
+ * A fragment, scheme or protocol-relative URL is external and left alone, and
+ * so is a root-relative one under an external prefix. A document-relative
+ * path resolves against the library path of its document, and a root-relative
+ * one against the library itself; both then reach disk through the roots. A
+ * root-relative path is also tried against each asset directory, after the
+ * deployment base is removed. A path that escapes every root is reported as
+ * missing rather than resolved, so the caller names the link and its document
+ * instead of a traversal that means nothing to an author.
  */
 export function resolveLocalTarget(
   url: string,
   documentSourcePath: string,
   roots: LocalTargetRoots,
 ): LocalTarget {
-  if (/^(?:#|[a-z][\w+.-]*:|\/\/)/i.test(url)) return { kind: "external", url }
+  if (externalUrl(url) || isExternalPath(url, roots.externalPaths))
+    return { kind: "external", url }
   const [, pathname, suffix] = url.match(/^([^?#]*)(.*)$/)!
   const decoded = decodeURIComponent(pathname)
   const relative = path.posix.normalize(
@@ -64,14 +101,27 @@ export function resolveLocalTarget(
     decoded.startsWith("/") ? decoded : `/${relative}`,
   ).replace(/^\//, "")
   const candidates = [
-    { root: roots.sourceRoot, relative },
-    ...(roots.assetDirs ?? []).map((root) => ({ root, relative: rootPath })),
+    ...candidateFiles(roots.roots, relative).map((source) => ({
+      relative,
+      source,
+    })),
+    ...(roots.assetDirs ?? []).flatMap((root) => {
+      const source = containedPath(root, rootPath)
+      return source ? [{ relative: rootPath, source }] : []
+    }),
   ]
   for (const candidate of candidates) {
-    const source = containedPath(candidate.root, candidate.relative)
-    if (!source || !fs.existsSync(source) || !fs.statSync(source).isFile())
+    if (
+      !fs.existsSync(candidate.source) ||
+      !fs.statSync(candidate.source).isFile()
+    )
       continue
-    return { kind: "resolved", relative: candidate.relative, source, suffix }
+    return {
+      kind: "resolved",
+      relative: candidate.relative,
+      source: candidate.source,
+      suffix,
+    }
   }
   return { kind: "missing", relative, suffix }
 }

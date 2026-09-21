@@ -70,6 +70,27 @@ Append it after `cudoc-remark` in the same `remarkPlugins` array:
 ;["cudoc-remark/embed", { sourceRoot: "docs", outDir: ".cudoc/documents" }]
 ```
 
+If collection uses `roots`, pass the same list here instead of `sourceRoot`, so a file maps to the id it was collected under.
+
+The plugin splices each embed's prepared content into the page while it compiles, so a component in an embedded section renders through your `mdx-components.jsx` like any other. It also means the compiled page depends on `.cudoc/documents/embeds.json`, which the bundler cannot see. Register the pass-through loader on the same files, for both bundlers:
+
+```js
+import { libraryLoader } from "cudoc-remark/loader"
+
+const library = libraryLoader(".cudoc/documents")
+
+export default withMDX({
+  pageExtensions: ["js", "jsx", "md", "mdx"],
+  webpack(config) {
+    config.module.rules.push({ test: /\.mdx?$/, use: [library] })
+    return config
+  },
+  turbopack: { rules: { "*.{md,mdx}": { loaders: [library] } } },
+})
+```
+
+It leaves your files alone and adds one invisible line to what the bundler compiles, a reference definition carrying the library's hash, so the dev server and both bundlers' build caches see that a page changed when the library did and `cudoc collect` reaches pages that were already compiled. → [Prepared-embed splicing](./api-reference/adapters.md#prepared-embed-splicing)
+
 ## Step 6 — Collect before every build
 
 Set up `cudoc.config.mjs` as described in [collection setup](./embedding.md#set-up-collection), with `host: "next"`, then:
@@ -85,19 +106,19 @@ Set up `cudoc.config.mjs` as described in [collection setup](./embedding.md#set-
 }
 ```
 
-There is no collection watcher, so collection has to run before Next.js does. The embed plugin adds its own runtime and prepared-data imports; authors write no imports in Markdown.
+Collection has to run before Next.js does. While you write, run `cudoc collect --watch --config cudoc.config.mjs` beside `next dev`: it collects again on every change under `docs/`, and the loader rule from the previous step brings the result into pages the dev server has already compiled. The embed plugin generates no imports and no runtime component; authors write no imports in Markdown.
 
 **Match collected routes to your App Router paths.** A `guide.md` served at `/help/guide` needs `routes: { guide: "/help/guide" }`.
 
 ## Step 7 — Optionally export standalone HTML
 
 ```sh
-npm install cudoc-html
-npx cudoc-html build docs --library .cudoc/documents --out-dir shared-html \
+npm install cudoc-export
+npx cudoc-export build docs --library .cudoc/documents --out-dir shared-html \
   --links host --host-url https://docs.example.com/project/
 ```
 
-Your Next.js build and its collected data are not modified. → [Standalone HTML](./html.md)
+Your Next.js build and its collected data are not modified. → [Standalone HTML](./export.md)
 
 ---
 

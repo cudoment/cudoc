@@ -10,39 +10,23 @@
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
-import { createHash } from "node:crypto"
 import { describe, it, expect, beforeAll, afterAll } from "vitest"
 import { parse } from "node-html-parser"
 import { loadLibrary } from "@cudoment/cudoc/node/library"
-import { buildSite } from "cudoc-html"
-import { BUILT_HOSTS, example } from "./outputs.js"
+import { buildSite } from "cudoc-export"
+import { BUILT_HOSTS, example, snapshot } from "./outputs.js"
 
 const DEPLOYMENT = "https://docs.example.com/project/"
 const POLICIES = ["relative", "host", "none"] as const
 
-/** Path and content hash of every file under a directory, symlinks included. */
-const snapshot = (dir: string): [string, string][] =>
-  fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const file = path.join(dir, entry.name)
-    if (entry.isDirectory()) return snapshot(file)
-    return [
-      [
-        file,
-        entry.isSymbolicLink()
-          ? fs.readlinkSync(file)
-          : createHash("sha256").update(fs.readFileSync(file)).digest("hex"),
-      ] as [string, string],
-    ]
-  })
-
 let temporary: string
 beforeAll(() => {
-  temporary = fs.mkdtempSync(path.join(os.tmpdir(), "cudoc-html-hosts-"))
+  temporary = fs.mkdtempSync(path.join(os.tmpdir(), "cudoc-export-hosts-"))
 })
 afterAll(() => fs.rmSync(temporary, { recursive: true, force: true }))
 
 // The standalone example has no host library to reuse; it collects its own.
-for (const host of BUILT_HOSTS.filter((h) => h.name !== "html")) {
+for (const host of BUILT_HOSTS.filter((h) => h.name !== "export")) {
   const site = example(host.name)
   const libraryDir = path.join(site, ".cudoc/documents")
   const collected = fs.existsSync(path.join(libraryDir, "embeds.json"))

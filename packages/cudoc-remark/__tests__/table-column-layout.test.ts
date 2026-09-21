@@ -189,3 +189,61 @@ describe("components", () => {
     expect(textOf(findJsxElement(tree, "DataTable"))).toContain("ab")
   })
 })
+
+describe("column widths", () => {
+  const WIDTHS: CudocRemarkOptions["tableColumnWidths"] = [
+    { widths: { Prerequisites: "18rem", Method: "6ch" } },
+  ]
+
+  it("writes min-width onto a Markdown table's header cells", () => {
+    const tree = run(document({ cell: "- a<br />- b" }), {
+      tableColumnWidths: WIDTHS,
+    })
+    const table = tree.children.find((node) => node.type === "table")!
+    const header = (table as { children: { children: { data?: unknown }[] }[] })
+      .children[0]!
+    expect(header.children.map((cell) => cell.data)).toEqual([
+      { hProperties: { style: "min-width: 6ch" } },
+      { hProperties: { style: "min-width: 18rem" } },
+    ])
+  })
+
+  it("hands the width to the layout table's head element as a style prop", () => {
+    const table = layoutTable(
+      document({ cell: "- a<br />- b<br />- c<br />- d" }),
+      {
+        tableColumnLayout: RULE,
+        tableColumnWidths: WIDTHS,
+      },
+    )!
+    const heads: MdxJsxFlowElement[] = []
+    const visit = (node: unknown) => {
+      const element = node as MdxJsxFlowElement
+      if (!element || typeof element !== "object") return
+      if (element.name === "th") heads.push(element)
+      if (Array.isArray(element.children)) element.children.forEach(visit)
+    }
+    visit(table)
+    expect(heads).toHaveLength(2)
+    // The style is a JSX expression holding the props object.
+    const style = (head: MdxJsxFlowElement) => {
+      const attribute = head.attributes.find(
+        (candidate) => "name" in candidate && candidate.name === "style",
+      )
+      const value = attribute?.value
+      return value && typeof value === "object" ? value.value : undefined
+    }
+    expect(style(heads[0]!)).toBe('{"minWidth":"6ch"}')
+    expect(style(heads[1]!)).toBe('{"minWidth":"18rem"}')
+    expect(attributeValue(heads[1]!, "colSpan")).toBe("2")
+  })
+
+  it("rejects a width rule it cannot apply", () => {
+    expect(() =>
+      run("x", { tableColumnWidths: [{ widths: { A: "wide" } }] }),
+    ).toThrow(/tableColumnWidths\[0\]\.widths\["A"\] must be a CSS length/)
+    expect(() => run("x", { tableColumnWidths: {} as never })).toThrow(
+      /must be an array of rules/,
+    )
+  })
+})

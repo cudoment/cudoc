@@ -26,6 +26,6 @@ Choose `host`, `cudoc` or `both` independently for `headingAnchor`, `badge`, `ta
 - [Usage guide](https://github.com/cudoment/cudoc/tree/main/README.md#getting-started) · [한국어 가이드](https://github.com/cudoment/cudoc/tree/main/README.ko.md#시작하기)
 - [Markdown syntax](https://github.com/cudoment/cudoc/tree/main/docs/syntax.md)
 - [Embedding](https://github.com/cudoment/cudoc/tree/main/docs/embedding.md)
-- [Standalone HTML alongside a host](https://github.com/cudoment/cudoc/tree/main/docs/html.md#export-alongside-an-existing-site)
+- [Standalone HTML alongside a host](https://github.com/cudoment/cudoc/tree/main/docs/export.md#export-alongside-an-existing-site)
 - [API reference](https://github.com/cudoment/cudoc/tree/main/docs/api-reference/README.md)
 - [Runnable examples](https://github.com/cudoment/cudoc/tree/main/examples/README.md)

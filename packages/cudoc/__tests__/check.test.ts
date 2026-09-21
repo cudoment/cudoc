@@ -14,6 +14,7 @@ import path from "node:path"
 import { buildDocuments } from "../src/node/library.js"
 import { checkReferences, type ReferenceIssueCode } from "../src/node/check.js"
 import { formatCheckResult } from "../src/node/report.js"
+import { importedNamesFromSource } from "../src/markdown.js"
 
 const roots: string[] = []
 afterEach(() => {
@@ -378,5 +379,135 @@ describe("formatCheckResult", () => {
     expect(text).toContain("missing-anchor")
     expect(text).toContain("available: #reference, #limits")
     expect(text.trim().endsWith("1 error in 1 of 2 documents")).toBe(true)
+  })
+})
+
+describe("components a source file imports for itself", () => {
+  const CHART = [
+    'import Chart from "./chart.jsx"',
+    'import { Legend as Key } from "./legend.jsx"',
+    "",
+    "# Widget (#widget)",
+    "",
+    "## Live (#live)",
+    "",
+    "<Chart points={3} />",
+    "",
+    "<Key />",
+    "",
+    "## Plain (#plain)",
+    "",
+    "Prose only.",
+    "",
+  ].join("\n")
+  const embed = (spec: string, imports = "") =>
+    `${imports}# Guide\n\n\`\`\`cudoc-embed\n${spec}\n\`\`\`\n`
+
+  it("records what a document imports", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "cudoc-check-"))
+    roots.push(root)
+    fs.mkdirSync(path.join(root, "docs"))
+    fs.writeFileSync(path.join(root, "docs/widget.mdx"), CHART)
+    fs.writeFileSync(path.join(root, "docs/plain.mdx"), "# Plain\n")
+    const library = buildDocuments({
+      sourceRoot: path.join(root, "docs"),
+      outDir: path.join(root, ".cudoc"),
+    })
+    expect(library.documents.find((d) => d.id === "widget")!.imports).toEqual([
+      "Chart",
+      "Key",
+    ])
+    expect(library.documents.find((d) => d.id === "plain")).not.toHaveProperty(
+      "imports",
+    )
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(root, ".cudoc/manifest.json"), "utf8"),
+    )
+    expect(
+      manifest.documents.find((d: { id: string }) => d.id === "widget").imports,
+    ).toEqual(["Chart", "Key"])
+  })
+
+  it("reports a copied component whose import stays behind", () => {
+    const result = check({
+      "widget.mdx": CHART,
+      "guide.mdx": embed("sources: [widget.mdx#live]"),
+    })
+
+    expect(codes(result)).toEqual([
+      "unportable-embed-component",
+      "imported-embed-component",
+    ])
+    const imported = result.issues[1]!
+    expect(imported.severity).toBe("error")
+    expect(imported.message).toContain("<Chart>, <Key>")
+    expect(imported.message).toContain("guide has no such import")
+  })
+
+  it("stays quiet when the embedding document imports the same names", () => {
+    const result = check({
+      "widget.mdx": CHART,
+      "guide.mdx": embed(
+        "sources: [widget.mdx#live]",
+        'import Chart from "./chart.jsx"\nimport { Legend as Key } from "./legend.jsx"\n\n',
+      ),
+    })
+
+    expect(codes(result)).toEqual(["unportable-embed-component"])
+  })
+
+  it("says which hosts can render a copied component", () => {
+    const files = {
+      "widget.mdx": CHART,
+      "guide.mdx": embed("sources: [widget.mdx#plain]\nrender: section"),
+      "page.mdx": embed("sources: [widget.mdx#live]"),
+    }
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "cudoc-check-"))
+    roots.push(root)
+    for (const [name, content] of Object.entries(files)) {
+      fs.mkdirSync(path.join(root, "docs"), { recursive: true })
+      fs.writeFileSync(path.join(root, "docs", name), content)
+    }
+    const message = (host: "next" | "html") =>
+      checkReferences(
+        buildDocuments({
+          sourceRoot: path.join(root, "docs"),
+          outDir: path.join(root, `.cudoc-${host}`),
+          host,
+        }),
+      ).issues.find((issue) => issue.code === "unportable-embed-component")!
+        .message
+    expect(message("next")).toContain("The host renders them")
+    expect(message("html")).toContain("Neither this host")
+  })
+})
+
+describe("imports read from source", () => {
+  it("finds top-level import statements and ignores code and prose", () => {
+    const source = [
+      'import Chart from "./chart.jsx"',
+      "import {",
+      "  Legend as Key,",
+      "  Axis,",
+      '} from "./legend.jsx"',
+      'import "./side-effect.css"',
+      "",
+      "# Title",
+      "",
+      "import this sentence is prose, not a statement.",
+      "",
+      "```js",
+      'import Ghost from "./ghost.js"',
+      "```",
+      "",
+      "````md",
+      "```js",
+      'import Nested from "./nested.js"',
+      "```",
+      "````",
+      "",
+    ].join("\n")
+    expect(importedNamesFromSource(source)).toEqual(["Chart", "Key", "Axis"])
+    expect(importedNamesFromSource("# Plain\n")).toEqual([])
   })
 })

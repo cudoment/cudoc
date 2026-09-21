@@ -9,3 +9,4 @@ export {
   readStringAttribute,
   setStringAttribute,
 } from "./jsx.js"
+export { importedNames, importedNamesFromSource } from "./imports.js"

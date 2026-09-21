@@ -34,17 +34,21 @@ Errors exit `1`. Warnings do not, unless you pass `--strict`.
 | ----------------------------- | -------- | ----------------------------------------------------------------- |
 | `missing-document`            | error    | A local link names no collected document and no file              |
 | `missing-anchor`              | error    | The document exists; that anchor does not                         |
-| `missing-asset`               | error    | An image has no file under `sourceRoot` or any asset directory    |
+| `missing-asset`               | error    | An image has no file under any collection root or asset directory |
 | `missing-embed-source`        | error    | An embed names a document that was not collected                  |
 | `missing-embed-anchor`        | error    | The embed source exists; that section does not                    |
 | `duplicate-anchor`            | error    | Two headings in one document claim the same anchor                |
 | `empty-anchor`                | error    | An anchor marker with no id, left in the heading text             |
 | `invalid-embed-spec`          | error    | An embed block does not parse, or names a key that does not exist |
 | `unmatched-embed-replacement` | warning  | A `replace` rule found nothing to change                          |
+| `empty-embed-cell`            | warning  | A defined table column found nothing in one of its rows           |
+| `imported-embed-component`    | error    | An embed copies a component its source file imports for itself    |
 | `unstable-anchor-link`        | warning  | A link depends on a generated anchor that document order can move |
 | `unportable-embed-component`  | warning  | An embed copies a component that standalone HTML cannot render    |
 
-External URLs are out of scope. Checking whether `https://example.com` is reachable is a network job with different failure modes, and it belongs in a separate tool.
+External URLs are out of scope. Checking whether `https://example.com` is reachable is a network job with different failure modes, and it belongs in a separate tool. A path on your own domain that another application serves, such as `/sdk/js/start` beside a documentation site, is out of scope too once you list its prefix in `externalPaths`; without that it is reported as a missing document, because the checker has no other way to know the page exists.
+
+A relative link resolves in library coordinates, not on disk. With a single `sourceRoot` the two are the same; with several [roots](./api-reference/node.md#collection) a link like `../../terms/token.md` crosses from one root into another exactly when the bases mirror the directory names. A root-relative link such as `/terms/token.md` names the document under its base directly and always works.
 
 ## Reading the output
 
@@ -102,6 +106,19 @@ export default {
 
 A rule list applies to every selected section, so a rule aimed at one section of a `depth: 2` selection finds nothing in the others by design. Only a rule matching **none** of the selected sections is reported. Rules are tested in order, each against what the previous one produced, exactly as the resolver applies them. → [Find and replace](./embedding.md#find-and-replace)
 
+## The empty-cell warning
+
+A table embed with [defined columns](./embedding.md#define-the-columns-yourself) states what every row must have: a table at a coordinate, a first paragraph, a heading above. When a section lacks it, the resolver renders an empty cell and nothing fails, so the checker says which column, which row and why:
+
+```
+   3:12  warning empty-embed-cell   /docs/rest-api.md
+         column 2 "Method" is empty for the row from docs/rest-api#charge:
+         expected table 0 in docs/rest-api#charge, found 0 tables after skipping
+         those headed "Requirements"
+```
+
+Only columns written as mappings are reported. The shorthand `summary` of a section that opens with a table is legitimately blank. A column naming an extractor the configuration does not register is an `invalid-embed-spec` error instead.
+
 ## Malformed embed blocks
 
 An embed block is YAML. One that does not parse, or that names a key cudoc does not have, is reported with the line inside your file rather than inside the block:
@@ -112,6 +129,18 @@ An embed block is YAML. One that does not parse, or that names a key cudoc does 
 ```
 
 `regexp` instead of `regex` used to be accepted silently, turning a pattern into a literal that matched nothing. Unknown keys are now rejected at all three levels: the block, `select`, and each `replace` rule.
+
+## The imported-component error
+
+An MDX host renders an embedded copy through its own component mapping, so a component in an embedded section works there — as long as the host knows the name. A component the source file `import`s for itself is different: the import stays in that file, and the document the copy lands in has no binding for the name, so the page fails to render.
+
+```
+   5:12  error   imported-embed-component   widget.mdx#live
+         this embed copies <Chart> out of widget, which imports it in its own
+         file. guide has no such import, so the spliced copy cannot render it. …
+```
+
+Provide the component through the host's shared components (`mdx-components.tsx`, an `MDXProvider`, a theme), import it in the embedding document as well, or move it out of the embedded section. The error is not reported when the embedding document imports the same name.
 
 ## The unportable-component warning
 
@@ -125,7 +154,7 @@ sources: [widget.mdx#live]
 ```
 ````
 
-Your site renders it, because your site registers `Chart`. `cudoc-html` has no such registry, so it refuses:
+Your site renders it, because your site registers `Chart`. `cudoc-export` has no such registry, so it refuses:
 
 ```
 cudoc: no portable renderer for Chart at line ?
@@ -159,11 +188,12 @@ export default {
 
 `check` in your collection config:
 
-| Option       | Effect                                                            |
-| ------------ | ----------------------------------------------------------------- |
-| `ignore`     | Codes to leave out of the result entirely                         |
-| `assetDirs`  | Extra roots for images, matching your host's `public` or `static` |
-| `sourceRoot` | Overrides the library's own source root                           |
+| Option          | Effect                                                                                                    |
+| --------------- | --------------------------------------------------------------------------------------------------------- |
+| `ignore`        | Codes to leave out of the result entirely                                                                 |
+| `assetDirs`     | Extra roots for images, matching your host's `public` or `static`                                         |
+| `externalPaths` | Root-relative prefixes another app serves on your domain, such as `/sdk`; links into them are not checked |
+| `sourceRoot`    | Overrides the library's own root; `roots` does the same for several directories                           |
 
 Command line:
 

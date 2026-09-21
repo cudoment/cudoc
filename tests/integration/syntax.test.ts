@@ -17,6 +17,7 @@ import {
   getTableHeaderTexts,
 } from "@cudoment/cudoc/query"
 import { renderDocument } from "@cudoment/cudoc/render"
+import { isPageBreak } from "@cudoment/cudoc/paged"
 import { HOST_CASES, OPTIONS, readFixture } from "./hosts.js"
 
 const SOURCE = readFixture("showcase.md")
@@ -54,6 +55,21 @@ for (const host of HOST_CASES) {
       tree = result.tree
       diagnostics = result.diagnostics
       html = renderDocument(tree)
+    })
+
+    it("normalizes the authored page-break fence", () => {
+      // The fence is the only block form that survives every host's compiler,
+      // so this is where a regression in any one of them surfaces.
+      const breaks = kinds(tree, "pageBreak")
+      expect(breaks).toHaveLength(1)
+      const node = breaks[0]!
+      expect(node.type).toBe("thematicBreak")
+      expect(node.data!.hName).toBe("div")
+      expect(node.data!.hProperties!.className).toEqual(["cudoc-page-break"])
+      expect(node.data!.hProperties!.hidden).toBe(true)
+      expect(isPageBreak(node)).toBe(true)
+      // No empty <pre> is left behind on the primary site.
+      expect(html).not.toContain("cudoc-pagebreak")
     })
 
     it("resolves every explicit anchor and keeps them out of the titles", () => {
@@ -195,7 +211,7 @@ for (const host of HOST_CASES) {
       const code = all.filter((n) => n.type === "code")
       expect(code.some((n) => n.lang === "js")).toBe(true)
       expect(code.some((n) => !n.lang)).toBe(true)
-      expect(code.filter((n) => n.lang === "cudoc-embed")).toHaveLength(9)
+      expect(code.filter((n) => n.lang === "cudoc-embed")).toHaveLength(10)
       const aligned = all.find(
         (n) => n.type === "table" && Array.isArray(n.align) && n.align[1],
       )

@@ -107,6 +107,37 @@ const SHAPES: Shape[] = [
     },
   },
   {
+    name: "an extracted table with column definitions",
+    spec: "sources: [reference.md]\nselect:\n  titles: [Limits, Scopes]\nrender:\n  type: table\n  columns:\n    - { header: Section, value: title, link: section, minWidth: 10rem }\n    - { header: Part of, value: parent, link: parent }\n    - { header: First field, value: { row: 1, column: 0 } }\n",
+    expect: (nodes) => {
+      const rows = nodes.filter((n) => n.type === "tableRow")
+      const cells = (row: DocumentNode) => row.children ?? []
+      expect(textsOf(cells(rows[0]!), "tableCell")).toEqual([
+        "Section",
+        "Part of",
+        "First field",
+      ])
+      // The width travels on the header cell, where every renderer reads it.
+      expect(cells(rows[0]!)[0]!.data?.hProperties?.style).toBe(
+        "min-width: 10rem",
+      )
+      const body = rows.slice(1).map((row) => textsOf(cells(row), "tableCell"))
+      expect(body.map((row) => [row[0], row[2]])).toEqual([
+        ["Limits", "window"],
+        ["Scopes", "read:doc"],
+      ])
+      // The heading above Limits is the document title, which Docusaurus
+      // lifts out of the tree; every host keeps the one above Scopes.
+      expect(["Deep reference", ""]).toContain(body[0]![1])
+      expect(body[1]![1]).toBe("Authentication")
+      // The section link points into the source document, not at a copy.
+      const link = walk(cells(rows[1]!)[0]!).find((n) => n.type === "link")
+      expect(String(link?.url)).toMatch(/#limits$/)
+      const parent = walk(cells(rows[2]!)[1]!).find((n) => n.type === "link")
+      expect(String(parent?.url)).toMatch(/#authentication$/)
+    },
+  },
+  {
     name: "a literal replacement",
     spec: 'sources: [reference.md#limits]\nreplace:\n  - find: "**original**"\n    replace: "_adapted_"\n',
     expect: (nodes, text) => {

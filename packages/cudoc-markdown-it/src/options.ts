@@ -29,6 +29,8 @@ const KNOWN_KEYS = new Set<string>([
   "calloutTypes",
   "components",
   "tableColumnLayout",
+  "tableColumnWidths",
+  "ignoreDiagnostics",
   "headingIds",
   "onDocument",
   "library",
