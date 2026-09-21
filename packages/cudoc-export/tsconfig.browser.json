@@ -1,0 +1,19 @@
+{
+  // The review-note runtime runs in the reader's browser, so it is typed
+  // against the DOM and bundled by esbuild into one classic script; this
+  // project only checks it. The Node project excludes `src/browser`.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "types": [],
+    "rootDir": "./src"
+  },
+  "include": ["src/browser/**/*.ts"]
+}

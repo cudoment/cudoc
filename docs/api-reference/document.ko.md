@@ -34,6 +34,8 @@ type Host =
 | `calloutTypes`         | `[]`                 | note/tip/important/warning/caution에 추가할 타입  |
 | `components`           | 호스트 매핑만 적용   | 정적 컴포넌트 이름과 의미 종류의 매핑             |
 | `tableColumnLayout`    | `[]`                 | 순서대로 적용할 열 배치 규칙                      |
+| `tableColumnWidths`    | `[]`                 | 헤더 글자별 최소 열 폭; 배치 규칙보다 먼저 적용   |
+| `ignoreDiagnostics`    | `[]`                 | 보고하지 않을 진단 코드; 노드 처리는 같음         |
 
 `DEFAULT_SYNTAX`는 `{ headingAnchor: "cudoc", badge: "cudoc", tableCellList: "cudoc", callout: "cudoc", link: "host" }`입니다. `resolveSyntax(syntax?)`는 기본값을 채운 다섯 모드를 반환합니다. 모드는 호스트 파서의 허용 여부가 아닌 정규화를 제어합니다. 일반 Markdown 링크는 모든 모드에서 유효합니다.
 
@@ -41,7 +43,7 @@ type Host =
 
 정규화는 제목 표기, 알림, 매핑된 컴포넌트, 셀 목록, 배지를 처리한 뒤 열 배치 규칙, 정적 HTML 요소 변환, 독립 제목 ID 생성을 수행합니다. 배지와 permalink는 자동 제목 텍스트에서 제외합니다. 기존 ID를 검사한 뒤 새 ID를 생성하며 중복·충돌 ID는 소스 위치를 포함한 오류를 발생시킵니다.
 
-`DocumentDiagnostic`은 `code`, `message`, 선택적인 unist `position`을 가집니다. 현재 비치명적 코드는 `UNKNOWN_CALLOUT_TYPE`, `DYNAMIC_COMPONENT`입니다. 추가 알림 타입은 `/^[a-z][\w-]*$/i`에 맞아야 합니다. 알 수 없는 cudoc 알림 표기는 유지하고 동적 매핑·HTML JSX는 평가하지 않고 보존합니다.
+`DocumentDiagnostic`은 `code`, `message`, 선택적인 unist `position`을 가집니다. 현재 비치명적 코드는 `UNKNOWN_CALLOUT_TYPE`, `DYNAMIC_COMPONENT`입니다. 추가 알림 타입은 `/^[a-z][\w-]*$/i`에 맞아야 합니다. 알 수 없는 cudoc 알림 표기는 유지하고 동적 매핑·HTML JSX는 평가하지 않고 보존합니다. `DYNAMIC_COMPONENT`는 매핑된 컴포넌트나 변환 대상 HTML 태그의 속성 값이 이름을 참조하는 표현식(`rows={count}`)일 때 발생하며, 중괄호 안의 리터럴(`rows={2}`)은 정적으로 취급합니다. 컴포넌트가 의도적으로 표현식을 받는 프로젝트에서는 `ignoreDiagnostics: ["DYNAMIC_COMPONENT"]`로 그 코드를 결과에서 제외합니다. 옵션이 있든 없든 트리는 같고 메시지만 사라지며, 문자열이 아닌 항목은 오류입니다. 어댑터도 같은 키를 받습니다.
 
 ## 컴파일
 
@@ -87,9 +89,11 @@ mdast 노드에 HTML 출력용 `data.hName`/`data.hProperties`, 의미 정보용
 
 위 예시는 콘텐츠 자식을 생략했습니다. 실제 알림은 스타일시트로 굵게 표시하며 `cudoc.kind: "calloutTitle"`을 갖는 제목 문단을 앞에 추가하고 본문 블록을 이어 붙입니다. 제목이 없으면 대문자 타입을 표시합니다. 소스 위치는 원본 블록을 가리킵니다.
 
-다른 의미 종류는 `heading`(`explicitId`, 선택적 `badge`), `badge`(`span` 렌더링), `permalink` 등입니다. 제목 ID는 `data.hProperties.id`에 저장합니다. `DocumentNode`는 확장 가능한 구조 타입이며 모든 사용자 노드를 렌더링할 수 있다는 보장은 아닙니다. `DocumentData`에는 다른 호스트 메타데이터도 들어갈 수 있습니다.
+다른 의미 종류는 `heading`(`explicitId`, 선택적 `badge`), `badge`(`span` 렌더링), `permalink`, `pageBreak`입니다. ` ```cudoc-pagebreak ` 펜스는 `hName: "div"`, `className: ["cudoc-page-break"]`, `hidden: true`, `cudoc.kind: "pageBreak"`를 가진 `thematicBreak`이 되어 사이트에서는 아무것도 렌더링하지 않고 쪽을 나누는 내보내기에서 쪽을 넘깁니다([공유 상수](./adapters.ko.md#페이지를-나누는-출력)). 제목 ID는 `data.hProperties.id`에 저장합니다. `DocumentNode`는 확장 가능한 구조 타입이며 모든 사용자 노드를 렌더링할 수 있다는 보장은 아닙니다. `DocumentData`에는 다른 호스트 메타데이터도 들어갈 수 있습니다.
 
 저장 AST의 버전은 `root.data.cudocAstVersion: 1`입니다. [저장 계약](./node.ko.md#라이브러리-파일)을 참고하세요. `validateAstContract(tree, options?)`는 루트·노드 구조와 목록·표 셀 제약을 검사하며 `requireVersion: true`이면 설정된 버전도 요구합니다. 임의 호스트 컴포넌트의 의미까지 모두 검증하지는 않습니다.
+
+저장된 트리를 읽는 소비자(검색 색인기, 데이터셋 생성기, 자체 렌더러)는 버전 1에서 다음 사항에 의존할 수 있으며, 노드 종류가 추가될 때가 아니라 이 사항이 바뀔 때 버전을 올립니다. 본문이나 셀 목록이 아닌 표 셀 안의 `<br>`·`<br />`는 JSX 요소가 아닌 mdast `break` 노드입니다. 제목 ID는 `data.hProperties.id`에 있으며, `headerLevel` 속성을 가진 `Anchor` 요소는 하위 컴포넌트 변환에만 존재하고 정규화가 내리므로 저장된 트리에는 나타나지 않습니다. 문서 ID는 확장자를 뗀 라이브러리 경로이므로 `roots`를 쓰면 루트의 기준 경로로 시작하고(`docs/guide/setup`), 모든 링크·임베드 원본·데이터셋 범위가 그 형태를 사용합니다. `mdxjsEsm`, `position`, `estree`는 없고 표현식 노드는 `value` 글자를 유지합니다. 알림, 배지, permalink, 쪽 나누기는 위의 `data.cudoc` 종류입니다. `private`와 `imports`는 트리가 아닌 manifest 항목에 있습니다.
 
 ## 컴포넌트와 렌더링
 
@@ -115,9 +119,9 @@ type RenderOptions = {
 
 ### 호스트 스타일시트
 
-소스: [styles.css](../../packages/cudoc/styles.css). `@cudoment/cudoc/styles.css`로 import합니다. 렌더러가 생성하는 `cudoc-callout`, `cudoc-callout-title`, `cudoc-badge`, `cudoc-embed` 클래스만 처리하며 그 밖의 요소에는 관여하지 않습니다.
+소스: [styles.css](../../packages/cudoc/styles.css). `@cudoment/cudoc/styles.css`로 import합니다. 렌더러가 생성하는 `cudoc-callout`, `cudoc-callout-title`, `cudoc-badge` 클래스만 처리하며 그 밖의 요소에는 관여하지 않습니다.
 
-호스트의 페이지 안에서 로딩되므로 텍스트 색을 지정하지 않습니다. 본문 색은 호스트 테마에서 상속하고 표면과 강조색만 전환됩니다. 속성은 `--cudoc-wash`, `--cudoc-line`, `--cudoc-accent`, `--cudoc-accent-soft`, `--cudoc-warn`, `--cudoc-warn-wash`, `--cudoc-danger`, `--cudoc-danger-wash`로 이름을 구분해 두었으므로, 호스트 변수를 건드리지 않고 이 속성만 재정의해서 컴포넌트 색을 바꿀 수 있습니다. 테마 신호는 명시도 순서대로 세 가지를 인식합니다. `prefers-color-scheme: dark`, 루트 요소의 `dark` 클래스(VitePress, Nextra), 그리고 `data-theme="dark"`(Docusaurus)입니다. `light` 클래스나 `data-theme="light"`는 시스템이 다크를 선호해도 라이트 팔레트로 되돌리므로, 호스트 자체 토글이 양방향으로 우선합니다. 팔레트는 [HTML 어댑터](./adapters.ko.md#html)의 `siteStyles`와 동일하며, 모든 표면이 라이트와 다크 상속 텍스트 색 양쪽에서 WCAG AA를 충족합니다.
+호스트의 페이지 안에서 로딩되므로 텍스트 색을 지정하지 않습니다. 본문 색은 호스트 테마에서 상속하고 표면과 강조색만 전환됩니다. 속성은 `--cudoc-wash`, `--cudoc-line`, `--cudoc-accent`, `--cudoc-accent-soft`, `--cudoc-warn`, `--cudoc-warn-wash`, `--cudoc-danger`, `--cudoc-danger-wash`로 이름을 구분해 두었으므로, 호스트 변수를 건드리지 않고 이 속성만 재정의해서 컴포넌트 색을 바꿀 수 있습니다. 테마 신호는 명시도 순서대로 세 가지를 인식합니다. `prefers-color-scheme: dark`, 루트 요소의 `dark` 클래스(VitePress, Nextra), 그리고 `data-theme="dark"`(Docusaurus)입니다. `light` 클래스나 `data-theme="light"`는 시스템이 다크를 선호해도 라이트 팔레트로 되돌리므로, 호스트 자체 토글이 양방향으로 우선합니다. 팔레트는 [내보내기 어댑터](./adapters.ko.md#내보내기)의 `siteStyles`와 동일하며, 모든 표면이 라이트와 다크 상속 텍스트 색 양쪽에서 WCAG AA를 충족합니다.
 
 ## 섹션과 쿼리
 
@@ -167,17 +171,19 @@ type SectionSelection = {
 
 루트 모듈은 AST 계약, 쿼리, `walk`, 섹션 선택자, 구분자, MDX 생성 도우미를 제공합니다. `compileDocument`, `normalizeDocument`, 새 Node 라이브러리 API는 루트에서 재수출하지 않습니다.
 
-| 진입점·소스                                                                                                        | Export와 계약                                                                                            |
-| ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
-| [/ast](../../packages/cudoc/src/internal/core/ast/index.ts)                                                        | 버전 상수·해석, `validateAstContract`, 목록·부모·표 판별, AST 타입                                       |
-| [루트 순회](../../packages/cudoc/src/internal/core/walk.ts)                                                        | `walk({ tree, state, preTransforms, postTransforms })`; 조상·부모·인덱스 문맥으로 순서대로 원본 변환     |
-| [루트 선택자](../../packages/cudoc/src/internal/core/selectors.ts)                                                 | `assertSectionSelector`, `matchesSectionHeading`, `findPreviousHeading`, 제목·헤더 정규화, 인라인 텍스트 |
-| [/syntax](../../packages/cudoc/src/internal/core/syntax/index.ts)                                                  | 구분자 검증·추출·분할·제거, 제목 메타데이터 도우미                                                       |
-| [/mdx](../../packages/cudoc/src/internal/core/mdx/index.ts)                                                        | 속성·flow·text 요소 생성, 속성 읽기·쓰기, 줄바꿈·자식 변환                                               |
-| [/transforms/table-cell-list/index](../../packages/cudoc/src/internal/transforms/table-cell-list/index.ts)         | `transformTableCellList`, 파서, 셀 재구성                                                                |
-| [/transforms/table-column-layout/index](../../packages/cudoc/src/internal/transforms/table-column-layout/index.ts) | 배치 변환·옵션 해석, 표 생성, 분할 옵션과 셀 분할                                                        |
-| [cudoc-remark/badge](../../packages/cudoc-remark/src/transforms/badge.ts)                                          | 배지 변환과 옵션 해석                                                                                    |
+| 진입점·소스                                                                                                        | Export와 계약                                                                                                                                                  |
+| ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [/ast](../../packages/cudoc/src/internal/core/ast/index.ts)                                                        | 버전 상수·해석, `validateAstContract`, 목록·부모·표 판별, AST 타입                                                                                             |
+| [루트 순회](../../packages/cudoc/src/internal/core/walk.ts)                                                        | `walk({ tree, state, preTransforms, postTransforms })`; 조상·부모·인덱스 문맥으로 순서대로 원본 변환                                                           |
+| [루트 선택자](../../packages/cudoc/src/internal/core/selectors.ts)                                                 | `assertSectionSelector`, `matchesSectionHeading`, `findPreviousHeading`, 제목·헤더 정규화, 인라인 텍스트                                                       |
+| [/syntax](../../packages/cudoc/src/internal/core/syntax/index.ts)                                                  | 구분자 검증·추출·분할·제거, 제목 메타데이터 도우미                                                                                                             |
+| [/mdx](../../packages/cudoc/src/internal/core/mdx/index.ts)                                                        | 속성·flow·text 요소 생성, 속성 읽기·쓰기, 줄바꿈·자식 변환, 문서의 `import` 문이 묶는 지역 이름을 읽는 `importedNames(tree)`·`importedNamesFromSource(source)` |
+| [/transforms/table-cell-list/index](../../packages/cudoc/src/internal/transforms/table-cell-list/index.ts)         | `transformTableCellList`, 파서, 셀 재구성                                                                                                                      |
+| [/transforms/table-column-layout/index](../../packages/cudoc/src/internal/transforms/table-column-layout/index.ts) | 배치 변환·옵션 해석, 표 생성, 분할 옵션과 셀 분할                                                                                                              |
+| [cudoc-remark/badge](../../packages/cudoc-remark/src/transforms/badge.ts)                                          | 배지 변환과 옵션 해석                                                                                                                                          |
 
 하위 제목·배지 변환은 이름 있는 MDX 요소를 출력할 수 있습니다. 컴포넌트 없는 작성 설정이 아닌 구현 구성 요소입니다. 작성용 설정에는 `normalizeDocument` 또는 어댑터의 명시적 `syntax` 옵션을 사용합니다.
 
 `TableColumnLayoutOptions`에는 `section`(단계·제목 선택자), `columnHeaders`가 필수입니다. 선택적 `split`, `components`, `spanAttribute`(기본 `colSpan`), `metadataDelimiters`, `ignoreElements`로 출력을 조정합니다. 기본 요소 매핑은 소문자 HTML 표입니다. 공통 출력에는 의미·렌더러를 제공하지 않은 대문자 표 이름을 설정하지 않습니다. 전체 변환 문맥과 배치 타입은 연결된 소스를 참고하세요.
+
+`TableColumnWidthOptions`(`tableColumnWidths`)는 `{ section?, widths, metadataDelimiters?, ignoreElements? }`입니다. `widths`는 헤더 글자를 CSS 길이(`120px`, `6ch`, `20rem`, `25%`)에 대응시키며, 헤더 글자는 제목 메타데이터와 배지 같은 무시 요소를 제거하고 공백을 접은 뒤 비교합니다. 그 밖의 값이나 빈 맵, 객체가 아닌 규칙은 옵션 경로를 알리는 오류가 됩니다. `section`이 없는 규칙은 모든 표에 적용됩니다. 일치한 헤더 셀은 `data.hProperties.style: "min-width: <길이>"`를 얻는데, 임베드 표 열의 `minWidth`가 쓰는 값과 정확히 같으므로 HTML 사이트, 쪽을 나누는 형식, Word 작성기가 둘을 같은 방식으로 다룹니다([Word 열 폭](./adapters.ko.md#word-양식)). 폭 규칙은 배치 규칙보다 먼저 실행됩니다. 배치 규칙은 일치한 헤더 셀을 요소로 다시 만들면서 셀의 스타일을 열 정렬과 합친 `style` prop(`{ textAlign, minWidth }`)으로 옮기고, 정규화가 이를 다시 평탄한 `text-align:center;min-width:18rem` 문자열로 내립니다. 규칙이 이름하지 않은 헤더 셀은 원래 스타일을 유지합니다.

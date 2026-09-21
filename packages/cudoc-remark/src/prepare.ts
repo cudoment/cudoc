@@ -17,7 +17,10 @@ import {
   type CudocState,
 } from "./options.js"
 import { createBadgeTransform } from "./transforms/badge.js"
-import { createTableColumnLayoutTransform } from "./transforms/table-column-layout/index.js"
+import {
+  createTableColumnLayoutTransform,
+  createTableColumnWidthTransform,
+} from "./transforms/table-column-layout/index.js"
 import { transformTableCellList } from "./transforms/table-cell-list/index.js"
 import { addTocExport, collectHeadingToc, createToc } from "./toc.js"
 import remarkDirective from "remark-directive"
@@ -61,9 +64,16 @@ export const buildTransforms = (
 
   pre.push(...options.transforms.pre)
 
-  const post: Transform<CudocState>[] = options.tableColumnLayout.map((rule) =>
-    createTableColumnLayoutTransform(rule),
-  )
+  // Widths before layout: a layout rule rebuilds the header cells it matches
+  // and carries their style with it.
+  const post: Transform<CudocState>[] = [
+    ...options.tableColumnWidths.map((rule) =>
+      createTableColumnWidthTransform(rule),
+    ),
+    ...options.tableColumnLayout.map((rule) =>
+      createTableColumnLayoutTransform(rule),
+    ),
+  ]
   post.push(...options.transforms.post)
 
   return { pre, post }

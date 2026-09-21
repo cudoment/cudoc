@@ -33,6 +33,21 @@ describe("createHostPlugins", () => {
     expect(optionsOf(plugins, 0)).toMatchObject({ toc: false, badge: false })
   })
 
+  it("passes width rules and ignored diagnostic codes through", () => {
+    const plugins = createHostPlugins(
+      {
+        tableColumnWidths: [{ widths: { Description: "20rem" } }],
+        ignoreDiagnostics: ["DYNAMIC_COMPONENT"],
+      },
+      HOST,
+    )
+
+    expect(optionsOf(plugins, 0)).toMatchObject({
+      tableColumnWidths: [{ widths: { Description: "20rem" } }],
+      ignoreDiagnostics: ["DYNAMIC_COMPONENT"],
+    })
+  })
+
   it("does not leak its own option into the transforms", () => {
     const plugins = createHostPlugins({ promoteHeadingIds: true }, HOST)
 

@@ -94,17 +94,17 @@ eleventyConfig.setLibrary("md", createRenderer(loadLibrary(".cudoc/documents")))
 }
 ```
 
-There is no collection watcher. After editing a source document, run collection again **and restart the dev server** so the loaded library is refreshed.
+After editing a source document, run collection again — `cudoc collect --watch` or [`watchDocuments`](./api-reference/node.md#watching) does that on every change — **and restart the dev server**: the plugin holds the library it loaded when the configuration was evaluated, and reports a stale source until it is reloaded.
 
 ## Step 8 — Optionally export standalone HTML
 
 ```sh
-npm install cudoc-html
-npx cudoc-html build docs --library .cudoc/documents --out-dir shared-html \
+npm install cudoc-export
+npx cudoc-export build docs --library .cudoc/documents --out-dir shared-html \
   --links host --host-url https://docs.example.com/project/
 ```
 
-Your Eleventy build and its collected data are not modified. → [Standalone HTML](./html.md)
+Your Eleventy build and its collected data are not modified. → [Standalone HTML](./export.md)
 
 ---
 

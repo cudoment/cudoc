@@ -56,6 +56,24 @@ remarkPlugins: [
 ],
 ```
 
+이 플러그인은 준비된 내용을 페이지가 컴파일될 때 접합하므로 컴파일된 페이지가 `.cudoc/documents/embeds.json`에 의존합니다. `next.config.mjs`에서 같은 파일에 라이브러리 로더를 등록하십시오. 없으면 재수집이 번들러가 이미 컴파일한 페이지에 닿지 않습니다.
+
+```js
+import { libraryLoader } from "cudoc-remark/loader"
+
+export default withNextra({
+  webpack(config) {
+    config.module.rules.push({
+      test: /\.mdx?$/,
+      use: [libraryLoader(".cudoc/documents")],
+    })
+    return config
+  },
+})
+```
+
+webpack 형태만 있습니다. 위와 같이 Nextra에 플러그인 함수를 넘기면 그 로더 옵션을 Turbopack이 직렬화할 수 없으므로, 이렇게 구성한 사이트는 webpack으로 빌드하고 서비스합니다. [Next.js 가이드](./next.ko.md#5단계--임베드-플러그인-추가)의 Turbopack 규칙은 여기에 해당하지 않습니다. → [준비된 임베드 접합](./api-reference/adapters.ko.md#준비된-임베드-접합)
+
 ## 5단계 — 수집기 추가
 
 [예제 수집기](../examples/nextra/collect.mjs)를 사이트 루트에 `collect.mjs`로 복사하십시오. 네이티브 플러그인 파이프라인과 함께 `nextra/compile`을 호출해서 결과 문서를 포착한 뒤 임베드를 준비합니다.
@@ -75,19 +93,19 @@ remarkPlugins: [
 }
 ```
 
-수집 감시 기능이 없으므로 Nextra보다 먼저 수집이 돌아야 합니다.
+수집은 Nextra보다 먼저 돌아야 합니다. 글을 쓰는 동안 다시 수집하려면 `buildDocumentsAsync` 대신 `@cudoment/cudoc/node/watch`의 [`watchDocuments`](./api-reference/node.ko.md#감시)에 같은 옵션을 넘기세요. 로더 규칙이 회차마다의 결과를 개발 서버가 이미 컴파일한 페이지에도 전달합니다.
 
 `cudoc check`는 깨진 링크와 앵커, 이미지, 임베드를 한 번에 전부 보고하고 종료 코드를 0이 아닌 값으로 냅니다. 사이트가 생성되기 전에 빌드가 멈춥니다. → [참조 검사](./check.ko.md)
 
 ## 7단계 — 독립 HTML도 내보내기 (선택)
 
 ```sh
-npm install cudoc-html
-npx cudoc-html build content --library .cudoc/documents --out-dir shared-html \
+npm install cudoc-export
+npx cudoc-export build content --library .cudoc/documents --out-dir shared-html \
   --links host --host-url https://docs.example.com/project/
 ```
 
-소스 디렉터리가 `docs`가 아니라 `content`인 점에 유의하십시오. Nextra 빌드 결과와 수집 데이터는 변경되지 않습니다. → [독립 HTML](./html.ko.md)
+소스 디렉터리가 `docs`가 아니라 `content`인 점에 유의하십시오. Nextra 빌드 결과와 수집 데이터는 변경되지 않습니다. → [독립 HTML](./export.ko.md)
 
 ---
 
@@ -116,7 +134,7 @@ cudocRemarkPlugins({ syntax: { headingAnchor: "both", callout: "both" } })
 
 **목차는 Nextra가 계속 담당합니다.** 어댑터는 `host: "nextra"`를 설정하고 명시적 id를 승격시킨 뒤, 목차는 Nextra에 맡깁니다.
 
-**정적 컴포넌트는 문서 노드가 되고 동적 컴포넌트는 되지 않습니다.** 정적 `<Callout>`은 이식 가능한 콜아웃으로 정규화됩니다. 이식 가능한 임베드를 렌더링할 때 컴포넌트 코드는 실행되지 않으므로, 내용이 실행 시점 상태에 의존하는 컴포넌트는 다른 문서로 옮겨 갈 수 없습니다.
+**정적 컴포넌트는 문서 노드가 되고 동적 컴포넌트는 컴포넌트로 남습니다.** 정적 `<Callout>`은 이식 가능한 콜아웃으로 정규화되어 모든 호스트와 독립 내보내기가 렌더링할 수 있습니다. 임베드된 절에 남은 컴포넌트는 복사본이 접합되는 자리에서 Nextra의 컴포넌트 매핑으로 렌더링되며, 독립 HTML 내보내기에는 여전히 렌더러가 필요하고 `cudoc check`가 그 이름을 알려 줍니다.
 
 **`.md`와 `.mdx`의 차이.** 직접 만든 React 컴포넌트는 `.mdx`에 작성하십시오. `.md`는 Markdown으로 남아 `{value}`가 그대로 글자가 됩니다. → [`.md`와 `.mdx` 선택](./README.ko.md#md와-mdx-선택)
 

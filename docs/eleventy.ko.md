@@ -94,17 +94,17 @@ eleventyConfig.setLibrary("md", createRenderer(loadLibrary(".cudoc/documents")))
 }
 ```
 
-수집 감시 기능이 없습니다. 원본 문서를 고치신 뒤에는 수집을 다시 실행하고 **개발 서버도 재시작**하셔야 불러온 라이브러리가 갱신됩니다.
+원본 문서를 고치신 뒤에는 수집을 다시 실행하고(`cudoc collect --watch`나 [`watchDocuments`](./api-reference/node.ko.md#감시)가 변경마다 이를 대신합니다) **개발 서버도 재시작**하셔야 합니다. 플러그인은 설정을 평가할 때 불러온 라이브러리를 계속 들고 있어서, 다시 불러오기 전까지는 원문이 오래되었다고 보고합니다.
 
 ## 8단계 — 독립 HTML도 내보내기 (선택)
 
 ```sh
-npm install cudoc-html
-npx cudoc-html build docs --library .cudoc/documents --out-dir shared-html \
+npm install cudoc-export
+npx cudoc-export build docs --library .cudoc/documents --out-dir shared-html \
   --links host --host-url https://docs.example.com/project/
 ```
 
-Eleventy 빌드 결과와 수집 데이터는 변경되지 않습니다. → [독립 HTML](./html.ko.md)
+Eleventy 빌드 결과와 수집 데이터는 변경되지 않습니다. → [독립 HTML](./export.ko.md)
 
 ---
 

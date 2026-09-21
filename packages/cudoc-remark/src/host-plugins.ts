@@ -31,6 +31,8 @@ const KNOWN_KEYS = new Set<string>([
   "headingMetadata",
   "badge",
   "tableColumnLayout",
+  "tableColumnWidths",
+  "ignoreDiagnostics",
   "transforms",
   "promoteHeadingIds",
 ] satisfies (keyof HostPluginOptions)[])

@@ -17,13 +17,13 @@ import cudoc from "cudoc-remark"
 const remarkPlugins = [remarkGfm, [cudoc, { host: "next", syntax: {} }]]
 ```
 
-Default settings produce component-free output in both `.md` and `.mdx`; `syntax: {}` makes the defaults explicit. Let the host detect the document format. For Next.js Turbopack, use package-name plugin strings and JSON options as shown in the guide. `cudoc-remark/embed` inserts its runtime automatically after collection and preparation.
+Default settings produce component-free output in both `.md` and `.mdx`; `syntax: {}` makes the defaults explicit. Let the host detect the document format. For Next.js Turbopack, use package-name plugin strings and JSON options as shown in the guide. After collection and preparation, `cudoc-remark/embed` splices each prepared embed into the page as it compiles, so embedded components render through the host's own component mapping; `cudoc-remark/loader` keeps a recollection visible to the dev server and the build cache.
 
 Choose `host`, `cudoc` or `both` independently for `headingAnchor`, `badge`, `tableCellList`, `callout` and `link`. The representative callout is `> [!NOTE] Title`. Authors do not register cudoc React components in the recommended setup. Syntax-only rendering needs no stored JSON; cross-document embedding requires document collection.
 
 - [Usage guide](https://github.com/cudoment/cudoc/tree/main/docs/next.md) · [한국어 가이드](https://github.com/cudoment/cudoc/tree/main/docs/next.ko.md)
 - [Markdown syntax](https://github.com/cudoment/cudoc/tree/main/docs/syntax.md)
 - [Embedding](https://github.com/cudoment/cudoc/tree/main/docs/embedding.md)
-- [Standalone HTML alongside a host](https://github.com/cudoment/cudoc/tree/main/docs/html.md#export-alongside-an-existing-site)
+- [Standalone HTML alongside a host](https://github.com/cudoment/cudoc/tree/main/docs/export.md#export-alongside-an-existing-site)
 - [API reference](https://github.com/cudoment/cudoc/tree/main/docs/api-reference/README.md)
 - [Runnable examples](https://github.com/cudoment/cudoc/tree/main/examples/README.md)

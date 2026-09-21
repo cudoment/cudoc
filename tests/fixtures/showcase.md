@@ -148,6 +148,20 @@ render:
   columns: [title, link]
 ```
 
+## Extracted table (#extracted)
+
+```cudoc-embed
+sources: [reference.md]
+select:
+  titles: [Limits, Scopes]
+render:
+  type: table
+  columns:
+    - { header: Section, value: title, link: section, minWidth: 10rem }
+    - { header: Part of, value: parent, link: parent }
+    - { header: First field, value: { row: 1, column: 0 } }
+```
+
 ## Literal replacement (#literal-replace)
 
 ```cudoc-embed
@@ -173,3 +187,11 @@ replace:
 sources: [/reference.md#scopes]
 render: section
 ```
+
+```cudoc-pagebreak
+
+```
+
+## After a page break (#after-break)
+
+Paginated output starts a new page here; the HTML site shows nothing.

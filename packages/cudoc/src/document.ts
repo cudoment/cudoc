@@ -2,6 +2,7 @@
 import type { Root, PhrasingContent } from "mdast"
 import type { Position } from "unist"
 import GithubSlugger from "github-slugger"
+import { PAGE_BREAK_FENCE, pageBreakNode } from "./paged.js"
 import { walk } from "./internal/core/walk.js"
 import {
   parseTableCellList,
@@ -10,13 +11,18 @@ import {
 } from "./internal/transforms/table-cell-list/index.js"
 import {
   createTableColumnLayoutTransform,
+  createTableColumnWidthTransform,
   resolveTableColumnLayoutOptions,
+  resolveTableColumnWidthOptions,
   type TableColumnLayoutOptions,
+  type TableColumnWidthOptions,
 } from "./internal/transforms/table-column-layout/index.js"
 
 declare module "mdast" {
   interface RootData {
     cudocEmbedPrefix?: string
+    /** On a resolved embed: the ids of every document it read, `*` when an extractor ran. */
+    cudocDependencies?: string[]
     /**
      * The schema version, under its default field name. A caller may rename the
      * field through `AstVersionOptions.field`, so reading it back generically
@@ -62,8 +68,16 @@ export type DocumentOptions = {
     }
   >
   tableColumnLayout?: TableColumnLayoutOptions[]
+  /** Minimum column widths by header text, applied before the layout rules. */
+  tableColumnWidths?: TableColumnWidthOptions[]
   /** Hosts use their native slugger later. Standalone compilers assign IDs here. */
   headingIds?: "host" | "generate"
+  /**
+   * Diagnostic codes not to report, such as `DYNAMIC_COMPONENT` in a project
+   * whose components legitimately take expressions. The nodes are handled the
+   * same way; only the message is dropped.
+   */
+  ignoreDiagnostics?: string[]
 }
 export type DocumentData = {
   hName?: string
@@ -355,8 +369,13 @@ export function normalizeDocument(
       : {}),
     ...options.components,
   }
-  const warn = (node: DocumentNode, code: string, message: string) =>
+  const ignored = new Set(options.ignoreDiagnostics ?? [])
+  if ([...ignored].some((code) => typeof code !== "string"))
+    throw new TypeError("cudoc: ignoreDiagnostics must be an array of codes")
+  const warn = (node: DocumentNode, code: string, message: string) => {
+    if (ignored.has(code)) return
     diagnostics.push({ code, message, position: node.position })
+  }
   const fail = (node: DocumentNode, message: string): never => {
     throw new Error(
       `cudoc: ${message} at ${node.position?.start.line ?? "?"}:${node.position?.start.column ?? "?"}`,
@@ -585,6 +604,17 @@ export function normalizeDocument(
   tree.children = tree.children.map((n) =>
     normalize(n as unknown as DocumentNode, []),
   ) as Root["children"]
+  // Widths first: a layout rule rebuilds the header cells it matches and
+  // carries their style with it, so the width has to be on the cell by then.
+  for (const rule of options.tableColumnWidths ?? [])
+    walk({
+      tree,
+      state: { source },
+      preTransforms: [],
+      postTransforms: [
+        createTableColumnWidthTransform(resolveTableColumnWidthOptions(rule)),
+      ],
+    })
   for (const rule of options.tableColumnLayout ?? [])
     walk({
       tree,
@@ -594,6 +624,19 @@ export function normalizeDocument(
         createTableColumnLayoutTransform(resolveTableColumnLayoutOptions(rule)),
       ],
     })
+  // An authored page break is a fence, the one block form that parses
+  // identically through every host's compiler without a parser extension.
+  const replaceBreakFences = (node: DocumentNode) => {
+    if (!node.children) return
+    node.children = node.children.map((child) =>
+      child.type === "code" &&
+      (child as { lang?: string | null }).lang === PAGE_BREAK_FENCE
+        ? (pageBreakNode(child.position) as DocumentNode)
+        : child,
+    )
+    node.children.forEach(replaceBreakFences)
+  }
+  replaceBreakFences(tree as unknown as DocumentNode)
   lowerNativeElements(tree)
   const slugger = new GithubSlugger()
   const ids = new Set<string>()
