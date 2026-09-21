@@ -20,4 +20,7 @@ examples/*/docs/portable.md
 examples/*/docs/reference.md
 examples/nextra/content/portable.md
 examples/nextra/content/reference.md
-examples/html/site/
+examples/export/site/
+
+# The stylesheet golden fixture is compared byte for byte.
+packages/cudoc-export/__tests__/__fixtures__/

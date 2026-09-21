@@ -7,9 +7,10 @@ import { prepareEmbeds } from "./prepare-embeds.js"
 import { generateDataset } from "./dataset.js"
 import { checkReferences } from "./check.js"
 import { formatCheckResult } from "./report.js"
+import { watchDocuments } from "./watch.js"
 
 const USAGE =
-  "Usage: cudoc <collect|check|dataset> --config config.mjs [--format text|json] [--strict]"
+  "Usage: cudoc <collect|check|dataset> --config config.mjs [--watch] [--format text|json] [--strict]"
 
 try {
   const argv = process.argv.slice(2)
@@ -53,6 +54,40 @@ try {
       (issue) => issue.severity === "error" || flags.has("--strict"),
     )
     if (blocking.length) process.exitCode = 1
+  } else if (flags.has("--watch")) {
+    // The first pass starts from whatever the output directory holds, and
+    // every pass reports what it compiled; a failed pass is a message and the
+    // last good output stays in place.
+    const watcher = watchDocuments(config, {
+      onPass: ({
+        documentCount,
+        compiled,
+        reused,
+        blocks,
+        reusedBlocks,
+        outDir,
+        elapsed,
+      }) =>
+        console.log(
+          JSON.stringify({
+            documentCount,
+            compiled,
+            reused,
+            blocks,
+            reusedBlocks,
+            outDir,
+            elapsed,
+          }),
+        ),
+      onError: (error) => console.error(error),
+    })
+    const stop = () => {
+      watcher.close()
+      process.exit(0)
+    }
+    process.on("SIGINT", stop)
+    process.on("SIGTERM", stop)
+    await watcher.ready
   } else {
     const library = await collect()
     await prepareEmbeds(library, config.outDir)

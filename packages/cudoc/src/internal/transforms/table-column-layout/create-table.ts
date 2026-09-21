@@ -64,6 +64,51 @@ const createHeadElement = (
   attributes: MdxJsxAttribute[] = [],
 ): MdxJsxTextElement => createMdxTextElement(name, cell.children, attributes)
 
+/** The `style` a header cell carries as mdast data, as a React style object. */
+const cellStyle = (cell: TableCell): Record<string, string> => {
+  const style = (cell.data as { hProperties?: { style?: unknown } } | undefined)
+    ?.hProperties?.style
+  if (typeof style !== "string") return {}
+  const entries = style
+    .split(";")
+    .map((rule) => rule.split(":").map((part) => part.trim()))
+    .filter(
+      (parts): parts is [string, string] => parts.length === 2 && !!parts[0],
+    )
+    .map(([key, value]) => [
+      key.replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase()),
+      value,
+    ])
+  return Object.fromEntries(entries)
+}
+
+/** A `style={{ … }}` attribute for an object, or nothing for an empty one. */
+const styleAttribute = (style: Record<string, string>): MdxJsxAttribute[] =>
+  Object.keys(style).length
+    ? [
+        {
+          type: "mdxJsxAttribute",
+          name: "style",
+          value: {
+            type: "mdxJsxAttributeValueExpression",
+            value: JSON.stringify(style),
+            data: {
+              estree: {
+                type: "Program",
+                sourceType: "module",
+                body: [
+                  {
+                    type: "ExpressionStatement",
+                    expression: valueToEstree(style),
+                  },
+                ],
+              },
+            },
+          },
+        },
+      ]
+    : []
+
 const createCellElement = (
   children: CudocTableCellContent[],
   name: string,
@@ -76,36 +121,20 @@ const createCellElement = (
 })
 
 // The native table mapping receives the same textAlign style as an ordinary
-// Markdown table. Custom components retain control of their own prop contract.
+// Markdown table. Custom components retain control of their own prop contract,
+// except for a width a rule wrote onto the header cell, which every head
+// component is handed so a site can honour it.
 const alignmentAttributes = (
   table: Table,
   index: number,
   name: string,
+  cell?: TableCell,
 ): MdxJsxAttribute[] => {
   const textAlign = table.align?.[index]
-  if (!textAlign || (name !== "th" && name !== "td")) return []
-  return [
-    {
-      type: "mdxJsxAttribute",
-      name: "style",
-      value: {
-        type: "mdxJsxAttributeValueExpression",
-        value: JSON.stringify({ textAlign }),
-        data: {
-          estree: {
-            type: "Program",
-            sourceType: "module",
-            body: [
-              {
-                type: "ExpressionStatement",
-                expression: valueToEstree({ textAlign }),
-              },
-            ],
-          },
-        },
-      },
-    },
-  ]
+  return styleAttribute({
+    ...(textAlign && (name === "th" || name === "td") ? { textAlign } : {}),
+    ...(cell ? cellStyle(cell) : {}),
+  })
 }
 
 /**
@@ -141,7 +170,7 @@ export const createLayoutTable = ({
 
   const headerElements = headerRow.children.map((cell, index) =>
     createHeadElement(cell, components.head, [
-      ...alignmentAttributes(table, index, components.head),
+      ...alignmentAttributes(table, index, components.head, cell),
       ...(index === columnIndex && hasSplitCell
         ? [createMdxAttribute(spanAttribute, spanValue)]
         : []),

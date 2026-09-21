@@ -1,5 +1,7 @@
+import path from "node:path"
 import { cudocRemarkPlugins } from "cudoc-docusaurus"
 import embed from "cudoc-remark/embed"
+import { libraryLoader } from "cudoc-remark/loader"
 import exportAst from "@cudoment/cudoc/embed"
 import { cudocOptions } from "../fixtures/cudoc-options.mjs"
 
@@ -44,8 +46,30 @@ const config = {
     ],
   ],
 
-  // Adds cudoc's Anchor and Badge to the classic theme.
-  plugins: ["cudoc-docusaurus"],
+  plugins: [
+    // Adds cudoc's Anchor and Badge to the classic theme.
+    "cudoc-docusaurus",
+    // The embed plugin splices prepared blocks into a page while it compiles,
+    // so the compiled page depends on `embeds.json`. This loader declares that
+    // dependency and appends one invisible line carrying the library's hash,
+    // so a recollection reaches a page the build cache already holds. The rule
+    // names the content directory: Docusaurus reads `include` off every MDX
+    // rule to build its fallback loader, and a rule without one breaks it.
+    () => ({
+      name: "cudoc-library",
+      configureWebpack: () => ({
+        module: {
+          rules: [
+            {
+              test: /\.mdx?$/,
+              include: [path.resolve("docs")],
+              use: [libraryLoader(".cudoc/documents")],
+            },
+          ],
+        },
+      }),
+    }),
+  ],
 
   themeConfig: {
     navbar: {

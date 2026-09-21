@@ -9,6 +9,9 @@ jobs:
   test:
     name: Node ${{ matrix.node }}
     runs-on: ubuntu-latest
+    # These jobs never print a PDF, so they skip cudoc-export's 187MB browser.
+    env:
+      CUDOC_SKIP_BROWSER_DOWNLOAD: "1"
     strategy:
       fail-fast: false
       matrix:
@@ -29,6 +32,8 @@ jobs:
       - run: npm run test:run
 
   pack:
+    env:
+      CUDOC_SKIP_BROWSER_DOWNLOAD: "1"
     name: Install from a packed tarball
     runs-on: ubuntu-latest
     steps:
@@ -52,6 +57,11 @@ jobs:
         with:
           node-version: 24
           cache: npm
+      # The browser cudoc-export prints PDFs with, cached across runs.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npm ci
       # The examples link the packages from `dist`, so they have to be built.
       - run: npm run build
@@ -69,7 +79,7 @@ jobs:
       - run: npm ci
         working-directory: examples/eleventy
       - run: npm ci
-        working-directory: examples/html
+        working-directory: examples/export
 
       # Compiles the shared fixtures with each example's own compiler. It needs
       # the installs above but no site build, so it runs before them and fails
@@ -91,7 +101,7 @@ jobs:
       - run: npm run build
         working-directory: examples/eleventy
       - run: npm run build
-        working-directory: examples/html
+        working-directory: examples/export
       # Every assertion on a built site: the portable page on all six hosts,
       # the library export under each link policy, and the MDX showcase across
       # the three MDX hosts.

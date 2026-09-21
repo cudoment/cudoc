@@ -1,6 +1,6 @@
 {
   "name": "cudoc-markdown-it",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Shared markdown-it pipeline for cudoc host adapters",
   "license": "MIT",
   "repository": {
@@ -8,7 +8,7 @@
     "url": "git+https://github.com/cudoment/cudoc.git",
     "directory": "packages/cudoc-markdown-it"
   },
-  "homepage": "https://github.com/cudoment/cudoc/tree/main/packages/cudoc-markdown-it#readme",
+  "homepage": "https://github.com/cudoment/cudoc#readme",
   "bugs": {
     "url": "https://github.com/cudoment/cudoc/issues"
   },
@@ -41,7 +41,7 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "@cudoment/cudoc": "0.4.0"
+    "@cudoment/cudoc": "0.5.0"
   },
   "peerDependencies": {
     "markdown-it": "^14.1.0"

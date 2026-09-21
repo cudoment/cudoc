@@ -217,7 +217,7 @@ export const HOST_CASES: HostCase[] = [
       ? { compiler: eleventy(), native: true }
       : { unavailable: "run npm ci in examples/eleventy" }),
   },
-  { name: "html", host: "html", format: "md", compiler: standalone("html") },
+  { name: "export", host: "html", format: "md", compiler: standalone("html") },
 ]
 
 export const readFixture = (name: string) =>

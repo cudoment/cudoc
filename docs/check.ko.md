@@ -34,17 +34,21 @@ cudoc check --config cudoc.config.mjs
 | ----------------------------- | ------ | -------------------------------------------------------- |
 | `missing-document`            | 오류   | 로컬 링크가 수집된 문서도 파일도 가리키지 않음           |
 | `missing-anchor`              | 오류   | 문서는 있으나 그 앵커가 없음                             |
-| `missing-asset`               | 오류   | 이미지 파일이 `sourceRoot`에도 자산 디렉터리에도 없음    |
+| `missing-asset`               | 오류   | 이미지 파일이 어느 수집 루트에도 자산 디렉터리에도 없음  |
 | `missing-embed-source`        | 오류   | 임베드가 수집되지 않은 문서를 가리킴                     |
 | `missing-embed-anchor`        | 오류   | 임베드 대상 문서는 있으나 그 절이 없음                   |
 | `duplicate-anchor`            | 오류   | 한 문서의 제목 둘이 같은 앵커를 선언함                   |
 | `empty-anchor`                | 오류   | id 없는 앵커 표기가 제목 글자에 남음                     |
 | `invalid-embed-spec`          | 오류   | 임베드 블록이 파싱되지 않거나 없는 키를 씀               |
 | `unmatched-embed-replacement` | 경고   | `replace` 규칙이 바꿀 대상을 찾지 못함                   |
+| `empty-embed-cell`            | 경고   | 정의한 표 열이 어느 행에서 아무것도 찾지 못함            |
+| `imported-embed-component`    | 오류   | 원본 파일이 스스로 import한 컴포넌트를 임베드가 복사함   |
 | `unstable-anchor-link`        | 경고   | 문서 순서에 따라 움직이는 자동 생성 앵커를 링크가 가리킴 |
 | `unportable-embed-component`  | 경고   | 독립 HTML이 렌더링할 수 없는 컴포넌트를 임베드가 복사함  |
 
-외부 URL은 범위 밖입니다. `https://example.com`에 도달할 수 있는지 확인하는 것은 실패 양상이 다른 네트워크 작업이고, 별도 도구가 담당할 일입니다.
+외부 URL은 범위 밖입니다. `https://example.com`에 도달할 수 있는지 확인하는 것은 실패 양상이 다른 네트워크 작업이고, 별도 도구가 담당할 일입니다. 문서 사이트 옆에서 다른 애플리케이션이 담당하는 같은 도메인의 경로(`/sdk/js/start` 등)도 그 접두어를 `externalPaths`에 적어 두면 범위 밖이 됩니다. 적어 두지 않으면 문서 누락으로 보고되는데, 검사기가 그 페이지의 존재를 달리 알 방법이 없기 때문입니다.
+
+상대 링크는 디스크가 아니라 라이브러리 좌표에서 해석됩니다. `sourceRoot` 하나면 둘이 같고, [루트](./api-reference/node.ko.md#수집)가 여럿이면 `../../terms/token.md` 같은 링크는 기준 경로가 디렉터리 이름과 같을 때에만 한 루트에서 다른 루트로 건너갑니다. `/terms/token.md` 같은 루트 상대 링크는 기준 경로 아래의 문서를 곧바로 가리키므로 언제나 동작합니다.
 
 ## 출력 읽기
 
@@ -102,6 +106,19 @@ export default {
 
 규칙 목록은 선택된 절 전부에 적용되므로, `depth: 2`로 여러 절을 고른 상태에서 한 절만 겨냥한 규칙은 나머지 절에서 아무것도 찾지 못하는 것이 정상입니다. 그래서 **선택된 절 어디에서도** 맞지 않은 규칙만 보고합니다. 규칙은 해석기가 적용하는 방식 그대로, 순서대로 앞 규칙의 결과에 대고 확인합니다. → [찾기·바꾸기](./embedding.ko.md#찾기바꾸기)
 
+## 빈 셀 경고
+
+[열을 직접 정의한](./embedding.ko.md#열을-직접-정의하기) 표 임베드는 모든 행이 가져야 할 것을 적어 둡니다. 좌표 위치의 표, 첫 문단, 상위 제목 같은 것입니다. 절에 그것이 없으면 해석기는 빈 셀을 렌더링하고 아무것도 실패하지 않으므로, 검사기가 어느 열, 어느 행이 왜 비었는지 알려 줍니다.
+
+```
+   3:12  warning empty-embed-cell   /docs/rest-api.md
+         column 2 "Method" is empty for the row from docs/rest-api#charge:
+         expected table 0 in docs/rest-api#charge, found 0 tables after skipping
+         those headed "Requirements"
+```
+
+매핑으로 쓴 열만 보고합니다. 표로 시작하는 절의 축약형 `summary`가 비는 것은 정상입니다. 설정에 등록되지 않은 추출기를 부르는 열은 대신 `invalid-embed-spec` 오류입니다.
+
 ## 파싱되지 않는 임베드 블록
 
 임베드 블록은 YAML입니다. 파싱되지 않거나 cudoc에 없는 키를 쓴 블록은, 블록 기준이 아니라 **파일 기준 줄 번호**와 함께 보고됩니다.
@@ -112,6 +129,18 @@ export default {
 ```
 
 `regex`를 `regexp`로 잘못 쓴 경우가 예전에는 조용히 통과했습니다. 정규식이 문자열로 취급되어 아무것도 찾지 못한 채로 말입니다. 이제 블록과 `select`와 각 `replace` 규칙, 세 계층 모두에서 모르는 키를 거부합니다.
+
+## imported-component 오류
+
+MDX 호스트는 임베드된 복사본을 자기 컴포넌트 매핑으로 렌더링하므로, 임베드된 절 안의 컴포넌트는 호스트가 그 이름을 알고 있는 한 그대로 동작합니다. 원본 파일이 스스로 `import`한 컴포넌트는 다릅니다. import 문은 그 파일에 남고, 복사본이 놓이는 문서에는 그 이름의 바인딩이 없으므로 페이지가 렌더링되지 않습니다.
+
+```
+   5:12  error   imported-embed-component   widget.mdx#live
+         this embed copies <Chart> out of widget, which imports it in its own
+         file. guide has no such import, so the spliced copy cannot render it. …
+```
+
+호스트의 공용 컴포넌트(`mdx-components.tsx`, `MDXProvider`, 테마)로 제공하거나, 임베드하는 문서에서도 import하거나, 임베드되는 절 밖으로 옮기십시오. 임베드하는 문서가 같은 이름을 import하면 보고하지 않습니다.
 
 ## unportable-component 경고
 
@@ -125,7 +154,7 @@ sources: [widget.mdx#live]
 ```
 ````
 
-사이트는 `Chart`를 등록해 두었으므로 이 페이지를 렌더링합니다. `cudoc-html`에는 그런 등록부가 없으므로 거부합니다.
+사이트는 `Chart`를 등록해 두었으므로 이 페이지를 렌더링합니다. `cudoc-export`에는 그런 등록부가 없으므로 거부합니다.
 
 ```
 cudoc: no portable renderer for Chart at line ?
@@ -159,11 +188,12 @@ export default {
 
 수집 설정 안의 `check`입니다.
 
-| 옵션         | 효과                                                         |
-| ------------ | ------------------------------------------------------------ |
-| `ignore`     | 결과에서 아예 제외할 코드 목록                               |
-| `assetDirs`  | 이미지 탐색 경로 추가. 호스트의 `public`이나 `static`에 맞춤 |
-| `sourceRoot` | 라이브러리 자체의 소스 루트를 덮어씀                         |
+| 옵션            | 효과                                                                                         |
+| --------------- | -------------------------------------------------------------------------------------------- |
+| `ignore`        | 결과에서 아예 제외할 코드 목록                                                               |
+| `assetDirs`     | 이미지 탐색 경로 추가. 호스트의 `public`이나 `static`에 맞춤                                 |
+| `externalPaths` | 같은 도메인에서 다른 앱이 담당하는 루트 상대 접두어(`/sdk` 등). 그 아래 링크는 검사하지 않음 |
+| `sourceRoot`    | 라이브러리 자체의 루트를 덮어씀. 디렉터리가 여럿이면 `roots`가 같은 역할                     |
 
 명령줄입니다.
 

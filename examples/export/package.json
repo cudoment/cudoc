@@ -1,0 +1,13 @@
+{
+  "name": "cudoc-example-export",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync": "node ../scripts/sync-portable.mjs docs",
+    "build": "npm run sync && cudoc-export build docs --out-dir site"
+  },
+  "dependencies": {
+    "@cudoment/cudoc": "file:../../packages/cudoc",
+    "cudoc-export": "file:../../packages/cudoc-export"
+  }
+}

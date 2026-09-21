@@ -60,6 +60,31 @@ import embed from "cudoc-remark/embed"
 remarkPlugins: [[embed, { sourceRoot: "docs", outDir: ".cudoc/documents" }]],
 ```
 
+The plugin splices prepared content into the page as it compiles, so the compiled page depends on `.cudoc/documents/embeds.json`. Register the library loader on the same files through a small plugin, so a recollection reaches pages the dev server and the build cache have already compiled; it leaves your files alone and adds one invisible reference definition to the compiled input:
+
+```js
+import path from "node:path"
+import { libraryLoader } from "cudoc-remark/loader"
+
+// docusaurus.config.mjs → plugins:
+;() => ({
+  name: "cudoc-library",
+  configureWebpack: () => ({
+    module: {
+      rules: [
+        {
+          test: /\.mdx?$/,
+          include: [path.resolve("docs")],
+          use: [libraryLoader(".cudoc/documents")],
+        },
+      ],
+    },
+  }),
+})
+```
+
+The rule has to name your content directory in `include`: Docusaurus builds its fallback MDX loader from the `include` of every rule matching `.mdx`, and a rule without one stops the build with an invalid webpack configuration. Docusaurus loads the config as CommonJS, so resolve the path from the working directory rather than from `import.meta`.
+
 ## Step 5 — Add the collector
 
 Copy [the example collector](../examples/docusaurus/collect.mjs) to `collect.mjs` in your site root. It runs the actual Docusaurus MDX processor, captures what Docusaurus does to the document, and prepares the embeds.
@@ -81,7 +106,7 @@ Set `sourceRoot`, `outDir` and `routeBase` to match your site. **Collection and 
 }
 ```
 
-There is no collection watcher, so collection has to run before the site does. The embed plugin inserts the prepared content automatically.
+Collection has to run before the site does. To collect again as you write, wrap the same options in [`watchDocuments`](./api-reference/node.md#watching) from `@cudoment/cudoc/node/watch` instead of `buildDocumentsAsync`. The embed plugin inserts the prepared content automatically.
 
 `cudoc check` reports every broken link, anchor, image and embed in one pass, and exits non-zero, so a broken reference stops the build before the site is generated. → [Reference checking](./check.md)
 
@@ -90,12 +115,12 @@ There is no collection watcher, so collection has to run before the site does. T
 Reuse the library you just collected to produce a shareable HTML bundle:
 
 ```sh
-npm install cudoc-html
-npx cudoc-html build docs --library .cudoc/documents --out-dir shared-html \
+npm install cudoc-export
+npx cudoc-export build docs --library .cudoc/documents --out-dir shared-html \
   --links host --host-url https://docs.example.com/project/
 ```
 
-Your Docusaurus build and its collected data are not modified. → [Standalone HTML](./html.md)
+Your Docusaurus build and its collected data are not modified. → [Standalone HTML](./export.md)
 
 ---
 

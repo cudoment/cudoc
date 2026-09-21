@@ -1,4 +1,5 @@
 import createMDX from "@next/mdx"
+import { libraryLoader } from "cudoc-remark/loader"
 import { cudocOptions } from "../fixtures/cudoc-options.mjs"
 
 /**
@@ -35,8 +36,26 @@ const withMDX = createMDX({
   },
 })
 
+/**
+ * The embed plugin splices prepared blocks into a page while it compiles, so
+ * the compiled page depends on `embeds.json`. This loader declares that
+ * dependency, appends one invisible line carrying the library's hash and
+ * carries a fingerprint in its options, so a recollection reaches a page the
+ * bundler has already compiled, in the dev server and in both bundlers'
+ * persistent build caches. The rule is plain JSON, which is what Turbopack's
+ * worker needs.
+ */
+const library = libraryLoader(".cudoc/documents")
+
 export default withMDX({
   pageExtensions: ["js", "jsx", "md", "mdx"],
+  webpack(config) {
+    config.module.rules.push({ test: /\.mdx?$/, use: [library] })
+    return config
+  },
+  turbopack: {
+    rules: { "*.{md,mdx}": { loaders: [library] } },
+  },
   // Include the stored AST when packaging this route for runtime reads.
   outputFileTracingIncludes: {
     "/embed": ["./.cudoc/ast/showcase.json"],

@@ -1,6 +1,6 @@
 {
   "name": "cudoc-remark",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Remark plugin for cudoc: heading anchors, badges, table cell lists and table column layout, each configurable.",
   "license": "MIT",
   "repository": {
@@ -8,7 +8,7 @@
     "url": "git+https://github.com/cudoment/cudoc.git",
     "directory": "packages/cudoc-remark"
   },
-  "homepage": "https://github.com/cudoment/cudoc/tree/main/packages/cudoc-remark#readme",
+  "homepage": "https://github.com/cudoment/cudoc#readme",
   "bugs": {
     "url": "https://github.com/cudoment/cudoc/issues"
   },
@@ -64,9 +64,9 @@
       "types": "./dist/embed.d.ts",
       "default": "./dist/embed.js"
     },
-    "./runtime": {
-      "types": "./dist/runtime.d.ts",
-      "default": "./dist/runtime.js"
+    "./loader": {
+      "types": "./dist/loader.d.ts",
+      "default": "./dist/loader.js"
     }
   },
   "files": [
@@ -82,7 +82,7 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "@cudoment/cudoc": "0.4.0",
+    "@cudoment/cudoc": "0.5.0",
     "estree-util-value-to-estree": "^3.5.0",
     "mdast-util-mdx-jsx": "^3.2.0",
     "remark-gfm": "^4.0.1",
@@ -92,6 +92,7 @@
     "unist-util-visit": "^5.0.0",
     "remark-directive": "^4.0.0",
     "acorn": "^8.15.0",
+    "acorn-jsx": "^5.3.2",
     "remark-frontmatter": "^5.0.0"
   },
   "peerDependencies": {

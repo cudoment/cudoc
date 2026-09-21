@@ -25,7 +25,7 @@ Install only what your host needs. ESM, Node.js 20+. Each [usage guide](../READM
 | [`cudoc-markdown-it`](../../packages/cudoc-markdown-it/README.md) | Connect markdown-it pipelines                                             |
 | [`cudoc-vitepress`](../../packages/cudoc-vitepress/README.md)     | VitePress rendering and collection                                        |
 | [`cudoc-eleventy`](../../packages/cudoc-eleventy/README.md)       | Eleventy rendering and collection                                         |
-| [`cudoc-html`](../../packages/cudoc-html/README.md)               | Standalone HTML generation                                                |
+| [`cudoc-export`](../../packages/cudoc-export/README.md)           | Standalone HTML, PDF and Word generation                                  |
 
 Next.js needs no adapter package of its own. `@next/mdx` hands over the remark pipeline directly, and there is no native heading-id or table-of-contents pass to order cudoc against, so `cudoc-remark` with `host: "next"` is the whole integration. The Docusaurus and Nextra adapters exist because those hosts do have such a pass. → [MDX hosts](./adapters.md#docusaurus-and-nextra)
 
@@ -37,7 +37,7 @@ Only the core package is scoped: `cudoc` was already taken on npm, so it publish
 - `cudoc-remark` connects a remark/MDX pipeline and inserts prepared embeds.
 - `cudoc-docusaurus` and `cudoc-nextra` configure remark ordering and native headings.
 - `cudoc-markdown-it` connects the actual Markdown-it pipeline; `cudoc-vitepress` and `cudoc-eleventy` add one host definition each.
-- `cudoc-html` generates standalone HTML, either collecting Markdown itself or reusing a host's library and prepared embeds. Exported hyperlinks can be local, deployed-host URLs or removed.
+- `cudoc-export` generates standalone HTML, PDF and Word, either collecting Markdown itself or reusing a host's library and prepared embeds. Every format reads one set of design tokens. Exported hyperlinks can be local, deployed-host URLs or removed.
 
 The core has no React runtime dependency. React is used by the MDX embedding runtime. Import Node-only entry points from build scripts or server code, not client components.
 
@@ -56,18 +56,21 @@ Prefixes below are relative to `@cudoment/cudoc` unless a full package name is s
 | `/node/library`                                                    | Collect and load complete libraries                             | [Collection](./node.md#collection)                             |
 | `/node/resolve-embed`                                              | Parse and resolve embed requests                                | [Embedding](./node.md#embedding)                               |
 | `/node/prepare-embeds`                                             | Prepare/read build-time embed data                              | [Preparation](./node.md#prepared-embeds)                       |
+| `/node/watch`                                                      | Repeated, incremental collection                                | [Watching](./node.md#watching)                                 |
 | `/node/dataset`                                                    | Generate filtered AST directories                               | [Datasets](./node.md#datasets)                                 |
 | `/node/check`, `/node/report`                                      | Whole-library reference checking and its rendering              | [Reference checking](./node.md#reference-checking)             |
 | `/node/storage`                                                    | Filesystem and staged output helpers                            | [Storage](./node.md#storage)                                   |
 | `/embed`, `/node/export-ast`, `/node/load-ast-file`, `/node/paths` | Individual AST snapshots and path helpers                       | [Individual snapshots](./node.md#individual-ast-snapshots)     |
 | `/transforms/*`                                                    | Low-level syntax transforms                                     | [Core helpers](./document.md#core-helpers)                     |
 | `/styles.css`                                                      | Theme-aware callout and badge stylesheet                        | [Host stylesheet](./document.md#host-stylesheet)               |
+| `/paged`                                                           | Page-break constants the paginated writers share                | [Paginated output](./adapters.md#paginated-output)             |
 | `cudoc-remark` and its subpaths                                    | remark integration, capture, TOC and embed runtime              | [remark](./adapters.md#remark)                                 |
 | `cudoc-docusaurus`, `cudoc-nextra`                                 | Host plugin arrays                                              | [MDX hosts](./adapters.md#docusaurus-and-nextra)               |
 | `cudoc-markdown-it`                                                | Shared markdown-it pipeline for host adapters                   | [markdown-it](./adapters.md#markdown-it)                       |
 | `cudoc-vitepress`                                                  | VitePress host definition and compiler                          | [VitePress and Eleventy](./adapters.md#vitepress-and-eleventy) |
 | `cudoc-eleventy`                                                   | Eleventy host definition, renderer and compiler                 | [VitePress and Eleventy](./adapters.md#vitepress-and-eleventy) |
-| `cudoc-html`                                                       | Site builder and base CSS                                       | [HTML](./adapters.md#html)                                     |
+| `cudoc-export`                                                     | Site, PDF and Word builders, and the design tokens              | [Export](./adapters.md#export)                                 |
+| `cudoc-export/docx`, `/pdf`, `/print`                              | The Word writer, the PDF printer and the print-ready HTML       | [Paginated output](./adapters.md#paginated-output)             |
 
 `/embed` is an individual-snapshot Node barrel. It does **not** re-export the document-library or fenced-embed APIs. Import those from their listed `node/*` paths. `/sections` exports `collectSections`; `/query` also includes the lower-level lookup helpers.
 
@@ -85,7 +88,7 @@ flowchart LR
 
 Syntax-only rendering does not need library storage. Cross-document embedding uses the persisted library; source replacement recompiles original source with the original configuration. Host adapters must capture actual host processing rather than assume the standalone parser produces an identical result.
 
-The same collected library can feed both the primary host and standalone HTML. HTML's `library` mode consumes prepared blocks without rerunning the host compiler or changing the shared files. See [HTML input paths and link policies](./adapters.md#html).
+The same collected library can feed both the primary host and standalone HTML. HTML's `library` mode consumes prepared blocks without rerunning the host compiler or changing the shared files. See [Export input paths and link policies](./adapters.md#export).
 
 ## Maintenance
 

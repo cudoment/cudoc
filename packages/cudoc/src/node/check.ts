@@ -14,10 +14,20 @@ import type { Root } from "mdast"
 import type { Position } from "unist"
 import type { DocumentNode } from "../document.js"
 import type { Library, StoredDocument } from "./library.js"
-import { parseEmbedSpec } from "./resolve-embed.js"
+import {
+  DEFAULT_TABLE_COLUMNS,
+  buildEmbedRow,
+  extractCell,
+  parseEmbedSpec,
+} from "./resolve-embed.js"
 import type { Replacement } from "./resolve-embed.js"
 import { collectSections } from "../sections.js"
-import { resolveLocalTarget, type LocalTargetRoots } from "./local-target.js"
+import {
+  isExternalPath,
+  resolveLocalTarget,
+  type LocalTargetRoots,
+} from "./local-target.js"
+import { resolveRoots, type SourceRoot } from "./roots.js"
 
 export type ReferenceIssueCode =
   | "missing-document"
@@ -30,7 +40,9 @@ export type ReferenceIssueCode =
   | "missing-embed-anchor"
   | "invalid-embed-spec"
   | "unmatched-embed-replacement"
+  | "empty-embed-cell"
   | "unportable-embed-component"
+  | "imported-embed-component"
 
 export type ReferenceIssue = {
   code: ReferenceIssueCode
@@ -55,9 +67,11 @@ export type CheckResult = {
   checkedReferences: number
 }
 
-export type CheckOptions = Omit<LocalTargetRoots, "sourceRoot"> & {
-  /** Defaults to the library's own `sourceRoot`. */
+export type CheckOptions = Omit<LocalTargetRoots, "roots"> & {
+  /** One root at the top of the library; the shorthand for `roots: [{ dir }]`. */
   sourceRoot?: string
+  /** Where the documents live on disk. Defaults to the library's own roots. */
+  roots?: SourceRoot[]
   /** Codes to leave out of the result entirely. */
   ignore?: ReferenceIssueCode[]
 }
@@ -239,10 +253,24 @@ export function checkReferences(
   library: Library,
   options: CheckOptions = {},
 ): CheckResult {
-  const sourceRoot = options.sourceRoot ?? library.sourceRoot
+  const roots =
+    options.roots !== undefined || options.sourceRoot !== undefined
+      ? resolveRoots(options)
+      : library.roots
+  const targetRoots: Omit<LocalTargetRoots, "roots"> = {
+    assetDirs: options.assetDirs,
+    withoutBase: options.withoutBase,
+    externalPaths: options.externalPaths,
+  }
   const ignore = new Set(options.ignore ?? [])
   const issues: ReferenceIssue[] = []
   let checkedReferences = 0
+
+  // Where a copied component can render at all: an MDX host compiles the
+  // spliced nodes with its own component mapping, a Markdown host cannot.
+  const mdxHost = ["next", "docusaurus", "nextra"].includes(
+    library.options.host ?? "",
+  )
 
   const anchorsById = new Map<string, Anchor[]>(
     library.documents.map((doc) => [doc.id, collectAnchors(doc.tree)]),
@@ -275,8 +303,7 @@ export function checkReferences(
     const [pathname, anchor] = url.split("#")
     let target = doc
     if (pathname) {
-      const id = resolveDocumentId(doc, pathname)
-      const found = id === undefined ? undefined : byId.get(id)
+      const found = resolveDocument(doc, pathname)
       if (!found) return false // not a document link; the asset pass handles it
       target = found
     }
@@ -304,20 +331,30 @@ export function checkReferences(
   }
 
   /**
-   * A link's document id, if it names a document in this library.
+   * The document a link names, if it names one in this library.
    *
    * Hosts do not agree on how a link looks once compiled. Docusaurus and
    * Next.js leave `reference.md`, Nextra drops the extension, and VitePress
    * rewrites it to the deployed `./reference.html`. All three mean the same
-   * document, so any of those endings resolves to the same id.
+   * document, so any of those endings resolves to the same id. A relative
+   * path resolves in the library's coordinates, so it can reach another root
+   * exactly when the bases mirror the directories; a root-relative one names
+   * a library path directly, and then once more with the deployment base
+   * removed, the way the exporter looks a route up.
    */
-  const resolveDocumentId = (doc: StoredDocument, pathname: string) => {
+  const resolveDocument = (
+    doc: StoredDocument,
+    pathname: string,
+  ): StoredDocument | undefined => {
     if (/^(?:[a-z][\w+.-]*:|\/\/)/i.test(pathname)) return undefined
     const decoded = decodeURIComponent(pathname)
-    const joined = decoded.startsWith("/")
-      ? decoded.slice(1)
-      : posixJoin(dirname(doc.sourcePath), decoded)
-    return normalize(joined).replace(/\.(?:mdx?|html?)$/i, "")
+    const toId = (value: string) =>
+      normalize(value).replace(/\.(?:mdx?|html?)$/i, "")
+    if (!decoded.startsWith("/"))
+      return byId.get(toId(posixJoin(dirname(doc.sourcePath), decoded)))
+    const direct = byId.get(toId(decoded.slice(1)))
+    if (direct || !options.withoutBase) return direct
+    return byId.get(toId(options.withoutBase(decoded).replace(/^\//, "")))
   }
 
   for (const doc of library.documents) {
@@ -366,12 +403,14 @@ export function checkReferences(
       if (node.data?.cudoc?.kind === "permalink") return
       checkedReferences++
       if (/^(?:[a-z][\w+.-]*:|\/\/)/i.test(url)) return // external
+      // Another application's path on the same host: nothing here to check.
+      if (isExternalPath(url, options.externalPaths)) return
       if (node.type === "link" && checkDocumentLink(doc, url)) return
       if (url.startsWith("#")) return // handled above as a same-document anchor
-      if (!sourceRoot) return
+      if (!roots) return
       const target = resolveLocalTarget(url, doc.sourcePath, {
-        ...options,
-        sourceRoot,
+        ...targetRoots,
+        roots,
       })
       if (target.kind === "missing")
         report(doc, {
@@ -379,7 +418,7 @@ export function checkReferences(
           severity: "error",
           message:
             node.type === "image"
-              ? `no file for image ${url}; check sourceRoot and assetDirs`
+              ? `no file for image ${url}; check the collection roots and assetDirs`
               : `no document or file for ${url}`,
           reference: url,
         })
@@ -425,8 +464,9 @@ export function checkReferences(
       for (const reference of spec.sources ?? []) {
         checkedReferences++
         const [pathname, anchor] = String(reference).split("#")
-        const id = resolveDocumentId(doc, pathname)
-        const target = id === undefined ? undefined : byId.get(id)
+        const target = pathname
+          ? resolveDocument(doc, pathname)
+          : byId.get(doc.id)
         if (!target) {
           report(doc, {
             code: "missing-embed-source",
@@ -503,11 +543,51 @@ export function checkReferences(
           })
         }
 
-        // A summary table carries heading text and nothing else, so whatever
-        // else the body holds never travels. Replacement above still applies,
-        // because it reaches the title and summary columns.
-        if (typeof spec.render === "object" && spec.render?.type === "table")
+        // A table carries extracted text and nothing else, so whatever else
+        // the body holds never travels. What can go wrong is a column that
+        // finds nothing in a row: the resolver renders an empty cell, and the
+        // author would only notice by reading the page.
+        if (typeof spec.render === "object" && spec.render?.type === "table") {
+          const columns = spec.render.columns ?? DEFAULT_TABLE_COLUMNS
+          for (const section of copied) {
+            const row = buildEmbedRow(target, section.anchorId, section.tree)
+            columns.forEach((column, index) => {
+              // A shorthand column is best effort: `summary` of a section
+              // that opens with a table is legitimately blank. A column
+              // written as a mapping states what every row must have.
+              if (typeof column === "string") return
+              let problem: string | undefined
+              try {
+                problem = extractCell(library, column, row, {
+                  documentId: doc.id,
+                }).problem
+              } catch (error) {
+                // An extractor the configuration does not register is a
+                // setting problem, reported once per column like a bad key.
+                report(doc, {
+                  code: "invalid-embed-spec",
+                  severity: "error",
+                  message: (error as Error).message.replace(/^cudoc: /, ""),
+                  reference: String(reference),
+                })
+                return
+              }
+              if (!problem) return
+              const header =
+                typeof column === "string"
+                  ? column
+                  : (column.header ??
+                    (typeof column.value === "string" ? column.value : ""))
+              report(doc, {
+                code: "empty-embed-cell",
+                severity: "warning",
+                message: `column ${index + 1}${header ? ` "${header}"` : ""} is empty for the row from ${row.document.id}${row.section.anchorId ? `#${row.section.anchorId}` : ""}: ${problem}`,
+                reference: String(reference),
+              })
+            })
+          }
           continue
+        }
 
         const names = [
           ...new Set(
@@ -518,7 +598,26 @@ export function checkReferences(
           report(doc, {
             code: "unportable-embed-component",
             severity: "warning",
-            message: `this embed copies ${names.join(", ")} out of ${target.id}. A host that owns those components renders them, but standalone HTML export has no renderer for them and fails. Keep embedded sections to Markdown, or pass a renderer for each name.`,
+            message: mdxHost
+              ? `this embed copies ${names.join(", ")} out of ${target.id}. The host renders them where the copy is spliced in, but standalone HTML export has no renderer for them and fails. Keep embedded sections to Markdown, or pass a renderer for each name.`
+              : `this embed copies ${names.join(", ")} out of ${target.id}. Neither this host nor standalone HTML export can render them. Keep embedded sections to Markdown, or pass a renderer for each name.`,
+            reference: String(reference),
+          })
+
+        // A component the source file imports for itself does not travel
+        // with the copy: the export drops the import, and the embedding
+        // document has no binding for the name unless it imports it too.
+        const orphaned = names
+          .map((name) => name.replace(/^<|>$/g, "").split(".")[0]!)
+          .filter(
+            (name) =>
+              target.imports?.includes(name) && !doc.imports?.includes(name),
+          )
+        if (orphaned.length)
+          report(doc, {
+            code: "imported-embed-component",
+            severity: "error",
+            message: `this embed copies ${orphaned.map((name) => `<${name}>`).join(", ")} out of ${target.id}, which imports ${orphaned.length === 1 ? "it" : "them"} in its own file. ${doc.id} has no such import, so the spliced copy cannot render ${orphaned.length === 1 ? "it" : "them"}. Provide the component through the host's shared components, import it in ${doc.id} as well, or move it out of the embedded section.`,
             reference: String(reference),
           })
       }

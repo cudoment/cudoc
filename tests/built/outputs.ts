@@ -8,6 +8,7 @@
 
 import fs from "node:fs"
 import path from "node:path"
+import { createHash } from "node:crypto"
 
 export const ROOT = path.resolve(import.meta.dirname, "../..")
 export const FIXTURES = path.join(ROOT, "examples/fixtures")
@@ -70,7 +71,7 @@ export const BUILT_HOSTS: BuiltHost[] = [
     outputDir: "_site",
   },
   {
-    name: "html",
+    name: "export",
     page: "site/portable.html",
     content: "main",
     reference: "reference.html",
@@ -133,3 +134,26 @@ export const clean = (text: string) =>
     .replace(/​|&ZeroWidthSpace;/g, "")
     .replace(/\s+/g, " ")
     .trim()
+
+/**
+ * Path and content hash of every file under a directory, symlinks included, so
+ * "unchanged" is a claim about bytes. Shared by the export checks, whose one
+ * contract is that reusing a host's library leaves the host untouched.
+ */
+export const snapshot = (dir: string): [string, string][] => {
+  if (!fs.existsSync(dir)) return []
+  return fs
+    .readdirSync(dir, { withFileTypes: true })
+    .flatMap((entry): [string, string][] => {
+      const file = path.join(dir, entry.name)
+      if (entry.isSymbolicLink()) return [[file, fs.readlinkSync(file)]]
+      if (entry.isDirectory()) return snapshot(file)
+      return [
+        [
+          file,
+          createHash("sha256").update(fs.readFileSync(file)).digest("hex"),
+        ],
+      ]
+    })
+    .sort(([a], [b]) => a.localeCompare(b))
+}

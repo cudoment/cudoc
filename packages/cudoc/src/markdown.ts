@@ -11,11 +11,23 @@ import {
   type DocumentOptions,
   type DocumentNode,
 } from "./document.js"
+import {
+  importedNames,
+  importedNamesFromSource,
+} from "./internal/core/mdx/imports.js"
+
+export { importedNames, importedNamesFromSource }
 
 export type CompiledDocument = {
   tree: Root
   frontmatter: Record<string, unknown>
   diagnostics: ReturnType<typeof normalizeDocument>
+  /**
+   * Local names the document's own `import` statements bind. The export drops
+   * the statements, and the checker needs to know which components an
+   * embedded copy of a section would leave behind.
+   */
+  imports?: string[]
 }
 
 /** Standalone Markdown/MDX compiler. Host adapters supply their actual compiler instead. */
@@ -57,9 +69,15 @@ export function compileDocument(
     (typeof frontmatter !== "object" || Array.isArray(frontmatter))
   )
     throw new Error("cudoc: frontmatter must be a mapping")
+  const imports = importedNames(tree)
   tree.children = tree.children.filter(
     (n) => !["yaml", "mdxjsEsm"].includes(n.type),
   )
   const diagnostics = normalizeDocument(tree, source, options)
-  return { tree, frontmatter: frontmatter ?? {}, diagnostics }
+  return {
+    tree,
+    frontmatter: frontmatter ?? {},
+    diagnostics,
+    ...(imports.length ? { imports } : {}),
+  }
 }

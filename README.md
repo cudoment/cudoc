@@ -103,15 +103,15 @@ Each guide is a numbered walkthrough: install, configure, wire up collection, bu
 | **Nextra**           | [Set up Nextra →](./docs/nextra.md)         | `@cudoment/cudoc cudoc-remark cudoc-nextra`         |
 | **VitePress**        | [Set up VitePress →](./docs/vitepress.md)   | `@cudoment/cudoc cudoc-markdown-it cudoc-vitepress` |
 | **Eleventy**         | [Set up Eleventy →](./docs/eleventy.md)     | `@cudoment/cudoc cudoc-markdown-it cudoc-eleventy`  |
-| **No generator yet** | [Standalone HTML →](./docs/html.md)         | `@cudoment/cudoc cudoc-html`                        |
+| **No generator yet** | [Standalone HTML →](./docs/export.md)       | `@cudoment/cudoc cudoc-export`                      |
 
-No generator yet? The last row starts from an empty directory: two commands and two documents give you a complete site. → [Your first site](./docs/html.md#your-first-site-from-an-empty-directory)
+No generator yet? The last row starts from an empty directory: two commands and two documents give you a complete site. → [Your first site](./docs/export.md#your-first-site-from-an-empty-directory)
 
 The install column lists cudoc's own packages; each guide's first step adds the host's peers. ESM, Node.js 20+.
 
 Every host takes `.md`. The three MDX hosts also take `.mdx`, decided per file by its extension, and every cudoc feature behaves identically in both. → [Choosing `.md` or `.mdx`](./docs/README.md#choosing-md-or-mdx)
 
-Standalone HTML is not a seventh choice you make instead of the others. It is an **extra output** available from every host, reusing the same collected documents. → [Export alongside an existing site](./docs/html.md#export-alongside-an-existing-site)
+Standalone HTML is not a seventh choice you make instead of the others. It is an **extra output** available from every host, reusing the same collected documents. → [Export alongside an existing site](./docs/export.md#export-alongside-an-existing-site)
 
 ---
 
@@ -150,11 +150,11 @@ The source document never changes. → [Document embedding](./docs/embedding.md)
 
 Your site, a shareable HTML bundle, and a machine-readable AST corpus — all from the same Markdown, all resolved the same way.
 
-| Output             | Command            | Use it for                                                |
-| ------------------ | ------------------ | --------------------------------------------------------- |
-| Your existing site | your normal build  | production docs, for people                               |
-| Standalone HTML    | `cudoc-html build` | offline handoff, air-gapped review, static deployment     |
-| AST dataset        | `cudoc dataset`    | RAG pipelines, search indexes, MCP servers, agent context |
+| Output             | Command              | Use it for                                                |
+| ------------------ | -------------------- | --------------------------------------------------------- |
+| Your existing site | your normal build    | production docs, for people                               |
+| Standalone HTML    | `cudoc-export build` | offline handoff, air-gapped review, static deployment     |
+| AST dataset        | `cudoc dataset`      | RAG pipelines, search indexes, MCP servers, agent context |
 
 HTML export offers three hyperlink policies — local files, deployed URLs, or no links at all — so the same content works whether it is browsed from disk or published.
 
@@ -168,7 +168,7 @@ Guides teach the workflow. The reference is where signatures, defaults and contr
 | -------------------------------------------------------------- | --------------------------------------------------- |
 | Syntax modes, callout types, native forms, column layouts      | [Markdown syntax](./docs/syntax.md)                 |
 | Collection setup, selection, replacement, refresh rules        | [Document embedding](./docs/embedding.md)           |
-| Link policies, assets, configuration, deployment routes        | [Standalone HTML](./docs/html.md)                   |
+| Link policies, assets, configuration, deployment routes        | [Standalone HTML](./docs/export.md)                 |
 | Broken links, anchors, images and embeds across a document set | [Reference checking](./docs/check.md)               |
 | Projection options, manifest format, consumer contract         | [AST datasets](./docs/dataset.md)                   |
 | Imports, signatures, option defaults, AST metadata, internals  | [API reference](./docs/api-reference/README.md)     |
@@ -190,6 +190,22 @@ npm test
 Host examples install separately with their own lockfiles. Update the affected guide and API reference in the same change as any API or workflow change.
 
 ## Release notes
+
+### 0.5.0
+
+- PDF and Word output beside the HTML site, from one call and one set of design tokens.
+- A `cudoc-pagebreak` fence forces a page break in the paginated formats and renders nothing on a site.
+- Every document set also exports as one bound file, with cross-document links resolved inside it, opening with a cover and a contents page in both PDF and Word.
+- One `page` setting gives PDF and Word the same paper, running header and footer, page breaks before headings, landscape pages for wide tables and printed link addresses.
+- `annotations: true` ships a review-note runtime with the HTML site: whoever receives the files can select text or a block, leave notes and hand them back as a file or a share token, and `cudoc-export annotations` maps them to Markdown source lines in a facts-only report.
+- `themeSwitch: true` adds a System / Light / Dark button to the HTML site's header, remembered per browser; without it the stylesheet keeps following the system setting with no script.
+- On an MDX host an embedded section is spliced into the page as it compiles, so the components it contains render through the host's own component mapping and its code blocks reach the host's highlighter; the embed plugin no longer renders an HTML string, `cudoc-remark/runtime` is gone, and `cudoc-remark/loader` keeps a recollection visible to the dev server and the build cache. `cudoc check` reports a copied component whose import stays behind in its source file.
+- A table embed can define its own columns: where each cell's text comes from (the section title, its first paragraph, the heading above it, a cell of a table inside it, or a function registered in the collection config), what it links to and how wide it must stay, and `cudoc check` reports every cell a defined column leaves empty.
+- `roots: [{ dir, base }]` collects several directories into one library, each under its own URL prefix, so `/docs/…` and `/terms/…` links, embed sources and exports all mean the same document; `exclude` leaves non-documents out, `private` keeps in-house documents collected and checked but out of exports and datasets, and `externalPaths` tells the checker and the exporter which paths on your domain belong to another application.
+- `tableColumnWidths` gives a table column a minimum width by its header text, per section or everywhere, so authored tables need no `<div style>` in their cells; the HTML site, the paginated formats and Word all honour it.
+- `ignoreDiagnostics` silences a diagnostic code a project has decided to live with, and `loadLibrary(…, { cache: true })` lets a server reuse the loaded library between requests until the collection changes. What a consumer of the stored trees may rely on under `cudocAstVersion: 1` is now written down.
+- `cudoc collect --watch` collects again whenever a document changes, compiling only the documents whose text changed and resolving only the embeds that read them; a `previous` library or preparation gives any collector the same saving, and a document that fails to compile is a message rather than a broken library.
+- `cudoc-html` is now `cudoc-export`, which is what it builds.
 
 ### 0.4.0
 

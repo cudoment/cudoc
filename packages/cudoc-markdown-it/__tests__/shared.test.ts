@@ -156,6 +156,27 @@ describe("shared option validation", () => {
     )
   })
 
+  it("writes width rules into the rendered table and drops ignored codes", () => {
+    const md = markdownIt()
+    installHostPlugin(
+      md,
+      {
+        tableColumnWidths: [{ widths: { Description: "20rem" } }],
+        ignoreDiagnostics: ["UNKNOWN_CALLOUT_TYPE"],
+      },
+      host,
+    )
+    const env: Record<string, unknown> = {}
+    md.render(
+      "| Name | Description |\n| --- | --- |\n| a | b |\n\n> [!MYSTERY] T\n> body\n",
+      env,
+    )
+    expect(env.cudocRendered).toContain(
+      '<th style="min-width: 20rem">Description</th>',
+    )
+    expect((env.cudoc as { diagnostics: unknown[] }).diagnostics).toEqual([])
+  })
+
   it("validates while the plugin is installed, not at the first document", () => {
     const md = markdownIt()
     expect(() =>

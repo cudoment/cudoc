@@ -115,6 +115,56 @@ const options = {
 
 Within the matching section, qualifying list cells are split across columns with aligned spans. Standard HTML table mappings are used; no table components are needed. Layout rules are separate from the five syntax-mode settings.
 
+A column that must not shrink below a width gets a width rule instead of a `<div style>` in every cell:
+
+```js
+const options = {
+  syntax: {},
+  tableColumnWidths: [
+    { widths: { Description: "20rem" } },
+    {
+      section: { depth: 5, titles: ["Basic information"] },
+      widths: { Method: "6ch", URL: "120px" },
+    },
+  ],
+}
+```
+
+The header text selects the column, the CSS length becomes `min-width` on that header cell, and a rule without `section` applies to every table. Width and layout rules combine on the same column. Reference: [document options](./api-reference/document.md#document-options).
+
+## Page breaks
+
+A fence with the info string `cudoc-pagebreak` forces a page break in the
+paginated outputs. It renders nothing on a documentation site.
+
+````markdown
+Content that ends the page.
+
+```cudoc-pagebreak
+
+```
+
+Content that starts the next page.
+````
+
+This is the one block form that parses identically through every host's
+compiler without a parser extension: an HTML comment fails to compile in MDX,
+and a link-definition trick is silently dropped by markdown-it, which would make
+an author's break disappear on half the hosts with no diagnostic.
+
+**It is not a sixth `host | cudoc | both` feature.** That axis chooses between a
+cudoc spelling and a host's own spelling of the same meaning, and no host has a
+page-break spelling, so `pageBreak: "host"` would mean "recognise nothing" and
+leave a visible empty code block on the page. Whether an output honours the mark
+is the output's concern, not the syntax's: the paginated exports do unless their
+`page.authoredBreaks` is `false`, and a site never shows it. Fenced embeds sit
+outside `SyntaxOptions` for the same reason.
+
+The paginated formats also break pages on their own: before a document in a
+bound file, after a heading rather than leaving it stranded at the foot of a
+page, and never inside a table row. Authoring a break is for the places those
+rules cannot know about.
+
 ## Links and authored components
 
 Use Markdown links and images for content shared between hosts. Static native link components can be normalized when `link` accepts host syntax. The `docs` profile recognizes `Link` and `IconLink`; explicit mappings for other names belong in site configuration.

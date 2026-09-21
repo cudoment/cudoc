@@ -70,6 +70,27 @@ import "@cudoment/cudoc/styles.css"
 ;["cudoc-remark/embed", { sourceRoot: "docs", outDir: ".cudoc/documents" }]
 ```
 
+수집에 `roots`를 썼다면 여기에도 `sourceRoot` 대신 같은 목록을 넘겨야 파일이 수집 당시의 ID로 이어집니다.
+
+이 플러그인은 각 임베드의 준비된 내용을 페이지가 컴파일될 때 접합하므로, 임베드된 절 안의 컴포넌트도 다른 컴포넌트와 같이 `mdx-components.jsx`를 통해 렌더링됩니다. 그만큼 컴파일된 페이지가 `.cudoc/documents/embeds.json`에 의존하게 되는데 번들러는 그것을 볼 수 없습니다. 두 번들러 모두에 같은 파일을 대상으로 통과형 로더를 등록하십시오.
+
+```js
+import { libraryLoader } from "cudoc-remark/loader"
+
+const library = libraryLoader(".cudoc/documents")
+
+export default withMDX({
+  pageExtensions: ["js", "jsx", "md", "mdx"],
+  webpack(config) {
+    config.module.rules.push({ test: /\.mdx?$/, use: [library] })
+    return config
+  },
+  turbopack: { rules: { "*.{md,mdx}": { loaders: [library] } } },
+})
+```
+
+파일은 그대로 두고, 번들러가 컴파일하는 내용에 라이브러리 해시를 담은 보이지 않는 참조 정의 한 줄을 더합니다. 그래서 라이브러리가 바뀌면 페이지가 바뀐 것으로 개발 서버와 두 번들러의 빌드 캐시가 인식하고, `cudoc collect`가 이미 컴파일된 페이지에도 닿습니다. → [준비된 임베드 접합](./api-reference/adapters.ko.md#준비된-임베드-접합)
+
 ## 6단계 — 빌드 전마다 수집 실행
 
 [수집 설정](./embedding.ko.md#문서-수집-설정)에 따라 `cudoc.config.mjs`를 만들되 `host: "next"`로 지정한 뒤, 다음과 같이 연결합니다.
@@ -85,19 +106,19 @@ import "@cudoment/cudoc/styles.css"
 }
 ```
 
-수집 감시 기능이 없으므로 Next.js보다 먼저 수집이 돌아야 합니다. 런타임과 준비 데이터 import는 임베드 플러그인이 직접 추가하므로, 작성자가 Markdown에 import를 쓸 일은 없습니다.
+수집은 Next.js보다 먼저 돌아야 합니다. 글을 쓰는 동안에는 `next dev` 옆에서 `cudoc collect --watch --config cudoc.config.mjs`를 실행하세요. `docs/` 아래가 바뀔 때마다 다시 수집하고, 앞 단계의 로더 규칙이 그 결과를 개발 서버가 이미 컴파일한 페이지에도 전달합니다. 임베드 플러그인은 import도 런타임 컴포넌트도 생성하지 않으며, 작성자가 Markdown에 import를 쓸 일은 없습니다.
 
 **수집된 경로를 App Router 경로에 맞추십시오.** `/help/guide`에서 제공되는 `guide.md`라면 `routes: { guide: "/help/guide" }`가 필요합니다.
 
 ## 7단계 — 독립 HTML도 내보내기 (선택)
 
 ```sh
-npm install cudoc-html
-npx cudoc-html build docs --library .cudoc/documents --out-dir shared-html \
+npm install cudoc-export
+npx cudoc-export build docs --library .cudoc/documents --out-dir shared-html \
   --links host --host-url https://docs.example.com/project/
 ```
 
-Next.js 빌드 결과와 수집 데이터는 변경되지 않습니다. → [독립 HTML](./html.ko.md)
+Next.js 빌드 결과와 수집 데이터는 변경되지 않습니다. → [독립 HTML](./export.ko.md)
 
 ---
 

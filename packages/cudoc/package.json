@@ -1,6 +1,6 @@
 {
   "name": "@cudoment/cudoc",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Reusable document ASTs: validation, queries, export and loading for cross-document embedding.",
   "keywords": [
     "cudoc",
@@ -10,7 +10,7 @@
     "ast",
     "documentation"
   ],
-  "homepage": "https://github.com/cudoment/cudoc/tree/main/packages/cudoc#readme",
+  "homepage": "https://github.com/cudoment/cudoc#readme",
   "bugs": {
     "url": "https://github.com/cudoment/cudoc/issues"
   },
@@ -35,6 +35,10 @@
     "./ast": {
       "types": "./dist/ast.d.ts",
       "default": "./dist/ast.js"
+    },
+    "./paged": {
+      "types": "./dist/paged.d.ts",
+      "default": "./dist/paged.js"
     },
     "./syntax": {
       "types": "./dist/syntax.d.ts",
@@ -63,6 +67,10 @@
     "./node/paths": {
       "types": "./dist/node/paths.d.ts",
       "default": "./dist/node/paths.js"
+    },
+    "./node/roots": {
+      "types": "./dist/node/roots.d.ts",
+      "default": "./dist/node/roots.js"
     },
     "./transforms/*": {
       "types": "./dist/internal/transforms/*.d.ts",
@@ -120,6 +128,10 @@
       "types": "./dist/node/prepare-embeds.d.ts",
       "default": "./dist/node/prepare-embeds.js"
     },
+    "./node/watch": {
+      "types": "./dist/node/watch.d.ts",
+      "default": "./dist/node/watch.js"
+    },
     "./styles.css": "./styles.css"
   },
   "files": [
@@ -139,6 +151,7 @@
     "@mdx-js/mdx": "^3.1.1",
     "estree-util-value-to-estree": "^3.5.0",
     "github-slugger": "^2.0.0",
+    "acorn": "^8.15.0",
     "hast-util-from-html": "^2.0.3",
     "hast-util-to-html": "^9.0.5",
     "mdast-util-mdx-jsx": "^3.2.0",

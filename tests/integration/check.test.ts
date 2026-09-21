@@ -97,6 +97,18 @@ const CASES: Case[] = [
     },
   },
   {
+    code: "empty-embed-cell",
+    severity: "warning",
+    markdown:
+      "# A (#a)\n\n```cudoc-embed\nsources: [reference.md#limits]\nrender:\n  type: table\n  columns:\n    - { header: Field, value: { row: 1, column: 0 } }\n```\n",
+    also: (result) => {
+      // What was asked for and what the section has, so a wrong coordinate
+      // reads differently from a missing table.
+      expect(result.issues[0]!.message).toContain("expected table 0")
+      expect(result.issues[0]!.message).toContain("found 0 tables")
+    },
+  },
+  {
     code: "unmatched-embed-replacement",
     severity: "warning",
     markdown:
@@ -117,6 +129,7 @@ for (const host of HOST_CASES) {
     let clean: CheckResult
     let duplicate: { result: CheckResult; library: Library }
     let component: Attempt
+    let imported: Awaited<ReturnType<typeof attempt>>
 
     let scenario = 0
     const collect = async (files: Record<string, string>) => {
@@ -183,6 +196,12 @@ for (const host of HOST_CASES) {
       component = await attempt({
         "widget.mdx":
           "# W (#w)\n\n## Live (#live)\n\n<Chart data={points} />\n",
+        "subject.md":
+          "# A (#a)\n\n```cudoc-embed\nsources: [widget.mdx#live]\n```\n",
+      })
+      imported = await attempt({
+        "widget.mdx":
+          'import Chart from "./chart.jsx"\n\n# W (#w)\n\n## Live (#live)\n\n<Chart data={points} />\n',
         "subject.md":
           "# A (#a)\n\n```cudoc-embed\nsources: [widget.mdx#live]\n```\n",
       })
@@ -264,6 +283,24 @@ for (const host of HOST_CASES) {
       expect(reported[0]!.severity).toBe("warning")
       expect(reported[0]!.message).toContain("<Chart>")
     })
+
+    it("never lets an embed copy a component whose import stays behind", () => {
+      // The same two directions as above. On an MDX host the import is real,
+      // the copy would land in a document without it, and the checker has to
+      // say so before the page fails to render.
+      if ("rejected" in imported) {
+        expect(imported.rejected).toMatch(/mdx/i)
+        return
+      }
+      const reported = imported.result.issues.filter(
+        (issue) => issue.code === "imported-embed-component",
+      )
+
+      expect(reported).toHaveLength(1)
+      expect(reported[0]!.severity).toBe("error")
+      expect(reported[0]!.message).toContain("<Chart>")
+      expect(reported[0]!.message).toContain("subject has no such import")
+    })
   })
 }
 
@@ -282,18 +319,21 @@ describe("diagnostic coverage", () => {
       "missing-embed-anchor",
       "invalid-embed-spec",
       "unmatched-embed-replacement",
+      "empty-embed-cell",
       "unportable-embed-component",
+      "imported-embed-component",
     ]
 
-    // Two are asserted separately, because whether they can occur at all
+    // Three are asserted separately, because whether they can occur at all
     // depends on the host rather than on the document: Docusaurus and Nextra
     // re-slug away a duplicate anchor, and the markdown-it hosts cannot parse
-    // the MDX a copied component would have to come from.
+    // the MDX a copied or imported component would have to come from.
     expect(
       new Set([
         ...CASES.map((entry) => entry.code),
         "duplicate-anchor",
         "unportable-embed-component",
+        "imported-embed-component",
       ]),
     ).toEqual(new Set(documented))
   })

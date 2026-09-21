@@ -49,6 +49,20 @@ Nothing else has to change.
 | `integration/embedding.test.ts` | `SHAPES`               | an embed shape                     |
 | `integration/check.test.ts`     | `CASES`                | a reference diagnostic             |
 
+`integration/word.test.ts` is the paginated counterpart: it runs the Word writer
+on every installed host's tree of the showcase fixture, so a regression in the
+writer's dispatch order shows up on the host that triggers it. In the built tier,
+`built/paginated-export.test.ts` exports the five host libraries to print HTML
+and Word under all three link policies, and checks the PDF's page arithmetic on
+one host when the browser is installed.
+`packages/cudoc-export/__tests__/annotations-browser.test.ts` drives the
+review-note runtime over `file://` in the browser the PDF printer installs, and
+skips, naming the command, when that browser or the built bundle
+(`npm run build --workspace packages/cudoc-export`) is absent.
+`packages/cudoc-export/__tests__/theme-browser.test.ts` does the same for the
+theme switch: the button, the system/light/dark cycle and the remembered
+choice.
+
 Two suites also guard against the table drifting from what ships: `embedding`
 asserts its row count matches the embed blocks in the fixture, and `check`
 asserts its rows cover every code the checker can emit. A feature added to one
