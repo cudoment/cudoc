@@ -23,6 +23,10 @@ npm test
 
 ## Which tier to reach for
 
+The integration tier also holds `example-locks.test.ts`, which needs nothing
+installed: it checks that every example lockfile records the linked workspace
+packages as they are, and names `npm run lock:examples` when one is behind.
+
 The integration tier needs no site build, so it is the fastest way to catch a
 syntax, normalization or embedding regression:
 
