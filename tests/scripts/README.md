@@ -7,11 +7,11 @@ and `tests/built` for the built sites. `npm test` runs all three.
 The three checks here are tests too, which is why they live under `tests/`, but
 they cannot run inside the runner:
 
-| Check                  | Why it runs alone                                                                                                          |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `rebuild-portable.mjs` | Rewrites `examples/fixtures/reference.md`, which all six examples share, then rebuilds each of them twice.                 |
-| `rebuild-mdx.mjs`      | Rewrites `examples/fixtures/showcase.mdx` the same way for the three MDX examples.                                         |
-| `packed-consumers.mjs` | Packs every workspace package and installs the tarballs into a temporary project. Minutes long, and it uses the npm cache. |
+| Check                  | Why it runs alone                                                                                                                                                                             |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `rebuild-portable.mjs` | Rewrites `examples/fixtures/reference.md`, which all six examples share, then rebuilds each of them twice.                                                                                    |
+| `rebuild-mdx.mjs`      | Rewrites `examples/fixtures/showcase.mdx` the same way for the three MDX examples.                                                                                                            |
+| `packed-consumers.mjs` | Packs every workspace package and installs the tarballs into a temporary project, and runs the installed `cudoc collect --watch` through one change. Minutes long, and it uses the npm cache. |
 
 The two rebuild checks exist because a cached build can pass while serving a
 stale page: the only way to prove that a changed source reaches an untouched
