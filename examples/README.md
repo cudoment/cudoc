@@ -29,7 +29,7 @@ npm run dev
 | [nextra](./nextra/next.config.mjs)                  | Nextra                | `npm run build` | `npm run dev`                            | `/portable`          |
 | [vitepress](./vitepress/docs/.vitepress/config.mjs) | VitePress             | `npm run build` | `npx vitepress preview docs` after build | `/portable.html`     |
 | [eleventy](./eleventy/eleventy.config.mjs)          | Eleventy              | `npm run build` | `npx eleventy --serve`                   | `/portable/`         |
-| [html](./html/package.json)                         | Standalone HTML       | `npm run build` | Open `site/index.html`                   | `site/portable.html` |
+| [export](./export/package.json)                     | Standalone HTML       | `npm run build` | Open `site/index.html`                   | `site/portable.html` |
 
 Commands in the table run inside the corresponding example directory after `npm ci`. Next.js also provides `dev:webpack` and `build:webpack`. Package manifests and lockfiles define the dependency versions; check those when upgrading a host.
 
@@ -44,7 +44,7 @@ Each build synchronizes shared fixtures and collects documents before rendering.
 | Nextra     | [collect.mjs](./nextra/collect.mjs), `nextra/compile`                       |
 | VitePress  | [collect.mjs](./vitepress/collect.mjs), actual configured Markdown renderer |
 | Eleventy   | [collect.mjs](./eleventy/collect.mjs), the renderer shared with the site    |
-| HTML       | Collection is part of `cudoc-html build`                                    |
+| Export     | Collection is part of `cudoc-export build`                                  |
 
 When adapting a collector, match syntax, plugins and routes to the rendering configuration and change `compilerId` after relevant changes. Internal Docusaurus processor imports are version-specific. Preparation must finish before a host attempts to render an embed.
 
@@ -53,13 +53,13 @@ When adapting a collector, match syntax, plugins and routes to the rendering con
 After building a host example, export its collected documents from the repository root. For Docusaurus:
 
 ```sh
-node packages/cudoc-html/dist/cli.js build examples/docusaurus/docs \
-  --library examples/docusaurus/.cudoc/documents --out-dir .cudoc-html-preview \
+node packages/cudoc-export/dist/cli.js build examples/docusaurus/docs \
+  --library examples/docusaurus/.cudoc/documents --out-dir .cudoc-export-preview \
   --links host --host-url https://docs.example.com/project/ \
   --asset-dir examples/docusaurus/static
 ```
 
-The existing host build and library stay unchanged. Use `--links relative` for local navigation or `--links none` to remove all hyperlinks. Adjust source and library paths for the other examples; Nextra uses `content`, and the Eleventy example needs no `--asset-dir`. Remove the generated preview directory when finished. See the [HTML guide](../docs/html.md) for deployment routes, shared assets and configuration.
+The existing host build and library stay unchanged. Use `--links relative` for local navigation or `--links none` to remove all hyperlinks. Adjust source and library paths for the other examples; Nextra uses `content`, and the Eleventy example needs no `--asset-dir`. Remove the generated preview directory when finished. See the [export guide](../docs/export.md) for deployment routes, shared assets and configuration.
 
 ## Verify integrations
 

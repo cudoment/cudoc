@@ -2,7 +2,7 @@
  * Collection, embedding and HTML export, end to end.
  *
  * The fixtures are collected with a real host compiler into a temporary
- * library, the embeds are prepared, and the result is exported by `cudoc-html`
+ * library, the embeds are prepared, and the result is exported by `cudoc-export`
  * under all three link policies. Every embed shape in the showcase document is
  * asserted on the exported page, which is the only place where a wrong
  * selection or replacement actually becomes visible.
@@ -15,7 +15,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest"
 import { parse } from "node-html-parser"
 import { buildDocumentsAsync } from "@cudoment/cudoc/node/library"
 import { prepareEmbeds } from "@cudoment/cudoc/node/prepare-embeds"
-import { buildSite } from "cudoc-html"
+import { buildSite } from "cudoc-export"
 import { HOST_CASES, FIXTURES, OPTIONS } from "./hosts.js"
 
 /**
@@ -90,7 +90,7 @@ describe(`export through ${HOST.name}`, () => {
     ])
     expect(
       Object.keys(embeds.blocks).filter((key) => key.startsWith("showcase")),
-    ).toHaveLength(9)
+    ).toHaveLength(10)
   })
 
   describe("embed shapes on the exported page", () => {

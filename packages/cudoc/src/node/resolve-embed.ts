@@ -5,7 +5,13 @@ import { parse as parseYaml } from "yaml"
 import { collectSections, type SectionSelection } from "../sections.js"
 import { nodeText, visibleHeadingText, type DocumentNode } from "../document.js"
 import { compileDocument } from "../markdown.js"
+import {
+  findHeadingByAnchorId,
+  findParentHeading,
+  getHeadingAnchorId,
+} from "../internal/core/query/sections.js"
 import type { Library, StoredDocument } from "./library.js"
+import { sourceFileOf } from "./roots.js"
 
 export type Replacement = {
   find: string
@@ -13,18 +19,147 @@ export type Replacement = {
   regex?: boolean
   flags?: string
 }
+/**
+ * Where a table cell's text comes from.
+ *
+ * `title`, `summary` and `parent` read the row's section; the coordinate form
+ * reads one cell of one table inside it, counting tables after those whose
+ * header row names a heading in `skipTablesWithHeaders`; `extractor` names a
+ * function the collection config registered.
+ */
+export type CellValue =
+  | "title"
+  | "summary"
+  | "parent"
+  | {
+      table?: number
+      row: number
+      column: number
+      skipTablesWithHeaders?: string[]
+    }
+  | { extractor: string }
+/** Where a cell links to: the row's section, the heading above it, or its document. */
+export type CellLink = "section" | "parent" | "document"
+export type TableColumn =
+  | "title"
+  | "link"
+  | "summary"
+  | {
+      header?: string
+      value: CellValue
+      link?: CellLink
+      /** A CSS length written onto the header cell's `style` as `min-width`. */
+      minWidth?: string
+    }
 export type EmbedSpec = {
   sources: string[]
   select?: SectionSelection
-  render?:
-    "section" | { type: "table"; columns?: ("title" | "link" | "summary")[] }
+  render?: "section" | { type: "table"; columns?: TableColumn[] }
   replace?: Replacement[]
 }
 export type EmbedContext = { documentId: string; prefix?: string }
 
+/** What a cell shows: text, and a link when the column or extractor gives one. */
+export type ExtractedCell = { text: string; url?: string }
+/** One row of an extracted table: the selected section and where it sits. */
+export type EmbedRow = {
+  document: StoredDocument
+  section: { anchorId?: string; title: string; tree: Root }
+  /** The nearest heading above the section that is shallower than it. */
+  parent?: { title: string; anchorId?: string }
+  /** The row section's own address. */
+  url: string
+}
+/**
+ * A function the collection config registers to compute a cell. `version`
+ * enters the library configuration, so changing what the function returns
+ * for the same input invalidates prepared embeds.
+ */
+export type TableExtractor = {
+  version: string
+  extract: (
+    row: EmbedRow,
+    context: { library: Library; documentId: string; column: TableColumn },
+  ) => string | ExtractedCell | undefined
+}
+
 const SPEC_KEYS = ["sources", "select", "render", "replace"]
 const SELECTION_KEYS = ["anchors", "titles", "depth", "includeChildren"]
 const REPLACEMENT_KEYS = ["find", "replace", "regex", "flags"]
+const COLUMN_KEYS = ["header", "value", "link", "minWidth"]
+const CELL_KEYS = ["table", "row", "column", "skipTablesWithHeaders"]
+const SHORTHAND_COLUMNS = ["title", "link", "summary"]
+const CELL_LINKS = ["section", "parent", "document"]
+/** A CSS length a header cell can carry: a number and a unit, nothing else. */
+const CSS_LENGTH = /^\d+(?:\.\d+)?(?:px|rem|em|ch|%)$/
+
+const validateColumn = (column: unknown, at: string) => {
+  if (typeof column === "string") {
+    if (!SHORTHAND_COLUMNS.includes(column))
+      throw new Error(
+        `cudoc: ${at}: unknown column "${column}". Known columns: ${SHORTHAND_COLUMNS.join(", ")}, or a mapping with value`,
+      )
+    return
+  }
+  if (!column || typeof column !== "object" || Array.isArray(column))
+    throw new Error(`cudoc: ${at} must be a column name or a mapping`)
+  const entry = column as Record<string, unknown>
+  for (const key of Object.keys(entry))
+    if (!COLUMN_KEYS.includes(key))
+      throw new Error(
+        `cudoc: ${at}: unknown key "${key}". Known keys: ${COLUMN_KEYS.join(", ")}`,
+      )
+  if (entry.header !== undefined && typeof entry.header !== "string")
+    throw new Error(`cudoc: ${at}.header must be a string`)
+  if (entry.link !== undefined && !CELL_LINKS.includes(entry.link as string))
+    throw new Error(`cudoc: ${at}.link must be one of ${CELL_LINKS.join(", ")}`)
+  if (
+    entry.minWidth !== undefined &&
+    (typeof entry.minWidth !== "string" || !CSS_LENGTH.test(entry.minWidth))
+  )
+    throw new Error(
+      `cudoc: ${at}.minWidth must be a CSS length such as 120px or 8rem`,
+    )
+  const value = entry.value
+  if (typeof value === "string") {
+    if (!["title", "summary", "parent"].includes(value))
+      throw new Error(
+        `cudoc: ${at}.value: unknown value "${value}". Known values: title, summary, parent, a cell coordinate mapping, or { extractor }`,
+      )
+    return
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error(`cudoc: ${at}.value is required`)
+  const cell = value as Record<string, unknown>
+  if ("extractor" in cell) {
+    if (Object.keys(cell).length !== 1 || typeof cell.extractor !== "string")
+      throw new Error(
+        `cudoc: ${at}.value.extractor must be a name and nothing else`,
+      )
+    return
+  }
+  for (const key of Object.keys(cell))
+    if (!CELL_KEYS.includes(key))
+      throw new Error(
+        `cudoc: ${at}.value: unknown key "${key}". Known keys: ${CELL_KEYS.join(", ")}, or extractor`,
+      )
+  for (const key of ["row", "column"])
+    if (!Number.isInteger(cell[key]) || (cell[key] as number) < 0)
+      throw new Error(
+        `cudoc: ${at}.value.${key} must be a non-negative integer`,
+      )
+  if (
+    cell.table !== undefined &&
+    (!Number.isInteger(cell.table) || (cell.table as number) < 0)
+  )
+    throw new Error(`cudoc: ${at}.value.table must be a non-negative integer`)
+  if (
+    cell.skipTablesWithHeaders !== undefined &&
+    (!Array.isArray(cell.skipTablesWithHeaders) ||
+      cell.skipTablesWithHeaders.some((h) => typeof h !== "string"))
+  )
+    throw new Error(`cudoc: ${at}.value.skipTablesWithHeaders must be strings`)
+}
 
 export function parseEmbedSpec(value: string): EmbedSpec {
   const spec = parseYaml(value, { maxAliasCount: 100 })
@@ -41,18 +176,29 @@ export function parseEmbedSpec(value: string): EmbedSpec {
     spec.sources.some((s: unknown) => typeof s !== "string" || !s)
   )
     throw new Error("cudoc: embed sources must be a non-empty string array")
-  if (
-    spec.render &&
-    spec.render !== "section" &&
-    (spec.render.type !== "table" ||
-      (spec.render.columns !== undefined &&
-        (!Array.isArray(spec.render.columns) ||
-          !spec.render.columns.length ||
-          spec.render.columns.some(
-            (c: string) => !["title", "link", "summary"].includes(c),
-          ))))
-  )
-    throw new Error("cudoc: invalid embed render configuration")
+  if (spec.render !== undefined && spec.render !== "section") {
+    if (
+      !spec.render ||
+      typeof spec.render !== "object" ||
+      Array.isArray(spec.render) ||
+      spec.render.type !== "table"
+    )
+      throw new Error(
+        'cudoc: render must be "section" or a mapping with type: table',
+      )
+    for (const key of Object.keys(spec.render))
+      if (!["type", "columns"].includes(key))
+        throw new Error(
+          `cudoc: render: unknown key "${key}". Known keys: type, columns`,
+        )
+    if (spec.render.columns !== undefined) {
+      if (!Array.isArray(spec.render.columns) || !spec.render.columns.length)
+        throw new Error("cudoc: render.columns must be a non-empty array")
+      spec.render.columns.forEach((column: unknown, index: number) =>
+        validateColumn(column, `render.columns[${index}]`),
+      )
+    }
+  }
   if (spec.select) {
     if (typeof spec.select !== "object" || Array.isArray(spec.select))
       throw new Error("cudoc: select must be a mapping")
@@ -241,9 +387,10 @@ function transformedSection(
     return library.compiler
       ? library.compiler(source, {
           id: document.id,
-          filePath: library.sourceRoot
-            ? path.resolve(library.sourceRoot, document.sourcePath)
-            : document.sourcePath,
+          filePath:
+            (library.roots &&
+              sourceFileOf(library.roots, document.sourcePath)) ??
+            document.sourcePath,
           options,
         }).tree
       : compileDocument(source, options).tree
@@ -358,6 +505,232 @@ function rebase(
   })
 }
 
+/** The default columns of a summary table, as they have always been. */
+export const DEFAULT_TABLE_COLUMNS: TableColumn[] = ["title", "link", "summary"]
+
+/** A shorthand column written out as the mapping it stands for. */
+const columnSpec = (
+  column: TableColumn,
+): { header: string; value: CellValue; link?: CellLink; minWidth?: string } => {
+  if (column === "title") return { header: "title", value: "title" }
+  if (column === "link")
+    return { header: "link", value: "title", link: "section" }
+  if (column === "summary") return { header: "summary", value: "summary" }
+  return {
+    header:
+      column.header ?? (typeof column.value === "string" ? column.value : ""),
+    value: column.value,
+    link: column.link,
+    minWidth: column.minWidth,
+  }
+}
+
+/**
+ * One row for a selected section: what it is called, where it lives and which
+ * heading introduces the part of the document it sits in.
+ */
+export function buildEmbedRow(
+  document: StoredDocument,
+  anchorId: string | undefined,
+  tree: Root,
+): EmbedRow {
+  const heading = (tree.children as unknown as DocumentNode[]).find(
+    (n) => n.type === "heading",
+  )
+  const title = heading
+    ? visibleHeadingText(heading)
+    : String(document.frontmatter.title ?? document.id)
+  let parent: EmbedRow["parent"]
+  if (anchorId) {
+    const location = findHeadingByAnchorId(document.tree, anchorId)
+    const above =
+      location &&
+      findParentHeading(location.parent, location.index, location.heading.depth)
+    if (above)
+      parent = {
+        title: visibleHeadingText(above as unknown as DocumentNode),
+        anchorId: getHeadingAnchorId(above),
+      }
+  }
+  return {
+    document,
+    section: { anchorId, title, tree },
+    parent,
+    url: `${document.route}${anchorId ? `#${anchorId}` : ""}`,
+  }
+}
+
+/** Tables inside a section, in document order, minus those a coordinate skips. */
+const sectionTables = (
+  tree: Root,
+  skipHeaders: readonly string[] | undefined,
+): DocumentNode[] => {
+  const tables: DocumentNode[] = []
+  visitNodes(tree as unknown as DocumentNode, (node) => {
+    if (node.type === "table") tables.push(node)
+  })
+  if (!skipHeaders?.length) return tables
+  const skip = new Set(skipHeaders.map((header) => header.trim()))
+  return tables.filter(
+    (table) =>
+      !(table.children?.[0]?.children ?? []).some((cell) =>
+        skip.has(nodeText(cell).trim()),
+      ),
+  )
+}
+
+/**
+ * The text and link one column shows for one row, and why it is empty when it
+ * is. The resolver renders the cell either way; the checker reports the
+ * problem, which is worded as what the column asked for and what the section
+ * has, so an author can tell a wrong coordinate from a missing table.
+ */
+export function extractCell(
+  library: Library,
+  column: TableColumn,
+  row: EmbedRow,
+  context: EmbedContext,
+): { cell: ExtractedCell; problem?: string } {
+  const spec = columnSpec(column)
+  const where = `${row.document.id}${row.section.anchorId ? `#${row.section.anchorId}` : ""}`
+  const linkTo = (): string | undefined => {
+    if (spec.link === "section") return row.url
+    if (spec.link === "document") return row.document.route
+    if (spec.link === "parent")
+      return row.parent
+        ? `${row.document.route}${row.parent.anchorId ? `#${row.parent.anchorId}` : ""}`
+        : undefined
+    return undefined
+  }
+  const finish = (
+    text: string | undefined,
+    problem?: string,
+    url?: string,
+  ) => ({
+    cell: {
+      text: text ?? "",
+      ...((url ?? linkTo()) ? { url: url ?? linkTo() } : {}),
+    },
+    ...(problem ? { problem } : {}),
+  })
+  const value = spec.value
+  if (value === "title") return finish(row.section.title)
+  if (value === "summary") {
+    const paragraph = (
+      row.section.tree.children as unknown as DocumentNode[]
+    ).find((n) => n.type === "paragraph")
+    return paragraph
+      ? finish(nodeText(paragraph).trim())
+      : finish(undefined, `expected a paragraph in ${where}, found none`)
+  }
+  if (value === "parent")
+    return row.parent
+      ? finish(row.parent.title)
+      : finish(undefined, `expected a heading above ${where}, found none`)
+  if ("extractor" in value) {
+    const extractor = library.extractors?.[value.extractor]
+    if (!extractor)
+      throw new Error(
+        `cudoc: extractor "${value.extractor}" is not registered; add it to extractors in the collection options`,
+      )
+    const result = extractor.extract(row, {
+      library,
+      documentId: context.documentId,
+      column,
+    })
+    const text = typeof result === "string" ? result : result?.text
+    if (!text)
+      return finish(
+        undefined,
+        `extractor "${value.extractor}" returned nothing for ${where}`,
+      )
+    return finish(
+      text,
+      undefined,
+      typeof result === "object" ? result.url : undefined,
+    )
+  }
+  const tables = sectionTables(row.section.tree, value.skipTablesWithHeaders)
+  const index = value.table ?? 0
+  const table = tables[index]
+  if (!table)
+    return finish(
+      undefined,
+      `expected table ${index} in ${where}, found ${tables.length} table${tables.length === 1 ? "" : "s"}${value.skipTablesWithHeaders?.length ? " after skipping those headed " + value.skipTablesWithHeaders.map((h) => JSON.stringify(h)).join(", ") : ""}`,
+    )
+  const tableRow = table.children?.[value.row]
+  if (!tableRow)
+    return finish(
+      undefined,
+      `expected row ${value.row} of table ${index} in ${where}, found ${table.children?.length ?? 0} rows`,
+    )
+  const cell = tableRow.children?.[value.column]
+  if (!cell)
+    return finish(
+      undefined,
+      `expected column ${value.column} of row ${value.row} in table ${index} of ${where}, found ${tableRow.children?.length ?? 0} cells`,
+    )
+  const text = nodeText(cell).trim()
+  return text
+    ? finish(text)
+    : finish(
+        undefined,
+        `cell ${value.row}:${value.column} of table ${index} in ${where} is empty`,
+      )
+}
+
+/** The mdast table the extracted cells make, header cells carrying any width. */
+export function buildEmbedTable(
+  library: Library,
+  columns: TableColumn[],
+  rows: EmbedRow[],
+  context: EmbedContext,
+): Root {
+  const cell = (
+    value: ExtractedCell,
+    style?: string,
+  ): Record<string, unknown> => ({
+    type: "tableCell",
+    children: value.url
+      ? [
+          {
+            type: "link",
+            url: value.url,
+            children: [{ type: "text", value: value.text }],
+          },
+        ]
+      : [{ type: "text", value: value.text }],
+    ...(style ? { data: { hProperties: { style } } } : {}),
+  })
+  return {
+    type: "root",
+    children: [
+      {
+        type: "table",
+        align: columns.map(() => null),
+        children: [
+          {
+            type: "tableRow",
+            children: columns.map((column) => {
+              const spec = columnSpec(column)
+              return cell(
+                { text: spec.header },
+                spec.minWidth ? `min-width: ${spec.minWidth}` : undefined,
+              )
+            }),
+          },
+          ...rows.map((row) => ({
+            type: "tableRow",
+            children: columns.map((column) =>
+              cell(extractCell(library, column, row, context).cell),
+            ),
+          })),
+        ],
+      },
+    ],
+  } as unknown as Root
+}
+
 /** Resolve a configured embed from immutable persisted documents. */
 export function resolveEmbed(
   library: Library,
@@ -373,15 +746,19 @@ export function resolveEmbed(
       idsInNode(node).forEach((id) => reserved.add(id))
     })
   const active: string[] = []
+  // Every document a block read, so a later preparation can tell whether the
+  // block is still current; `*` when an extractor ran, which may read anything.
+  const dependencies = new Set<string>()
   const expand = (spec: EmbedSpec, from: string): Root => {
     const children: Root["children"] = []
-    const rows: { title: string; link: string; summary: string }[] = []
+    const rows: EmbedRow[] = []
     for (const source of spec.sources) {
       const { document, anchor } = resolveDocumentReference(
         library,
         source,
         from,
       )
+      dependencies.add(document.id)
       const key = `${document.id}#${anchor ?? "*"}`
       if (active.includes(key) || active.length >= 64)
         throw new Error(`cudoc: cyclic embed: ${[...active, key].join(" -> ")}`)
@@ -424,19 +801,15 @@ export function resolveEmbed(
             })
           }
           expandNodes(section as unknown as DocumentNode)
-          const paragraph = (
-            section.children as unknown as DocumentNode[]
-          ).find((n) => n.type === "paragraph")
-          const heading = (section.children as unknown as DocumentNode[]).find(
-            (n) => n.type === "heading",
+          // Rows read the section before its ids are rebased, so a cell's link
+          // points into the source document rather than at the copy.
+          rows.push(
+            buildEmbedRow(
+              document,
+              selectedSection.anchorId,
+              structuredClone(section),
+            ),
           )
-          rows.push({
-            title: heading
-              ? visibleHeadingText(heading)
-              : selectedSection.title,
-            link: `${document.route}${selectedSection.anchorId ? `#${selectedSection.anchorId}` : ""}`,
-            summary: paragraph ? nodeText(paragraph) : "",
-          })
           let prefix: string
           const sectionIds: string[] = []
           visitNodes(section as unknown as DocumentNode, (node) => {
@@ -454,34 +827,17 @@ export function resolveEmbed(
       }
     }
     if (spec.render && spec.render !== "section") {
-      const columns = spec.render.columns ?? ["title", "link", "summary"]
-      const cell = (value: string, url?: string) => ({
-        type: "tableCell",
-        children: url
-          ? [{ type: "link", url, children: [{ type: "text", value }] }]
-          : [{ type: "text", value }],
-      })
-      return {
-        type: "root",
-        children: [
-          {
-            type: "table",
-            align: columns.map(() => null),
-            children: [
-              { type: "tableRow", children: columns.map((c) => cell(c)) },
-              ...rows.map((row) => ({
-                type: "tableRow",
-                children: columns.map((c) =>
-                  cell(
-                    c === "link" ? row.title : row[c],
-                    c === "link" ? row.link : undefined,
-                  ),
-                ),
-              })),
-            ],
-          },
-        ],
-      } as Root
+      const columns = spec.render.columns ?? DEFAULT_TABLE_COLUMNS
+      if (
+        columns.some(
+          (column) =>
+            typeof column === "object" &&
+            typeof column.value === "object" &&
+            "extractor" in column.value,
+        )
+      )
+        dependencies.add("*")
+      return buildEmbedTable(library, columns, rows, context)
     }
     return { type: "root", children }
   }
@@ -489,6 +845,7 @@ export function resolveEmbed(
   result.data = {
     ...result.data,
     cudocEmbedPrefix: `cudoc-${encodeURIComponent(context.documentId)}-${context.prefix ?? "embed"}-`,
+    cudocDependencies: [...dependencies].sort(),
   }
   return result
 }

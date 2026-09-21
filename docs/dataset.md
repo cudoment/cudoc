@@ -34,13 +34,14 @@ Read the filtered ASTs from `.cudoc/dataset/documents/` and the document list fr
 | Option                                | Effect                                                 |
 | ------------------------------------- | ------------------------------------------------------ |
 | `documents: ["guide/start"]`          | Include exact relative document IDs without extensions |
-| `scopes: ["en", "ko"]`                | Include documents whose first path segment matches     |
+| `library: ".cudoc/documents"`         | Read root bases and private documents from the library |
+| `scopes: ["en", "ko"]`                | Include documents whose scope segment matches          |
 | `excludeNodeTypes: ["code"]`          | Remove matching nodes and their subtrees recursively   |
 | `excludeComponents: ["InternalNote"]` | Remove MDX JSX nodes with those component names        |
 | `stripProperties: ["position"]`       | Remove named properties recursively                    |
 | `projectionId: "search-v1"`           | Identify this consumer's projection policy             |
 
-Nothing is excluded by default. If both `documents` and `scopes` are provided, both must match. `type` and `children` cannot be stripped. A component already normalized into Markdown nodes is no longer selected by its original JSX name.
+Nothing is excluded by default. If both `documents` and `scopes` are provided, both must match. A document's scope is its first path segment, or with `library` the first segment after its root's base, so `docs/ko/guide` and `terms/ko/token` collected under bases `docs` and `terms` both belong to `ko`. With `library`, documents collected under a `private` pattern are left out, and naming one in `documents` is an error. `type` and `children` cannot be stripped. A component already normalized into Markdown nodes is no longer selected by its original JSX name.
 
 Versioned input is required by default. Use `requireVersion: false` only when intentionally consuming an unversioned AST corpus; structural validation still applies.
 

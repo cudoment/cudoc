@@ -24,6 +24,19 @@ describe("defaults", () => {
     expect(resolved.badge).not.toBeNull()
     expect(resolved.toc).toBeNull()
     expect(resolved.tableColumnLayout).toEqual([])
+    expect(resolved.tableColumnWidths).toEqual([])
+  })
+
+  it("accepts width rules and ignored diagnostic codes", () => {
+    expect(
+      resolveOptions({
+        tableColumnWidths: [{ widths: { A: "4rem" } }],
+        ignoreDiagnostics: ["DYNAMIC_COMPONENT"],
+      }).tableColumnWidths,
+    ).toMatchObject([{ widths: { A: "4rem" }, ignoreElements: ["Badge"] }])
+    expect(() =>
+      resolveOptions({ tableColumnWidths: { A: "4rem" } } as never),
+    ).toThrow(/tableColumnWidths must be an array of rules/)
   })
 
   it("treats true as the defaults for a feature", () => {

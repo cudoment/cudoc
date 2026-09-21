@@ -23,7 +23,7 @@
       "path": "./packages/cudoc-eleventy"
     },
     {
-      "path": "./packages/cudoc-html"
+      "path": "./packages/cudoc-export"
     }
   ]
 }

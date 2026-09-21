@@ -31,16 +31,17 @@ npx cudoc dataset --config dataset.config.mjs
 
 ## 포함할 콘텐츠 선택
 
-| 옵션                                  | 동작                                        |
-| ------------------------------------- | ------------------------------------------- |
-| `documents: ["guide/start"]`          | 확장자 없는 상대 문서 ID로 선택             |
-| `scopes: ["en", "ko"]`                | 첫 번째 경로 조각으로 선택                  |
-| `excludeNodeTypes: ["code"]`          | 일치하는 노드와 하위 트리를 재귀적으로 제거 |
-| `excludeComponents: ["InternalNote"]` | 해당 이름의 MDX JSX 컴포넌트 노드 제거      |
-| `stripProperties: ["position"]`       | 지정한 속성을 재귀적으로 제거               |
-| `projectionId: "search-v1"`           | 소비자가 사용하는 필터링 정책 식별          |
+| 옵션                                  | 동작                                               |
+| ------------------------------------- | -------------------------------------------------- |
+| `documents: ["guide/start"]`          | 확장자 없는 상대 문서 ID로 선택                    |
+| `library: ".cudoc/documents"`         | 루트 기준 경로와 비공개 문서를 라이브러리에서 읽음 |
+| `scopes: ["en", "ko"]`                | scope 조각으로 선택                                |
+| `excludeNodeTypes: ["code"]`          | 일치하는 노드와 하위 트리를 재귀적으로 제거        |
+| `excludeComponents: ["InternalNote"]` | 해당 이름의 MDX JSX 컴포넌트 노드 제거             |
+| `stripProperties: ["position"]`       | 지정한 속성을 재귀적으로 제거                      |
+| `projectionId: "search-v1"`           | 소비자가 사용하는 필터링 정책 식별                 |
 
-기본값은 아무 콘텐츠도 제외하지 않습니다. `documents`와 `scopes`를 함께 지정하면 모두 일치해야 합니다. `type`, `children`은 제거할 수 없습니다. 이미 Markdown 노드로 정규화된 컴포넌트는 원래 JSX 이름으로 선택되지 않습니다.
+기본값은 아무 콘텐츠도 제외하지 않습니다. `documents`와 `scopes`를 함께 지정하면 모두 일치해야 합니다. 문서의 scope는 첫 경로 조각이며, `library`를 주면 그 루트의 기준 경로 다음 첫 조각이 되므로 기준 경로 `docs`, `terms`로 수집한 `docs/ko/guide`와 `terms/ko/token`은 모두 `ko`에 속합니다. `library`를 주면 `private` 패턴으로 수집한 문서는 제외되며, 그 문서를 `documents`로 지정하면 오류입니다. `type`, `children`은 제거할 수 없습니다. 이미 Markdown 노드로 정규화된 컴포넌트는 원래 JSX 이름으로 선택되지 않습니다.
 
 기본적으로 버전 정보가 있는 AST를 요구합니다. 버전 없는 AST 모음을 의도적으로 읽을 때만 `requireVersion: false`를 사용하세요. 구조 검증은 유지됩니다.
 

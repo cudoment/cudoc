@@ -23,6 +23,9 @@ const run = (command, args, cwd = ROOT) =>
     cwd,
     encoding: "utf-8",
     stdio: ["ignore", "pipe", "inherit"],
+    // cudoc-export's postinstall fetches a 187MB browser; this check installs
+    // the packed packages twice and does not print anything.
+    env: { ...process.env, CUDOC_SKIP_BROWSER_DOWNLOAD: "1" },
   })
 
 const packages = fs
@@ -208,7 +211,7 @@ import { cudocRemarkPlugins as nextra } from "cudoc-nextra"
 import type { CudocDocusaurusOptions } from "cudoc-docusaurus"
 import type { CudocNextraOptions } from "cudoc-nextra"
 import type { HostPluginOptions, CudocRemarkOptions } from "cudoc-remark"
-import { buildSite, type SiteOptions, type SiteLinkMode } from "cudoc-html"
+import { buildSite, type SiteOptions, type SiteLinkMode } from "cudoc-export"
 import type MarkdownIt from "markdown-it"
 import {
   installHostPlugin,

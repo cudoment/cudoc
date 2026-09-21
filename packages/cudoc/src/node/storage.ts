@@ -28,10 +28,18 @@ export function safePath(root: string, relative: string): string {
     throw new Error(`cudoc: path escapes document root: ${relative}`)
   return target
 }
+/**
+ * Every file under `root` with one of the extensions, sorted, as absolute
+ * paths. Dot entries and `node_modules` are always skipped; `exclude` is asked
+ * about each remaining entry's POSIX path relative to `root`, and a directory
+ * it excludes is not entered, so a symlink inside one is never seen.
+ */
 export function sourceFiles(
   root: string,
   extensions = [".md", ".mdx"],
+  options: { exclude?: (relative: string) => boolean } = {},
 ): string[] {
+  const base = path.resolve(root)
   const walk = (dir: string): string[] =>
     fs
       .readdirSync(dir, { withFileTypes: true })
@@ -40,6 +48,7 @@ export function sourceFiles(
         if (entry.name.startsWith(".") || entry.name === "node_modules")
           return []
         const file = path.join(dir, entry.name)
+        if (options.exclude?.(posix(path.relative(base, file)))) return []
         if (entry.isSymbolicLink())
           throw new Error(`cudoc: symlink in source tree: ${file}`)
         if (entry.isDirectory()) return walk(file)
@@ -47,25 +56,46 @@ export function sourceFiles(
           ? [file]
           : []
       })
-  return walk(path.resolve(root))
+  return walk(base)
 }
 export function writeJson(file: string, value: unknown) {
   fs.mkdirSync(path.dirname(file), { recursive: true })
   fs.writeFileSync(file, JSON.stringify(value))
 }
 
-/** Only replace directories bearing our ownership marker. Never delete arbitrary output. */
+/**
+ * Only replace directories bearing our ownership marker. Never delete arbitrary output.
+ *
+ * `inputRoots` are the directories the build reads; the output may not sit
+ * inside or around any of them. A build callback may be synchronous or
+ * asynchronous. The return value of `build` is what decides: a thenable defers
+ * the commit until it settles and makes this function return a promise,
+ * anything else commits immediately and returns nothing. The overloads are a
+ * convenience; the runtime check is the authority.
+ */
 export function publishDirectory(
-  inputRoot: string,
+  inputRoots: string | string[],
   outputRoot: string,
   build: (staging: string) => void,
-): void {
+): void
+export function publishDirectory(
+  inputRoots: string | string[],
+  outputRoot: string,
+  build: (staging: string) => Promise<void>,
+): Promise<void>
+export function publishDirectory(
+  inputRoots: string | string[],
+  outputRoot: string,
+  build: (staging: string) => void | Promise<void>,
+): void | Promise<void> {
   if (fs.existsSync(outputRoot) && fs.lstatSync(outputRoot).isSymbolicLink())
     throw new Error("cudoc: output directory must not be a symlink")
-  const input = realPath(inputRoot),
-    output = realPath(outputRoot)
-  if (contained(input, output) || contained(output, input))
-    throw new Error("cudoc: input and output directories overlap")
+  const output = realPath(outputRoot)
+  for (const inputRoot of [inputRoots].flat()) {
+    const input = realPath(inputRoot)
+    if (contained(input, output) || contained(output, input))
+      throw new Error("cudoc: input and output directories overlap")
+  }
   fs.mkdirSync(path.dirname(output), { recursive: true })
   const owner = path.join(output, ".cudoc-output")
   if (
@@ -77,9 +107,7 @@ export function publishDirectory(
   const fd = fs.openSync(lock, "wx")
   const staging = fs.mkdtempSync(`${output}.tmp-`)
   const backup = `${output}.previous-${crypto.randomUUID()}`
-  try {
-    fs.writeFileSync(path.join(staging, ".cudoc-output"), "cudoc\n")
-    build(staging)
+  const commit = () => {
     if (fs.existsSync(output)) fs.renameSync(output, backup)
     try {
       fs.renameSync(staging, output)
@@ -88,9 +116,28 @@ export function publishDirectory(
       throw error
     }
     fs.rmSync(backup, { recursive: true, force: true })
-  } finally {
+  }
+  const cleanup = () => {
     fs.rmSync(staging, { recursive: true, force: true })
     fs.closeSync(fd)
     fs.unlinkSync(lock)
   }
+  let result: void | Promise<void>
+  try {
+    fs.writeFileSync(path.join(staging, ".cudoc-output"), "cudoc\n")
+    result = build(staging)
+  } catch (error) {
+    cleanup()
+    throw error
+  }
+  const pending = result as Promise<void> | undefined
+  if (typeof pending?.then !== "function") {
+    try {
+      commit()
+    } finally {
+      cleanup()
+    }
+    return
+  }
+  return pending.then(commit).finally(cleanup)
 }

@@ -15,7 +15,7 @@ const hosts = [
   ["docusaurus", "docs", "build/docs/portable/index.html"],
   ["vitepress", "docs", "docs/.vitepress/dist/portable.html"],
   ["eleventy", "docs", "_site/portable/index.html"],
-  ["html", "docs", "site/portable.html"],
+  ["export", "docs", "site/portable.html"],
 ]
 const build = (host) =>
   execFileSync("npm", ["run", "--silent", "build"], {

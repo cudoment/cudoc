@@ -25,7 +25,22 @@ Run:
 npx cudoc collect --config cudoc.config.mjs
 ```
 
-This collects documents and prepares embeds. Then build or start your host using the same source directory and syntax settings. Configure the [Next.js](./next.md), [Docusaurus](./docusaurus.md), [Nextra](./nextra.md), [VitePress](./vitepress.md) or [Eleventy](./eleventy.md) integration to consume the collected results. [Standalone HTML](./html.md) performs these steps inside its build command.
+This collects documents and prepares embeds. Then build or start your host using the same source directory and syntax settings. Configure the [Next.js](./next.md), [Docusaurus](./docusaurus.md), [Nextra](./nextra.md), [VitePress](./vitepress.md) or [Eleventy](./eleventy.md) integration to consume the collected results. [Standalone HTML](./export.md) performs these steps inside its build command.
+
+Documents in several directories, each served under its own path, are collected with `roots` instead of `sourceRoot`; `exclude` leaves files such as `**/AGENTS.md` out, and `private` marks documents that are collected and checked but never exported. [Collection](./api-reference/node.md#collection) describes the options and how ids are derived.
+
+```js
+export default {
+  roots: [
+    { dir: "content", base: "docs" }, // content/ko/guide.md → /docs/ko/guide
+    { dir: "glossary", base: "terms" },
+  ],
+  exclude: ["**/AGENTS.md", "docs/ko/drafts/**"],
+  private: ["docs/in/**"],
+  outDir: ".cudoc/documents",
+  host: "markdown",
+}
+```
 
 Docusaurus, Nextra, VitePress and Eleventy collection must use the actual configured host compiler. Their guides link to runnable collectors. A generic second parse cannot reproduce every native transform. If your Next.js setup adds custom plugins, use a matching compiler there too. Custom compilers require a `compilerId`, updated when compiler versions or relevant settings change.
 
@@ -70,6 +85,65 @@ render:
 
 Each selected heading produces a row. `title` is the visible title, `link` points to the original section, and `summary` is its first paragraph as plain text. Choose and order columns as needed. The default column order is `title`, `link`, `summary`.
 
+### Define the columns yourself
+
+A column written as a mapping says where its text comes from, what it links to and how wide it must stay. This turns one "Basic information" section per API into one row of an overview table:
+
+````md
+```cudoc-embed
+sources: [/docs/rest-api.md]
+select:
+  depth: 5
+  titles: [Basic information]
+render:
+  type: table
+  columns:
+    - { header: API, value: parent, link: parent, minWidth: 10rem }
+    - header: Method
+      value: { row: 1, column: 0, skipTablesWithHeaders: [Requirements] }
+    - header: URL
+      value: { row: 1, column: 1, skipTablesWithHeaders: [Requirements] }
+    - { header: Description, value: summary }
+    - { header: Reference, value: { extractor: sdkReference } }
+```
+````
+
+| Key                                                      | Meaning                                                                                                                                                                                                                |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `header`                                                 | The header cell's text. Defaults to the value name.                                                                                                                                                                    |
+| `value: title`                                           | The row section's heading text.                                                                                                                                                                                        |
+| `value: summary`                                         | The section's first paragraph, as plain text.                                                                                                                                                                          |
+| `value: parent`                                          | The text of the nearest heading above the section that is shallower than it: the API name above its "Basic information".                                                                                               |
+| `value: { row, column, table?, skipTablesWithHeaders? }` | One cell of one table inside the section, counted from 0 with the header row as row 0. `table` picks among the section's tables in order, after leaving out any whose header row names one of `skipTablesWithHeaders`. |
+| `value: { extractor }`                                   | A function registered under that name in the collection options; see below.                                                                                                                                            |
+| `link`                                                   | `section` links the cell to the row's section, `parent` to the heading above it, `document` to the document. Omit it for plain text.                                                                                   |
+| `minWidth`                                               | A CSS length such as `120px` or `10rem`, written onto the header cell as `min-width`. The HTML site honours it as a style, and the Word export keeps that column at least as wide.                                     |
+
+The shorthand columns are the same as `{ value: title }`, `{ value: title, link: section }` and `{ value: summary }` with their names as headers.
+
+When a fixed vocabulary is not enough, register a function in the collection options and name it from a column. It receives the row — the source document, the selected section, the heading above it and the section's address — and returns text, or text with a link:
+
+```js
+// cudoc.config.mjs
+export default {
+  sourceRoot: "docs",
+  extractors: {
+    sdkReference: {
+      version: "2026-09-21", // change it when the function's output changes
+      extract(row) {
+        const language = row.document.id.split("/")[1]
+        return {
+          text: `${row.section.title} (${language})`,
+          url: `/sdk/${language}/${row.section.anchorId}`,
+        }
+      },
+    },
+  },
+}
+```
+
+`version` is part of the library configuration, so a changed extractor invalidates prepared embeds the way a changed compiler does. A column that finds nothing renders an empty cell; `cudoc check` reports each such cell as an `empty-embed-cell` warning saying what the column asked for and what the section has, for columns written as mappings. → [Reference checking](./check.md)
+
 ## Find and replace
 
 ````md
@@ -93,7 +167,7 @@ External reference definitions needed by the selected content remain available. 
 
 Replacement happens on the source slice, before anything is selected out of the tree, so it applies to **every embed shape**: a section with or without its children, a whole document, several sources at once, and a selection by title or depth. It also reaches a `render: { type: table }` embed, where it changes the title and summary columns — but not the link, which still points at the source document's real anchor.
 
-Two things it does not reach. A `cudoc-embed` block inside the section you are copying is resolved separately, so your rules do not apply to what that nested block pulls in. And a rule list is applied to every selected section, so a rule aimed at one section of a `depth: 2` selection simply finds nothing in the others. That is expected, not an error.
+Two things it does not reach. A `cudoc-embed` block inside the section you are copying is resolved separately — nested embeds are expanded, with their own rules — so your rules do not apply to what that nested block pulls in. And a rule list is applied to every selected section, so a rule aimed at one section of a `depth: 2` selection simply finds nothing in the others. That is expected, not an error.
 
 ### Writing `find` safely
 
@@ -159,7 +233,9 @@ node.type === "code" && node.lang === "cudoc-embed"
 3. Run the host build or start development.
 4. Repeat collection and preparation after changing source documents, syntax, routes or compiler settings. Restart a running host if it retains a loaded library.
 
-There is no automatic document-collection watcher. Add collection before both `dev` and `build` in your package scripts. Host-native collectors use `node collect.mjs` instead of the generic command. Keep generated `.cudoc/` output out of source control and regenerate it in CI.
+On an MDX host the embed plugin splices the prepared content into the page as it compiles, so the compiled page holds the library's content and a bundler will keep serving it until the page's own file changes. Register `cudoc-remark/loader` on the same files — the [Next.js](./next.md#step-5--add-the-embed-plugin), [Nextra](./nextra.md#step-4--add-the-embed-plugin) and [Docusaurus](./docusaurus.md#step-4--add-the-embed-plugin) guides show where — and a recollection reaches pages the dev server and the persistent build cache have already compiled. It leaves your files alone; what it adds to the compiled input is one reference definition that renders nothing.
+
+Add collection before both `dev` and `build` in your package scripts, so a build never runs against a stale library. While you write, `cudoc collect --watch --config cudoc.config.mjs` beside the dev server collects again whenever a document under a root changes: only the documents whose text changed are compiled and only the embeds that read a changed document are resolved again, and a document that does not compile is a message rather than a broken library. Host-native collectors use `node collect.mjs` instead of the generic command; the same loop is available to them through [`watchDocuments`](./api-reference/node.md#watching). Keep generated `.cudoc/` output out of source control and regenerate it in CI.
 
 Set `routeBase` to the host's document prefix, such as `/docs`. VitePress with `cleanUrls: false` needs `routeSuffix: ".html"`, and Eleventy's default directory URLs need `routeSuffix: "/"`. Supply `routes: { "guide/start": "/custom/start" }` for custom host routes or frontmatter slugs; those are not inferred automatically. This makes summary links and embedded document links target actual pages.
 

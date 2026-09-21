@@ -24,8 +24,11 @@ import {
 } from "./transforms/badge.js"
 import {
   resolveTableColumnLayoutOptions,
+  resolveTableColumnWidthOptions,
   type ResolvedTableColumnLayoutOptions,
+  type ResolvedTableColumnWidthOptions,
   type TableColumnLayoutOptions,
+  type TableColumnWidthOptions,
 } from "./transforms/table-column-layout/index.js"
 import {
   resolveTocOptions,
@@ -44,7 +47,13 @@ export type FeatureOption<Options> = boolean | Options | undefined
 
 export type CudocRemarkOptions = Pick<
   DocumentOptions,
-  "syntax" | "host" | "format" | "calloutTypes" | "components" | "headingIds"
+  | "syntax"
+  | "host"
+  | "format"
+  | "calloutTypes"
+  | "components"
+  | "headingIds"
+  | "ignoreDiagnostics"
 > & {
   /** List syntax inside table cells. */
   tableCellList?: boolean
@@ -56,6 +65,8 @@ export type CudocRemarkOptions = Pick<
   toc?: FeatureOption<TocOptions>
   /** Column layout rules, applied in order. Empty by default. */
   tableColumnLayout?: TableColumnLayoutOptions[]
+  /** Minimum column widths by header text, applied before the layout rules. */
+  tableColumnWidths?: TableColumnWidthOptions[]
   /** Extra transforms, run alongside the built-in ones. */
   transforms?: {
     pre?: Transform<CudocState>[]
@@ -69,6 +80,7 @@ export type ResolvedCudocRemarkOptions = {
   badge: ResolvedBadgeOptions | null
   toc: ResolvedTocOptions | null
   tableColumnLayout: ResolvedTableColumnLayoutOptions[]
+  tableColumnWidths: ResolvedTableColumnWidthOptions[]
   transforms: {
     pre: Transform<CudocState>[]
     post: Transform<CudocState>[]
@@ -87,6 +99,8 @@ const KNOWN_KEYS = new Set([
   "badge",
   "toc",
   "tableColumnLayout",
+  "tableColumnWidths",
+  "ignoreDiagnostics",
   "transforms",
 ])
 
@@ -144,6 +158,13 @@ export const resolveOptions = (
     throw new TypeError("tableColumnLayout must be an array of rules")
   }
 
+  if (
+    options.tableColumnWidths !== undefined &&
+    !Array.isArray(options.tableColumnWidths)
+  ) {
+    throw new TypeError("tableColumnWidths must be an array of rules")
+  }
+
   return {
     tableCellList: options.tableCellList !== false,
     headingMetadata: resolveFeature(
@@ -159,6 +180,9 @@ export const resolveOptions = (
         : resolveFeature(options.toc, resolveTocOptions),
     tableColumnLayout: (options.tableColumnLayout ?? []).map((rule, index) =>
       resolveTableColumnLayoutOptions(rule, `tableColumnLayout[${index}]`),
+    ),
+    tableColumnWidths: (options.tableColumnWidths ?? []).map((rule, index) =>
+      resolveTableColumnWidthOptions(rule, `tableColumnWidths[${index}]`),
     ),
     transforms: {
       pre: options.transforms?.pre ?? [],

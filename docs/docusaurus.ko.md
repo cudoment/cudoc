@@ -60,6 +60,31 @@ import embed from "cudoc-remark/embed"
 remarkPlugins: [[embed, { sourceRoot: "docs", outDir: ".cudoc/documents" }]],
 ```
 
+이 플러그인은 준비된 내용을 페이지가 컴파일될 때 접합하므로 컴파일된 페이지가 `.cudoc/documents/embeds.json`에 의존합니다. 작은 플러그인으로 같은 파일에 라이브러리 로더를 등록하면 재수집이 개발 서버와 빌드 캐시가 이미 컴파일한 페이지에도 닿습니다. 파일은 그대로 두고 컴파일 입력에 보이지 않는 참조 정의 한 줄만 더합니다.
+
+```js
+import path from "node:path"
+import { libraryLoader } from "cudoc-remark/loader"
+
+// docusaurus.config.mjs → plugins:
+;() => ({
+  name: "cudoc-library",
+  configureWebpack: () => ({
+    module: {
+      rules: [
+        {
+          test: /\.mdx?$/,
+          include: [path.resolve("docs")],
+          use: [libraryLoader(".cudoc/documents")],
+        },
+      ],
+    },
+  }),
+})
+```
+
+규칙의 `include`에 콘텐츠 디렉터리를 꼭 적어야 합니다. Docusaurus는 `.mdx`에 맞는 모든 규칙의 `include`를 모아 대체 MDX 로더를 구성하는데, `include`가 없는 규칙이 있으면 잘못된 webpack 설정이라며 빌드가 멈춥니다. Docusaurus는 설정 파일을 CommonJS로 불러오므로 경로는 `import.meta`가 아니라 작업 디렉터리 기준으로 구합니다.
+
 ## 5단계 — 수집기 추가
 
 [예제 수집기](../examples/docusaurus/collect.mjs)를 사이트 루트에 `collect.mjs`로 복사하십시오. 실제 Docusaurus MDX 프로세서를 실행해서 Docusaurus가 문서에 가하는 변환을 그대로 포착한 뒤 임베드를 준비합니다.
@@ -81,7 +106,7 @@ remarkPlugins: [[embed, { sourceRoot: "docs", outDir: ".cudoc/documents" }]],
 }
 ```
 
-수집 감시 기능이 없으므로 사이트보다 먼저 수집이 돌아야 합니다. 준비된 내용은 임베드 플러그인이 알아서 삽입합니다.
+수집은 사이트보다 먼저 돌아야 합니다. 글을 쓰는 동안 다시 수집하려면 `buildDocumentsAsync` 대신 `@cudoment/cudoc/node/watch`의 [`watchDocuments`](./api-reference/node.ko.md#감시)에 같은 옵션을 넘기세요. 준비된 내용은 임베드 플러그인이 알아서 삽입합니다.
 
 `cudoc check`는 깨진 링크와 앵커, 이미지, 임베드를 한 번에 전부 보고하고 종료 코드를 0이 아닌 값으로 냅니다. 사이트가 생성되기 전에 빌드가 멈춥니다. → [참조 검사](./check.ko.md)
 
@@ -90,12 +115,12 @@ remarkPlugins: [[embed, { sourceRoot: "docs", outDir: ".cudoc/documents" }]],
 방금 수집한 라이브러리를 재사용해 전달용 HTML 묶음을 만듭니다.
 
 ```sh
-npm install cudoc-html
-npx cudoc-html build docs --library .cudoc/documents --out-dir shared-html \
+npm install cudoc-export
+npx cudoc-export build docs --library .cudoc/documents --out-dir shared-html \
   --links host --host-url https://docs.example.com/project/
 ```
 
-Docusaurus 빌드 결과와 수집 데이터는 변경되지 않습니다. → [독립 HTML](./html.ko.md)
+Docusaurus 빌드 결과와 수집 데이터는 변경되지 않습니다. → [독립 HTML](./export.ko.md)
 
 ---
 
