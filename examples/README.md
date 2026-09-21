@@ -31,7 +31,7 @@ npm run dev
 | [eleventy](./eleventy/eleventy.config.mjs)          | Eleventy              | `npm run build` | `npx eleventy --serve`                   | `/portable/`         |
 | [export](./export/package.json)                     | Standalone HTML       | `npm run build` | Open `site/index.html`                   | `site/portable.html` |
 
-Commands in the table run inside the corresponding example directory after `npm ci`. Next.js also provides `dev:webpack` and `build:webpack`. Package manifests and lockfiles define the dependency versions; check those when upgrading a host.
+Commands in the table run inside the corresponding example directory after `npm ci`. Next.js also provides `dev:webpack` and `build:webpack`. Package manifests and lockfiles define the dependency versions; check those when upgrading a host. Each lockfile also records the linked workspace packages, their version and their dependencies, as npm saw them when it was written, so after a version bump or a dependency change under `packages/` run `npm run lock:examples` from the repository root to rewrite them without installing anything; `npm run test:examples` fails while they disagree.
 
 Each build synchronizes shared fixtures and collects documents before rendering. Edit [fixtures](./fixtures/portable.md), not the generated copies under each example's docs/content directory. Rebuild after editing fixtures. The HTML example can be shared by copying its entire `site/` directory.
 
