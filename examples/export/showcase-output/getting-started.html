@@ -1,0 +1,99 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;; connect-src &#x27;none&#x27;"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Getting started · Northlight Weather API</title><link rel="stylesheet" href="cudoc.css"><link rel="stylesheet" href="cudoc-annotations.css"><script src="cudoc-theme.js"></script></head><body><a class="skip" href="#main-content">Skip to content</a><header><a href="index.html">Northlight Weather API</a></header><div class="layout"><nav class="sidebar" aria-label="Documents"><p class="nav-title">Documents</p><ul><li><a href="index.html">Northlight Weather API</a></li><li><a href="getting-started.html" aria-current="page">Getting started</a></li><li><a href="reference/endpoints.html">Endpoint reference</a></li><li><a href="reference/limits.html">Rate limits</a></li><li><a href="reference/errors.html">Error codes</a></li><li><a href="release-notes.html">Release notes</a></li></ul></nav><main id="main-content" data-cudoc-document="getting-started" data-cudoc-ast-hash="d6a07db9e7e5ba050eeed4b0465602faa66190ef15ea0fb7e6d32d9899d5168e" data-cudoc-source-hash="eb08478a2d44e4d8b391922814e36cfbbfe89f8704c9a2cfddafd351aa008241" data-cudoc-site="5e7dc36292808d20" data-cudoc-generator="cudoc-export 0.5.0"><h1 id="getting-started" data-cudoc-block="getting-started:831d0f72">Getting started</h1>
+<p data-cudoc-block="getting-started:873273cf">Three steps take you from nothing to a first forecast. The whole flow is one
+HTTPS request with a key in a header; there is no SDK to install.</p>
+<p data-cudoc-block="getting-started:e3b0c442"><img src="assets/request-flow.png" alt="A request travels from your service to the Northlight edge and, on a cache miss, to the forecast store"></p>
+<h2 id="key" data-cudoc-block="key:36d2f296">Get a key</h2>
+<p data-cudoc-block="key:b61cfdc5">Keys are issued per project and scoped to the stations a project may read.</p>
+<h5 id="requirements" data-cudoc-block="requirements:e0cdd07f">Requirements</h5>
+<table>
+<thead>
+<tr data-cudoc-block="requirements:1e529ad2">
+<th>Step</th>
+<th colspan="2">Prerequisites</th>
+</tr>
+</thead>
+<tbody>
+<tr data-cudoc-block="requirements:81b78fc4">
+<td>Register</td>
+<td><ul>
+<li data-cudoc-block="requirements:a47f442d">A project name</li>
+<li data-cudoc-block="requirements:dfdd3de8">A billing contact</li>
+<li data-cudoc-block="requirements:5015dc68">At least one station</li>
+</ul></td>
+<td><ul>
+<li data-cudoc-block="requirements:c0a8a2f3">Accepted terms</li>
+<li data-cudoc-block="requirements:a541d3a2">A callback URL</li>
+</ul></td>
+</tr>
+<tr data-cudoc-block="requirements:c49c87a0">
+<td>Rotate</td>
+<td colspan="2"><ul>
+<li data-cudoc-block="requirements:d0552a8f">The current key</li>
+<li data-cudoc-block="requirements:e755cfe2">Owner role</li>
+</ul></td>
+</tr>
+</tbody>
+</table>
+<aside class="cudoc-callout cudoc-callout-important" data-callout="important" data-cudoc-block="requirements:706c413d">
+<p class="cudoc-callout-title" data-cudoc-block="requirements:66610df8">Keep the key out of the browser</p>
+<p data-cudoc-block="requirements:c7539014">A key grants every scope its project holds. Call Northlight from your own
+backend and pass results on; never ship the key in client-side code.</p>
+</aside>
+<h2 id="request" data-cudoc-block="request:823ce432">Make a request  <span class="cudoc-badge">New</span></h2>
+<p data-cudoc-block="request:447fe663">Send the key in the <code>Authorization</code> header and ask for a station by its code:</p>
+<pre data-cudoc-block="request:1379b1d7"><code class="hljs language-sh">curl -H <span class="hljs-string">"Authorization: Bearer <span class="hljs-variable">$NORTHLIGHT_KEY</span>"</span> \
+  <span class="hljs-string">"https://api.northlight.example/v1/weather/current?station=OSL-01"</span></code></pre>
+<pre data-cudoc-block="request:a5eedb73"><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"station"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"OSL-01"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"observedAt"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"2026-09-22T06:00:00Z"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"temperatureC"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">11.4</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"windMs"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">3.2</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"conditions"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"overcast"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+<p data-cudoc-block="request:2f3d909f">Every response carries <code>observedAt</code>, the instant the station reported<sup><a href="#user-content-fn-utc" id="user-content-fnref-utc" data-footnote-ref="" aria-describedby="footnote-label">1</a></sup>. A
+missing station returns <code>404</code> with a machine-readable <code>code</code>, listed under
+<a href="reference/errors.html#errors">Error codes</a>.</p>
+<h2 id="limits" data-cudoc-block="limits:6a6dfeb3">Stay within the limits</h2>
+<p data-cudoc-block="limits:a77a29bf">Current conditions are cached at the edge for sixty seconds, so polling faster
+than that returns the same reading and spends your quota. The windows and the
+headers that report them are in <a href="reference/limits.html#windows">Rate limits</a>;
+the short version is below.</p>
+<h2 id="embed-1-1-windows" data-cudoc-block="embed-1-1-windows:d598026a">Windows</h2>
+<p data-cudoc-block="embed-1-1-windows:a56f1b0d">As a new integrator you share one rule: a key may make 60 requests per rolling minute to
+<code>/v1/weather/current</code> and 600 per rolling hour across all endpoints. Both
+counters are reported on every response.</p>
+<table>
+<thead>
+<tr data-cudoc-block="embed-1-1-windows:167c55ba">
+<th>Header</th>
+<th style="min-width: 16rem">Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr data-cudoc-block="embed-1-1-windows:a5c18031">
+<td><code>X-Limit-Minute</code></td>
+<td>Requests left in the current minute window.</td>
+</tr>
+<tr data-cudoc-block="embed-1-1-windows:cb4387db">
+<td><code>X-Limit-Hour</code></td>
+<td>Requests left in the current hour window.</td>
+</tr>
+<tr data-cudoc-block="embed-1-1-windows:7ca9c1cc">
+<td><code>Retry-After</code></td>
+<td>Seconds to wait, present only on a <code>429</code>.</td>
+</tr>
+</tbody>
+</table>
+<aside class="cudoc-callout cudoc-callout-warning" data-callout="warning" data-cudoc-block="embed-1-1-windows:b47ec386">
+<p class="cudoc-callout-title" data-cudoc-block="embed-1-1-windows:23a88dea">Bursts are counted per key</p>
+<p data-cudoc-block="embed-1-1-windows:a3c836ea">Two services sharing one key share one window. Give each service its own key
+so a spike in one cannot starve the other.</p>
+</aside>
+<section data-footnotes="" class="footnotes"><h2 class="sr-only" id="footnote-label" data-cudoc-block="footnote-label:ad6fb546">Footnotes</h2>
+<ol>
+<li id="user-content-fn-utc" data-cudoc-block="footnote-label:b187f8cf">
+<p data-cudoc-block="footnote-label:b187f8cf~2">Always UTC, always with a <code>Z</code> suffix. Convert at the edge of your own
+system, not in the data layer. <a href="#user-content-fnref-utc" data-footnote-backref="" aria-label="Back to reference 1" class="data-footnote-backref">↩</a></p>
+</li>
+</ol>
+</section><footer>Northlight Weather API</footer></main><nav class="toc" aria-label="On this page"><p class="nav-title">On this page</p><ul><li data-depth="2"><a href="#key">Get a key</a></li><li data-depth="5"><a href="#requirements">Requirements</a></li><li data-depth="2"><a href="#request">Make a request</a></li><li data-depth="2"><a href="#limits">Stay within the limits</a></li><li data-depth="2"><a href="#embed-1-1-windows">Windows</a></li></ul></nav></div><script defer src="cudoc-annotations.js"></script></body></html>

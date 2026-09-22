@@ -1,0 +1,51 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;; connect-src &#x27;none&#x27;"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Error codes · Northlight Weather API</title><link rel="stylesheet" href="../cudoc.css"><link rel="stylesheet" href="../cudoc-annotations.css"><script src="../cudoc-theme.js"></script></head><body><a class="skip" href="#main-content">Skip to content</a><header><a href="../index.html">Northlight Weather API</a></header><div class="layout"><nav class="sidebar" aria-label="Documents"><p class="nav-title">Documents</p><ul><li><a href="../index.html">Northlight Weather API</a></li><li><a href="../getting-started.html">Getting started</a></li><li><a href="endpoints.html">Endpoint reference</a></li><li><a href="limits.html">Rate limits</a></li><li><a href="errors.html" aria-current="page">Error codes</a></li><li><a href="../release-notes.html">Release notes</a></li></ul></nav><main id="main-content" data-cudoc-document="reference/errors" data-cudoc-ast-hash="b83e3691ebb627328eebf61b5649b40bd15d69e631a2ac8e11e409384838d835" data-cudoc-source-hash="394e8f3d32301da614840545138e7e0a9641acd2014971b690bcd20fe8885bfe" data-cudoc-site="5e7dc36292808d20" data-cudoc-generator="cudoc-export 0.5.0"><h1 id="errors" data-cudoc-block="errors:b485a2ff">Error codes</h1>
+<p data-cudoc-block="errors:c5fa14c8">Every error response carries a <code>code</code> from this table and a human-readable
+<code>message</code> that may change between releases; branch on the code, never on the
+message.</p>
+<table>
+<thead>
+<tr data-cudoc-block="errors:d3efc68b">
+<th>Code</th>
+<th>HTTP</th>
+<th style="min-width: 16rem">Meaning</th>
+<th>Retry</th>
+</tr>
+</thead>
+<tbody>
+<tr data-cudoc-block="errors:bb637e0c">
+<td><code>station_unknown</code></td>
+<td>404</td>
+<td>No station has that code.</td>
+<td>No</td>
+</tr>
+<tr data-cudoc-block="errors:b82b0f84">
+<td><code>station_retired</code></td>
+<td>410</td>
+<td>The station stopped reporting permanently.</td>
+<td>No</td>
+</tr>
+<tr data-cudoc-block="errors:1127f729">
+<td><code>key_scope</code></td>
+<td>403</td>
+<td>The key's project does not cover the station.</td>
+<td>No</td>
+</tr>
+<tr data-cudoc-block="errors:5099f4fc">
+<td><code>rate_limited</code></td>
+<td>429</td>
+<td>The window is exhausted.</td>
+<td>After <code>Retry-After</code></td>
+</tr>
+<tr data-cudoc-block="errors:4cd730b1">
+<td><code>upstream_delayed</code></td>
+<td>503</td>
+<td>The station has not reported in time.</td>
+<td>With backoff</td>
+</tr>
+</tbody>
+</table>
+<aside class="cudoc-callout cudoc-callout-note" data-callout="note" data-cudoc-block="errors:b7a265c9">
+<p class="cudoc-callout-title" data-cudoc-block="errors:f8fe6f86">Retrying</p>
+<p data-cudoc-block="errors:04ffddd9">The backoff rule for <code>rate_limited</code> and <code>upstream_delayed</code> is in
+<a href="limits.html#backoff">Rate limits</a>.</p>
+</aside><footer>Northlight Weather API</footer></main><nav class="toc" aria-label="On this page"><p class="nav-title">On this page</p><ul></ul></nav></div><script defer src="../cudoc-annotations.js"></script></body></html>

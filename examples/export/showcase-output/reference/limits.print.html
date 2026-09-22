@@ -1,0 +1,97 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rate limits · Northlight Weather API</title><link rel="stylesheet" href="../cudoc-print.css"></head><body class="cudoc-print"><div class="layout"><main id="main-content"><article class="cudoc-doc" id="cudoc-reference%2Flimits" data-document="cudoc-reference%2Flimits"><h1 id="rate-limits">Rate limits</h1>
+<p>Limits protect the stations, which report on fixed schedules, from being asked
+the same question thousands of times a minute. They are generous for any client
+that respects the cache.</p>
+<h2 id="windows">Windows</h2>
+<p>Every plan shares one rule: a key may make 60 requests per rolling minute to
+<code>/v1/weather/current</code> and 600 per rolling hour across all endpoints. Both
+counters are reported on every response.</p>
+<table>
+<thead>
+<tr>
+<th>Header</th>
+<th style="min-width: 16rem">Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>X-Limit-Minute</code></td>
+<td>Requests left in the current minute window.</td>
+</tr>
+<tr>
+<td><code>X-Limit-Hour</code></td>
+<td>Requests left in the current hour window.</td>
+</tr>
+<tr>
+<td><code>Retry-After</code></td>
+<td>Seconds to wait, present only on a <code>429</code>.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="backoff">Backoff</h3>
+<p>On a <code>429</code> or a <code>503</code>, wait for <code>Retry-After</code> when present, otherwise double the
+delay from one second up to thirty, and stop after five attempts.</p>
+<h2 id="plans">Plans compared</h2>
+<p>The table has seven columns, so the paginated outputs put it on a landscape page
+of its own.</p>
+<div class="cudoc-wide"><table>
+<thead>
+<tr>
+<th>Plan</th>
+<th>Stations</th>
+<th>Minute window</th>
+<th>Hour window</th>
+<th>Forecast hours</th>
+<th>History</th>
+<th>Support</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Community</td>
+<td>3</td>
+<td>60</td>
+<td>600</td>
+<td>24</td>
+<td>7 days</td>
+<td>Forum</td>
+</tr>
+<tr>
+<td>Team</td>
+<td>25</td>
+<td>120</td>
+<td>6,000</td>
+<td>48</td>
+<td>90 days</td>
+<td>Email, 2 days</td>
+</tr>
+<tr>
+<td>Business</td>
+<td>250</td>
+<td>600</td>
+<td>60,000</td>
+<td>48</td>
+<td>1 year</td>
+<td>Email, 1 day</td>
+</tr>
+<tr>
+<td>Enterprise</td>
+<td>Custom</td>
+<td>Custom</td>
+<td>Custom</td>
+<td>48</td>
+<td>Custom</td>
+<td>Named contact</td>
+</tr>
+</tbody>
+</table></div>
+<div class="cudoc-page-break" data-cudoc-break="page" hidden></div>
+<h2 id="measuring">Appendix: measuring your own usage</h2>
+<p>Log the two limit headers with every response and chart the minimum per minute.
+A flat line near zero means a client is polling faster than the sixty-second
+cache refreshes; slow it down rather than raising the plan.</p>
+<aside class="cudoc-callout cudoc-callout-caution" data-callout="caution">
+<p class="cudoc-callout-title">Retired keys keep counting</p>
+<p>Requests made with a retired key are rejected but still counted against the
+project for one hour, so rotate keys during a quiet period.</p>
+</aside></article></main></div></body></html>

@@ -168,6 +168,8 @@ VitePress와 Eleventy는 설정을 평가할 때 라이브러리를 불러오므
 
 HTML 출력은 하이퍼링크를 세 가지 방식으로 다룹니다. 로컬 파일로 잇거나, 배포 URL로 바꾸거나, 아예 없앱니다. 덕분에 같은 내용을 디스크에서 열든 웹에 올리든 그대로 동작합니다.
 
+완성된 예시가 저장소에 함께 들어 있습니다. 문서 여섯 개로 된 API 핸드북을 [설정 파일 하나](./examples/export/showcase.config.mjs)로 사이트, 문서별 파일, 표지와 목차가 붙은 묶음 파일로 내보낸 결과입니다. [PDF](./examples/export/showcase-output/northlight-handbook.pdf)와 [Word 파일](./examples/export/showcase-output/northlight-handbook.docx)은 바로 열어 볼 수 있고, 저장소를 내려받으면 [사이트](./examples/export/showcase-output/index.html)를 디스크에서 열 수 있습니다. 이 결과를 만든 Markdown은 [원본 문서](./examples/export/showcase/)에 있습니다. → [완성 예시](./docs/export.ko.md#완성-예시)
+
 ---
 
 ## 레퍼런스

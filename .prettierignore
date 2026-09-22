@@ -21,6 +21,8 @@ examples/*/docs/reference.md
 examples/nextra/content/portable.md
 examples/nextra/content/reference.md
 examples/export/site/
+# Committed export sample, compared byte for byte by tests/scripts/export-showcase.mjs
+examples/export/showcase-output/
 
 # The stylesheet golden fixture is compared byte for byte.
 packages/cudoc-export/__tests__/__fixtures__/

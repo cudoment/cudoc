@@ -1,0 +1,97 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;; connect-src &#x27;none&#x27;"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rate limits · Northlight Weather API</title><link rel="stylesheet" href="../cudoc.css"><link rel="stylesheet" href="../cudoc-annotations.css"><script src="../cudoc-theme.js"></script></head><body><a class="skip" href="#main-content">Skip to content</a><header><a href="../index.html">Northlight Weather API</a></header><div class="layout"><nav class="sidebar" aria-label="Documents"><p class="nav-title">Documents</p><ul><li><a href="../index.html">Northlight Weather API</a></li><li><a href="../getting-started.html">Getting started</a></li><li><a href="endpoints.html">Endpoint reference</a></li><li><a href="limits.html" aria-current="page">Rate limits</a></li><li><a href="errors.html">Error codes</a></li><li><a href="../release-notes.html">Release notes</a></li></ul></nav><main id="main-content" data-cudoc-document="reference/limits" data-cudoc-ast-hash="76e02fbb971ed68fdc74bc641fd3bf0283059b28c5f4853f1735f569d144763d" data-cudoc-source-hash="6b8c46d499071f4ff231a2173f2f3bc61f288fad73bdc62ea3f2722b84d7c1f9" data-cudoc-site="5e7dc36292808d20" data-cudoc-generator="cudoc-export 0.5.0"><h1 id="rate-limits" data-cudoc-block="rate-limits:6ed021f7">Rate limits</h1>
+<p data-cudoc-block="rate-limits:6a101da7">Limits protect the stations, which report on fixed schedules, from being asked
+the same question thousands of times a minute. They are generous for any client
+that respects the cache.</p>
+<h2 id="windows" data-cudoc-block="windows:d598026a">Windows</h2>
+<p data-cudoc-block="windows:39bf0d05">Every plan shares one rule: a key may make 60 requests per rolling minute to
+<code>/v1/weather/current</code> and 600 per rolling hour across all endpoints. Both
+counters are reported on every response.</p>
+<table>
+<thead>
+<tr data-cudoc-block="windows:167c55ba">
+<th>Header</th>
+<th style="min-width: 16rem">Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr data-cudoc-block="windows:a5c18031">
+<td><code>X-Limit-Minute</code></td>
+<td>Requests left in the current minute window.</td>
+</tr>
+<tr data-cudoc-block="windows:cb4387db">
+<td><code>X-Limit-Hour</code></td>
+<td>Requests left in the current hour window.</td>
+</tr>
+<tr data-cudoc-block="windows:7ca9c1cc">
+<td><code>Retry-After</code></td>
+<td>Seconds to wait, present only on a <code>429</code>.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="backoff" data-cudoc-block="backoff:f445870b">Backoff</h3>
+<p data-cudoc-block="backoff:a8aaa912">On a <code>429</code> or a <code>503</code>, wait for <code>Retry-After</code> when present, otherwise double the
+delay from one second up to thirty, and stop after five attempts.</p>
+<h2 id="plans" data-cudoc-block="plans:0b62982c">Plans compared</h2>
+<p data-cudoc-block="plans:3df03717">The table has seven columns, so the paginated outputs put it on a landscape page
+of its own.</p>
+<table>
+<thead>
+<tr data-cudoc-block="plans:672bcf09">
+<th>Plan</th>
+<th>Stations</th>
+<th>Minute window</th>
+<th>Hour window</th>
+<th>Forecast hours</th>
+<th>History</th>
+<th>Support</th>
+</tr>
+</thead>
+<tbody>
+<tr data-cudoc-block="plans:094e5fdf">
+<td>Community</td>
+<td>3</td>
+<td>60</td>
+<td>600</td>
+<td>24</td>
+<td>7 days</td>
+<td>Forum</td>
+</tr>
+<tr data-cudoc-block="plans:0a3ad9b1">
+<td>Team</td>
+<td>25</td>
+<td>120</td>
+<td>6,000</td>
+<td>48</td>
+<td>90 days</td>
+<td>Email, 2 days</td>
+</tr>
+<tr data-cudoc-block="plans:2d738bd3">
+<td>Business</td>
+<td>250</td>
+<td>600</td>
+<td>60,000</td>
+<td>48</td>
+<td>1 year</td>
+<td>Email, 1 day</td>
+</tr>
+<tr data-cudoc-block="plans:84d1ed6b">
+<td>Enterprise</td>
+<td>Custom</td>
+<td>Custom</td>
+<td>Custom</td>
+<td>48</td>
+<td>Custom</td>
+<td>Named contact</td>
+</tr>
+</tbody>
+</table>
+<div class="cudoc-page-break" data-cudoc-break="page" hidden></div>
+<h2 id="measuring" data-cudoc-block="measuring:23429b54">Appendix: measuring your own usage</h2>
+<p data-cudoc-block="measuring:8b0d3021">Log the two limit headers with every response and chart the minimum per minute.
+A flat line near zero means a client is polling faster than the sixty-second
+cache refreshes; slow it down rather than raising the plan.</p>
+<aside class="cudoc-callout cudoc-callout-caution" data-callout="caution" data-cudoc-block="measuring:0ae503ae">
+<p class="cudoc-callout-title" data-cudoc-block="measuring:f801e008">Retired keys keep counting</p>
+<p data-cudoc-block="measuring:4f253eae">Requests made with a retired key are rejected but still counted against the
+project for one hour, so rotate keys during a quiet period.</p>
+</aside><footer>Northlight Weather API</footer></main><nav class="toc" aria-label="On this page"><p class="nav-title">On this page</p><ul><li data-depth="2"><a href="#windows">Windows</a></li><li data-depth="3"><a href="#backoff">Backoff</a></li><li data-depth="2"><a href="#plans">Plans compared</a></li><li data-depth="2"><a href="#measuring">Appendix: measuring your own usage</a></li></ul></nav></div><script defer src="../cudoc-annotations.js"></script></body></html>

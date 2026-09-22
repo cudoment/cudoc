@@ -1,0 +1,60 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;; connect-src &#x27;none&#x27;"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Northlight Weather API · Northlight Weather API</title><link rel="stylesheet" href="cudoc.css"><link rel="stylesheet" href="cudoc-annotations.css"><script src="cudoc-theme.js"></script></head><body><a class="skip" href="#main-content">Skip to content</a><header><a href="index.html">Northlight Weather API</a></header><div class="layout"><nav class="sidebar" aria-label="Documents"><p class="nav-title">Documents</p><ul><li><a href="index.html" aria-current="page">Northlight Weather API</a></li><li><a href="getting-started.html">Getting started</a></li><li><a href="reference/endpoints.html">Endpoint reference</a></li><li><a href="reference/limits.html">Rate limits</a></li><li><a href="reference/errors.html">Error codes</a></li><li><a href="release-notes.html">Release notes</a></li></ul></nav><main id="main-content" data-cudoc-document="index" data-cudoc-ast-hash="2791d34e474ebecd2ce7c553e49841c64e9252ea3152a16e875ca4dd61edcd93" data-cudoc-source-hash="0235f4f4479e7ad42c32758cc87927a95b5fa94ea31154621d97a582f66abf46" data-cudoc-site="5e7dc36292808d20" data-cudoc-generator="cudoc-export 0.5.0"><h1 id="northlight-weather-api" data-cudoc-block="northlight-weather-api:6216fc7b">Northlight Weather API <span class="cudoc-badge">v1</span></h1>
+<p data-cudoc-block="northlight-weather-api:3aec59a0">Northlight serves current conditions and short-range forecasts for a network of
+weather stations. This handbook is one set of Markdown documents that cudoc
+publishes three ways: as the site you are reading, as a bound PDF with a cover
+and contents page, and as a Word file with real styles. Every figure below is
+drawn from the reference pages, so a correction there reaches this page too.</p>
+<aside class="cudoc-callout cudoc-callout-note" data-callout="note" data-cudoc-block="northlight-weather-api:00659863">
+<p class="cudoc-callout-title" data-cudoc-block="northlight-weather-api:6b65ce91">How this handbook is built</p>
+<p data-cudoc-block="northlight-weather-api:e318b3ed">The site, the PDF and the Word file come from one <code>cudoc-export build</code> run
+and one set of design tokens. The configuration is a single file,
+<code>showcase.config.mjs</code>, beside the documents.</p>
+</aside>
+<h2 id="endpoints" data-cudoc-block="endpoints:5f59ae44">Endpoints at a glance</h2>
+<p data-cudoc-block="endpoints:a0ebdc0e">Each row is one section of the endpoint reference. The method and the path are
+read from the table at the top of that section, and the description is its
+first paragraph.</p>
+<table>
+<thead>
+<tr data-cudoc-block="endpoints:d386ec4d">
+<th>Endpoint</th>
+<th style="min-width: 5rem">Method</th>
+<th style="min-width: 14rem">Path</th>
+<th>What it returns</th>
+</tr>
+</thead>
+<tbody>
+<tr data-cudoc-block="endpoints:61c07359">
+<td><a href="reference/endpoints.html#weather-current">Current conditions</a></td>
+<td>GET</td>
+<td>/v1/weather/current</td>
+<td>Returns the latest observation from one station.</td>
+</tr>
+<tr data-cudoc-block="endpoints:5dad37c3">
+<td><a href="reference/endpoints.html#forecast-hourly">Hourly forecast</a></td>
+<td>GET</td>
+<td>/v1/forecast/hourly</td>
+<td>Returns up to 48 hourly forecast points for one station.</td>
+</tr>
+<tr data-cudoc-block="endpoints:fc8287e4">
+<td><a href="reference/endpoints.html#stations">Station directory</a></td>
+<td>GET</td>
+<td>/v1/stations</td>
+<td>Lists the stations a key may read, with their location and status.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="start" data-cudoc-block="start:a08cf344">Where to start</h2>
+<ol>
+<li data-cudoc-block="start:06aa2d6e">Read <a href="getting-started.html#getting-started">Getting started</a> for a key and a
+first request.</li>
+<li data-cudoc-block="start:9c0bb23d">Keep <a href="reference/limits.html#windows">Rate limits</a> open while you design a
+polling schedule.</li>
+<li data-cudoc-block="start:aeceecea">Check the <a href="release-notes.html#release-notes">release notes</a> before upgrading
+a client.</li>
+</ol>
+<aside class="cudoc-callout cudoc-callout-tip" data-callout="tip" data-cudoc-block="start:5cdaa1ce">
+<p class="cudoc-callout-title" data-cudoc-block="start:d86ac869">Reading this on paper?</p>
+<p data-cudoc-block="start:efd303e8">External links print their address after the text, and links between
+documents jump inside the bound file.</p>
+</aside><footer>Northlight Weather API</footer></main><nav class="toc" aria-label="On this page"><p class="nav-title">On this page</p><ul><li data-depth="2"><a href="#endpoints">Endpoints at a glance</a></li><li data-depth="2"><a href="#start">Where to start</a></li></ul></nav></div><script defer src="cudoc-annotations.js"></script></body></html>

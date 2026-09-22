@@ -19,7 +19,7 @@
     "test:run": "vitest run --project unit",
     "test:examples": "vitest run --project integration",
     "test:built": "vitest run --project built",
-    "test:scripts": "node tests/scripts/rebuild-portable.mjs && node tests/scripts/rebuild-mdx.mjs && node tests/scripts/packed-consumers.mjs",
+    "test:scripts": "node tests/scripts/rebuild-portable.mjs && node tests/scripts/rebuild-mdx.mjs && node tests/scripts/packed-consumers.mjs && node tests/scripts/export-showcase.mjs",
     "test:all": "npm run test && npm run test:scripts",
     "test:watch": "vitest",
     "typecheck": "tsc --build && tsc -p tsconfig.test.json",

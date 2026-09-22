@@ -1,0 +1,147 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;; connect-src &#x27;none&#x27;"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Endpoint reference · Northlight Weather API</title><link rel="stylesheet" href="../cudoc.css"><link rel="stylesheet" href="../cudoc-annotations.css"><script src="../cudoc-theme.js"></script></head><body><a class="skip" href="#main-content">Skip to content</a><header><a href="../index.html">Northlight Weather API</a></header><div class="layout"><nav class="sidebar" aria-label="Documents"><p class="nav-title">Documents</p><ul><li><a href="../index.html">Northlight Weather API</a></li><li><a href="../getting-started.html">Getting started</a></li><li><a href="endpoints.html" aria-current="page">Endpoint reference</a></li><li><a href="limits.html">Rate limits</a></li><li><a href="errors.html">Error codes</a></li><li><a href="../release-notes.html">Release notes</a></li></ul></nav><main id="main-content" data-cudoc-document="reference/endpoints" data-cudoc-ast-hash="aafeb3b9bb081d2955895471bce848ffaaab156111405c2c337ae632e5e2b493" data-cudoc-source-hash="54df2f50de503095f51eb45bdc128ec119ca9e501684a5272ebbcd6eebdb8f53" data-cudoc-site="5e7dc36292808d20" data-cudoc-generator="cudoc-export 0.5.0"><h1 id="reference" data-cudoc-block="reference:44c987f8">Endpoint reference</h1>
+<p data-cudoc-block="reference:49f98838">Each section describes one endpoint. The first table of a section is its basic
+information, which the overview page reads into a summary table; the tables that
+follow describe parameters and the response. Error responses are listed
+separately under <a href="errors.html#errors">Error codes</a>.</p>
+<h2 id="weather-current" data-cudoc-block="weather-current:8e4f7d71">Current conditions</h2>
+<p data-cudoc-block="weather-current:c37854cd">Returns the latest observation from one station.</p>
+<table>
+<thead>
+<tr data-cudoc-block="weather-current:77408873">
+<th>Method</th>
+<th>Path</th>
+<th>Auth</th>
+</tr>
+</thead>
+<tbody>
+<tr data-cudoc-block="weather-current:aecec51f">
+<td>GET</td>
+<td><code>/v1/weather/current</code></td>
+<td>Bearer</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr data-cudoc-block="weather-current:a03b04f8">
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th style="min-width: 18rem">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr data-cudoc-block="weather-current:3f8257c3">
+<td><code>station</code></td>
+<td>string</td>
+<td>yes</td>
+<td>The station code, such as <code>OSL-01</code>. One station per request.</td>
+</tr>
+<tr data-cudoc-block="weather-current:cad7f8fb">
+<td><code>units</code></td>
+<td>string</td>
+<td>no</td>
+<td><code>metric</code> (default) or <code>imperial</code>.</td>
+</tr>
+</tbody>
+</table>
+<p data-cudoc-block="weather-current:042a3487">The response is one observation object. Readings older than fifteen minutes
+carry <code>stale: true</code>.</p>
+<h2 id="forecast-hourly" data-cudoc-block="forecast-hourly:c7e005a0">Hourly forecast</h2>
+<p data-cudoc-block="forecast-hourly:ed7ebb64">Returns up to 48 hourly forecast points for one station.</p>
+<table>
+<thead>
+<tr data-cudoc-block="forecast-hourly:77408873">
+<th>Method</th>
+<th>Path</th>
+<th>Auth</th>
+</tr>
+</thead>
+<tbody>
+<tr data-cudoc-block="forecast-hourly:4b94f952">
+<td>GET</td>
+<td><code>/v1/forecast/hourly</code></td>
+<td>Bearer</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr data-cudoc-block="forecast-hourly:a03b04f8">
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th style="min-width: 18rem">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr data-cudoc-block="forecast-hourly:2a8b9536">
+<td><code>station</code></td>
+<td>string</td>
+<td>yes</td>
+<td>The station code.</td>
+</tr>
+<tr data-cudoc-block="forecast-hourly:b2b8436b">
+<td><code>hours</code></td>
+<td>integer</td>
+<td>no</td>
+<td>1 to 48, default 24. Values above 48 are clamped, not rejected.</td>
+</tr>
+<tr data-cudoc-block="forecast-hourly:1a23cdc1">
+<td><code>fields</code></td>
+<td>list</td>
+<td>no</td>
+<td><ul>
+<li data-cudoc-block="forecast-hourly:b314ae60"><code>temperature</code></li>
+<li data-cudoc-block="forecast-hourly:9b58e681"><code>wind</code></li>
+<li data-cudoc-block="forecast-hourly:eb8e71ea"><code>precipitation</code>
+<ul>
+<li data-cudoc-block="forecast-hourly:d0d3a7bb">Probability and amount</li>
+</ul>
+</li>
+</ul></td>
+</tr>
+</tbody>
+</table>
+<h2 id="stations" data-cudoc-block="stations:1a00c58e">Station directory</h2>
+<p data-cudoc-block="stations:8ce4108f">Lists the stations a key may read, with their location and status.</p>
+<table>
+<thead>
+<tr data-cudoc-block="stations:77408873">
+<th>Method</th>
+<th>Path</th>
+<th>Auth</th>
+</tr>
+</thead>
+<tbody>
+<tr data-cudoc-block="stations:924a70d2">
+<td>GET</td>
+<td><code>/v1/stations</code></td>
+<td>Bearer</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr data-cudoc-block="stations:a03b04f8">
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th style="min-width: 18rem">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr data-cudoc-block="stations:efa38b27">
+<td><code>region</code></td>
+<td>string</td>
+<td>no</td>
+<td>An ISO 3166-2 code to narrow the list.</td>
+</tr>
+<tr data-cudoc-block="stations:4c3ab8b6">
+<td><code>status</code></td>
+<td>string</td>
+<td>no</td>
+<td><code>active</code>, <code>maintenance</code> or <code>retired</code>.</td>
+</tr>
+</tbody>
+</table><footer>Northlight Weather API</footer></main><nav class="toc" aria-label="On this page"><p class="nav-title">On this page</p><ul><li data-depth="2"><a href="#weather-current">Current conditions</a></li><li data-depth="2"><a href="#forecast-hourly">Hourly forecast</a></li><li data-depth="2"><a href="#stations">Station directory</a></li></ul></nav></div><script defer src="../cudoc-annotations.js"></script></body></html>

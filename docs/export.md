@@ -53,6 +53,14 @@ Share the whole `site/` directory or deploy it to any static host. Nothing in th
 
 The builder collects the documents, resolves embeds and writes HTML, styles and local assets. It adds navigation, a heading TOC, callouts, scrollable tables and highlighted code.
 
+## A complete example
+
+The repository carries one finished export so that every option below can be seen in its output rather than imagined: a six-document handbook for a fictional weather API under [`examples/export/showcase/`](../examples/export/showcase/), built by [`showcase.config.mjs`](../examples/export/showcase.config.mjs) into [`examples/export/showcase-output/`](../examples/export/showcase-output/). Open [`northlight-handbook.pdf`](../examples/export/showcase-output/northlight-handbook.pdf) for the bound volume, [`northlight-handbook.docx`](../examples/export/showcase-output/northlight-handbook.docx) for the same volume in Word, and `index.html` in that directory for the site once the repository is on your disk.
+
+The documents use what an author writes in Markdown: explicit anchors and badges, callouts including a registered `success` type, lists inside table cells with a layout rule that splits the long column, an embed that reads each endpoint's method and path out of the reference into a summary table on the overview page, an embedded section reworded with `replace`, a footnote, an image, a seven-column table and a `cudoc-pagebreak` fence. The configuration turns on all three formats at both granularities, a cover image and a numbered contents page, running header and footer with a fixed `date`, a page break before every second-level heading, printed link addresses, landscape pages for tables of six columns or more, minimum column widths for description columns, the review-note runtime and the theme switch, and an accent colour that reaches all three outputs through `tokens`.
+
+The sample is rebuilt with `npm run showcase` inside `examples/export` after that example is installed, and `tests/scripts/export-showcase.mjs` fails when the committed text outputs differ from what the current packages produce, so the sample never lags behind a release.
+
 ## Export alongside an existing site
 
 Run the collector from your [host guide](./README.md#set-up-your-site) first. It must capture the actual host compiler's output and prepare any embeds. Install `cudoc-export` in that project and create `site.config.mjs`:

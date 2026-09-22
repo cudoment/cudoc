@@ -1,0 +1,51 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Error codes · Northlight Weather API</title><link rel="stylesheet" href="../cudoc-print.css"></head><body class="cudoc-print"><div class="layout"><main id="main-content"><article class="cudoc-doc" id="cudoc-reference%2Ferrors" data-document="cudoc-reference%2Ferrors"><h1 id="errors">Error codes</h1>
+<p>Every error response carries a <code>code</code> from this table and a human-readable
+<code>message</code> that may change between releases; branch on the code, never on the
+message.</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>HTTP</th>
+<th style="min-width: 16rem">Meaning</th>
+<th>Retry</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>station_unknown</code></td>
+<td>404</td>
+<td>No station has that code.</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>station_retired</code></td>
+<td>410</td>
+<td>The station stopped reporting permanently.</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>key_scope</code></td>
+<td>403</td>
+<td>The key's project does not cover the station.</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>rate_limited</code></td>
+<td>429</td>
+<td>The window is exhausted.</td>
+<td>After <code>Retry-After</code></td>
+</tr>
+<tr>
+<td><code>upstream_delayed</code></td>
+<td>503</td>
+<td>The station has not reported in time.</td>
+<td>With backoff</td>
+</tr>
+</tbody>
+</table>
+<aside class="cudoc-callout cudoc-callout-note" data-callout="note">
+<p class="cudoc-callout-title">Retrying</p>
+<p>The backoff rule for <code>rate_limited</code> and <code>upstream_delayed</code> is in
+<a href="limits.pdf">Rate limits</a>.</p>
+</aside></article></main></div></body></html>
