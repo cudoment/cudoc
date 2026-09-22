@@ -373,18 +373,33 @@ suite("review notes in the browser", () => {
       padding: getComputedStyle(document.body).paddingRight,
     }))
     expect(closed).toEqual({ push: false, padding: "0px" })
+    // The header's own padding and its right edge, before the panel opens.
+    const headerBefore = await page.evaluate(() => {
+      const header = document.querySelector("header")!
+      return {
+        padding: getComputedStyle(header).paddingRight,
+        right: header.getBoundingClientRect().right,
+      }
+    })
     await page.click(".cudoc-ann-toggle")
-    const pushed = await page.evaluate(() => ({
-      push: document.documentElement.classList.contains("cudoc-ann-push"),
-      padding: getComputedStyle(document.body).paddingRight,
-      header: getComputedStyle(document.querySelector("header")!).paddingRight,
-      button: document
-        .querySelector(".cudoc-ann-layout")!
-        .getAttribute("aria-label"),
-    }))
+    const pushed = await page.evaluate(() => {
+      const header = document.querySelector("header")!
+      return {
+        push: document.documentElement.classList.contains("cudoc-ann-push"),
+        padding: getComputedStyle(document.body).paddingRight,
+        header: getComputedStyle(header).paddingRight,
+        headerRight: header.getBoundingClientRect().right,
+        button: document
+          .querySelector(".cudoc-ann-layout")!
+          .getAttribute("aria-label"),
+      }
+    })
     expect(pushed.push).toBe(true)
     expect(pushed.padding).toBe("352px")
-    expect(parseFloat(pushed.header)).toBeGreaterThan(352)
+    // The header narrows with the body and by the panel's width alone, so a
+    // control at its right edge moves exactly that far and no further.
+    expect(pushed.header).toBe(headerBefore.padding)
+    expect(headerBefore.right - pushed.headerRight).toBe(352)
     expect(pushed.button).toBe("Panel placement: Narrow the page")
     await page.click(".cudoc-ann-layout")
     const covered = await page.evaluate(() => ({
