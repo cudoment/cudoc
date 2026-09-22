@@ -1,0 +1,489 @@
+/* src/browser/cudoc-annotations.css */
+::highlight(cudoc-note) {
+  background-color: var(--accent-soft);
+}
+::highlight(cudoc-note-resolved) {
+  background-color: var(--wash);
+  text-decoration: underline dotted var(--muted);
+}
+::highlight(cudoc-note-active) {
+  background-color: var(--warn-wash);
+  text-decoration: underline solid var(--warn);
+}
+.cudoc-ann-marked {
+  outline: 2px solid var(--accent-soft);
+  outline-offset: 2px;
+}
+.cudoc-ann {
+  --cudoc-ann-panel: 22rem;
+  --cudoc-ann-control: 1.875rem;
+  --cudoc-ann-icon: 1rem;
+  --cudoc-ann-text: 0.8125rem;
+  --cudoc-ann-small: 0.75rem;
+  --cudoc-ann-title: 0.9375rem;
+  font-family: var(--font-sans);
+  font-size: var(--cudoc-ann-text);
+  line-height: 1.5;
+  color: var(--ink);
+}
+.cudoc-ann :where(h2, p, blockquote, ol, li, details, summary, small, label) {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  max-inline-size: none;
+  font: inherit;
+  color: inherit;
+  text-wrap: auto;
+}
+.cudoc-ann :where(button, input, select, textarea) {
+  font: inherit;
+  color: inherit;
+}
+.cudoc-ann svg {
+  width: var(--cudoc-ann-icon);
+  height: var(--cudoc-ann-icon);
+  flex: none;
+}
+.cudoc-ann-button,
+.cudoc-ann-lang {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: var(--cudoc-ann-control);
+  padding: 0 var(--space-3);
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: var(--cudoc-ann-text);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.cudoc-ann-button:hover,
+.cudoc-ann-lang:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.cudoc-ann-button:focus-visible,
+.cudoc-ann-lang:focus-visible,
+.cudoc-ann-author:focus-visible,
+.cudoc-ann-text:focus-visible,
+.cudoc-ann-tokentext:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.cudoc-ann-icon {
+  width: var(--cudoc-ann-control);
+  padding: 0;
+}
+.cudoc-ann-primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--paper);
+}
+.cudoc-ann-primary:hover {
+  color: var(--paper);
+  filter: brightness(1.08);
+}
+.cudoc-ann-ghost {
+  border-color: transparent;
+  background: none;
+  color: var(--muted);
+}
+.cudoc-ann-ghost:hover {
+  border-color: transparent;
+  background: var(--wash);
+  color: var(--accent);
+}
+.cudoc-ann-lang {
+  max-width: 7rem;
+  padding: 0 var(--space-2);
+  font-size: var(--cudoc-ann-small);
+}
+.cudoc-ann-file {
+  display: none;
+}
+.cudoc-ann-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.cudoc-ann-toggle,
+.cudoc-ann-float,
+.cudoc-ann-gutter {
+  position: fixed;
+  z-index: 40;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
+}
+.cudoc-ann-toggle {
+  right: var(--space-4);
+  bottom: var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--paper);
+  color: var(--accent);
+  cursor: pointer;
+}
+.cudoc-ann-toggle svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+.cudoc-ann-toggle[aria-expanded=true] {
+  right: calc(var(--cudoc-ann-panel) + var(--space-6));
+}
+.cudoc-ann-count {
+  position: absolute;
+  top: -0.35rem;
+  right: -0.35rem;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.3rem;
+  box-sizing: border-box;
+  border-radius: 0.625rem;
+  background: var(--accent);
+  color: var(--paper);
+  font-size: var(--cudoc-ann-small);
+  font-weight: 700;
+  line-height: 1.25rem;
+  text-align: center;
+}
+.cudoc-ann-float {
+  color: var(--accent);
+}
+.cudoc-ann-gutter {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: var(--muted);
+}
+.cudoc-ann-gutter:hover {
+  color: var(--accent);
+}
+.cudoc-ann-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 39;
+  width: var(--cudoc-ann-panel);
+  max-width: 100vw;
+  box-sizing: border-box;
+  overflow-y: auto;
+  padding: var(--space-4);
+  background: var(--paper);
+  border-left: 1px solid var(--line);
+  box-shadow: -4px 0 16px rgb(0 0 0 / 0.08);
+}
+.cudoc-ann-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+.cudoc-ann-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--cudoc-ann-title);
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+.cudoc-ann-head .cudoc-ann-tools {
+  flex: none;
+  margin-left: auto;
+}
+.cudoc-ann-field {
+  margin-bottom: var(--space-4);
+}
+.cudoc-ann-field label {
+  display: block;
+  margin-bottom: var(--space-1);
+  font-size: var(--cudoc-ann-small);
+  font-weight: 600;
+  color: var(--muted);
+}
+.cudoc-ann-field small {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--cudoc-ann-small);
+  color: var(--faint);
+}
+.cudoc-ann-author {
+  width: 100%;
+  height: var(--cudoc-ann-control);
+  box-sizing: border-box;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--canvas);
+}
+.cudoc-ann-author::placeholder,
+.cudoc-ann-text::placeholder {
+  color: var(--faint);
+}
+.cudoc-ann-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.cudoc-ann-actions > .cudoc-ann-button {
+  flex: 1 1 auto;
+  justify-content: flex-start;
+}
+.cudoc-ann-more {
+  margin-bottom: var(--space-4);
+}
+.cudoc-ann-more summary {
+  display: list-item;
+  list-style: disclosure-closed inside;
+  padding: var(--space-1) 0;
+  font-size: var(--cudoc-ann-small);
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+.cudoc-ann-more[open] summary {
+  list-style-type: disclosure-open;
+}
+.cudoc-ann-more[open] summary {
+  margin-bottom: var(--space-2);
+}
+.cudoc-ann-more .cudoc-ann-actions {
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+}
+html.cudoc-ann-push body {
+  padding-right: 22rem;
+}
+.cudoc-ann-banner,
+.cudoc-ann-stale,
+.cudoc-ann-token p {
+  margin-bottom: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  background: var(--warn-wash);
+  color: var(--warn);
+  font-size: var(--cudoc-ann-small);
+}
+.cudoc-ann-token {
+  margin-bottom: var(--space-3);
+}
+.cudoc-ann-tokentext,
+.cudoc-ann-text {
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--canvas);
+  line-height: 1.5;
+  resize: vertical;
+}
+.cudoc-ann-tokentext {
+  font-family: var(--font-mono);
+  font-size: var(--cudoc-ann-small);
+  word-break: break-all;
+}
+.cudoc-ann-list {
+  list-style: none;
+}
+.cudoc-ann-item {
+  margin-bottom: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--canvas);
+  cursor: pointer;
+}
+.cudoc-ann-item:hover {
+  border-color: var(--accent-soft);
+}
+.cudoc-ann-item.cudoc-ann-active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.cudoc-ann-item.cudoc-ann-resolved .cudoc-ann-body,
+.cudoc-ann-item.cudoc-ann-resolved .cudoc-ann-excerpt {
+  color: var(--muted);
+}
+.cudoc-ann-item.cudoc-ann-resolved .cudoc-ann-excerpt {
+  border-left-color: var(--line);
+}
+.cudoc-ann-empty,
+.cudoc-ann-others {
+  padding: var(--space-3);
+  color: var(--muted);
+  font-size: var(--cudoc-ann-small);
+  text-align: center;
+}
+.cudoc-ann-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  font-size: var(--cudoc-ann-small);
+  color: var(--muted);
+}
+.cudoc-ann-badges {
+  display: flex;
+  flex: none;
+  gap: var(--space-1);
+}
+.cudoc-ann-pill {
+  display: inline-block;
+  padding: 0 var(--space-2);
+  border-radius: 999px;
+  background: var(--wash);
+  color: var(--muted);
+  font-size: var(--cudoc-ann-small);
+  font-weight: 600;
+  line-height: 1.375rem;
+  white-space: nowrap;
+}
+.cudoc-ann-pill-open {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.cudoc-ann-pill-warn {
+  background: var(--warn-wash);
+  color: var(--warn);
+}
+.cudoc-ann-who {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cudoc-ann-excerpt,
+.cudoc-ann-quote {
+  display: -webkit-box;
+  margin-bottom: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--wash);
+  color: var(--ink);
+  font-size: var(--cudoc-ann-text);
+  line-height: 1.5;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+.cudoc-ann-eyebrow {
+  margin-bottom: var(--space-1);
+  font-size: var(--cudoc-ann-small);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+.cudoc-ann-body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.cudoc-ann-reply {
+  margin-top: var(--space-2);
+  padding: var(--space-1) 0 0 var(--space-3);
+  border-left: 2px solid var(--line);
+}
+.cudoc-ann-reply .cudoc-ann-who {
+  display: block;
+  margin-bottom: var(--space-1);
+  font-size: var(--cudoc-ann-small);
+  color: var(--muted);
+}
+.cudoc-ann-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+.cudoc-ann-end {
+  justify-content: flex-end;
+}
+.cudoc-ann-itemtools {
+  justify-content: flex-end;
+  margin-top: var(--space-2);
+}
+.cudoc-ann-inline {
+  margin-top: var(--space-2);
+}
+.cudoc-ann-composer {
+  position: fixed;
+  z-index: 41;
+  width: 22rem;
+  max-width: calc(100vw - 1rem);
+  box-sizing: border-box;
+  padding: var(--space-3);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+}
+.cudoc-ann-composer .cudoc-ann-quote {
+  margin-bottom: var(--space-3);
+}
+.cudoc-ann-message {
+  position: fixed;
+  left: 50%;
+  bottom: var(--space-4);
+  z-index: 42;
+  max-width: 32rem;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius);
+  background: var(--ink);
+  color: var(--paper);
+  font-size: var(--cudoc-ann-small);
+  transform: translateX(-50%);
+}
+.cudoc-ann-tokenbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 43;
+  padding: var(--space-3) var(--space-6);
+  background: var(--warn-wash);
+  border-bottom: 1px solid var(--warn);
+  color: var(--ink);
+}
+.cudoc-ann-tokenbar p {
+  margin-bottom: var(--space-1);
+}
+.cudoc-ann-source {
+  font-size: var(--cudoc-ann-small);
+  color: var(--muted);
+}
+@media (max-width: 768px) {
+  .cudoc-ann-toggle[aria-expanded=true] {
+    right: var(--space-4);
+    bottom: auto;
+    top: var(--space-4);
+  }
+  html.cudoc-ann-push body {
+    padding-right: 0;
+  }
+}
+@media print {
+  .cudoc-ann,
+  .cudoc-ann-marked {
+    display: none !important;
+    outline: none !important;
+  }
+}

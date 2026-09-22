@@ -1,0 +1,1646 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Northlight Weather API</title><link rel="stylesheet" href="cudoc-print.css"></head><body class="cudoc-print cudoc-volume"><div class="layout"><main id="main-content"><section class="cudoc-cover cudoc-cover-image"><div class="cudoc-cover-title"><h1>Northlight Weather API</h1></div></section><nav class="cudoc-contents" aria-label="Contents"><h2>Contents</h2><ol class="cudoc-contents-list"><li data-depth="1"><a href="#cudoc-index"><span class="cudoc-contents-label">Northlight Weather API</span><span class="cudoc-contents-fill"></span><span class="cudoc-contents-page" data-document="cudoc-index">3</span></a></li><li data-depth="1"><a href="#cudoc-getting-started"><span class="cudoc-contents-label">Getting started</span><span class="cudoc-contents-fill"></span><span class="cudoc-contents-page" data-document="cudoc-getting-started">7</span></a></li><li data-depth="1"><a href="#cudoc-reference%2Fendpoints"><span class="cudoc-contents-label">Endpoint reference</span><span class="cudoc-contents-fill"></span><span class="cudoc-contents-page" data-document="cudoc-reference%2Fendpoints">12</span></a></li><li data-depth="1"><a href="#cudoc-reference%2Flimits"><span class="cudoc-contents-label">Rate limits</span><span class="cudoc-contents-fill"></span><span class="cudoc-contents-page" data-document="cudoc-reference%2Flimits">19</span></a></li><li data-depth="1"><a href="#cudoc-reference%2Ferrors"><span class="cudoc-contents-label">Error codes</span><span class="cudoc-contents-fill"></span><span class="cudoc-contents-page" data-document="cudoc-reference%2Ferrors">24</span></a></li><li data-depth="1"><a href="#cudoc-release-notes"><span class="cudoc-contents-label">Release notes</span><span class="cudoc-contents-fill"></span><span class="cudoc-contents-page" data-document="cudoc-release-notes">27</span></a></li></ol></nav><article class="cudoc-doc" id="cudoc-index" data-document="cudoc-index"><h1 id="cudoc-index-northlight-weather-api">Northlight Weather API <span class="cudoc-badge">v1</span></h1>
+<p>Northlight serves current conditions, short-range forecasts and observation
+history for a network of weather stations along the Nordic coast. This handbook
+is one set of Markdown documents that cudoc publishes three ways: as the site
+you may be reading, as a bound PDF with a cover and a contents page, and as a
+Word file with real styles. Every figure below is drawn from the reference
+pages, so a correction there reaches this page too.</p>
+<aside class="cudoc-callout cudoc-callout-note" data-callout="note">
+<p class="cudoc-callout-title">How this handbook is built</p>
+<p>The site, the PDF and the Word file come from one <code>cudoc-export build</code> run
+and one set of design tokens. The configuration is a single file,
+<code>showcase.config.mjs</code>, beside the documents, and the summary table further
+down is assembled from the endpoint reference at build time.</p>
+</aside>
+<h2 id="cudoc-index-provides">What the API provides</h2>
+<p>Every station reports temperature, wind, humidity, pressure and precipitation
+on a fixed schedule, and the forecast model runs once an hour for every
+station. The API exposes that data as four data sets, each behind one or two
+endpoints.</p>
+<table>
+<thead>
+<tr>
+<th>Data set</th>
+<th>Cadence</th>
+<th>Retention</th>
+<th>Endpoints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Current conditions</td>
+<td>Every 10 minutes</td>
+<td>Latest reading only</td>
+<td><a href="#cudoc-reference%2Fendpoints-weather-current">Current conditions</a></td>
+</tr>
+<tr>
+<td>Forecasts</td>
+<td>Hourly model run</td>
+<td>48 hours and 7 days ahead</td>
+<td><a href="#cudoc-reference%2Fendpoints-forecast-hourly">Hourly forecast</a>, <a href="#cudoc-reference%2Fendpoints-forecast-daily">Daily forecast</a></td>
+</tr>
+<tr>
+<td>Observation history</td>
+<td>Every 10 minutes</td>
+<td>Depends on the plan</td>
+<td><a href="#cudoc-reference%2Fendpoints-weather-history">Observation history</a></td>
+</tr>
+<tr>
+<td>Station metadata</td>
+<td>On change</td>
+<td>Indefinite</td>
+<td><a href="#cudoc-reference%2Fendpoints-stations">Station directory</a>, <a href="#cudoc-reference%2Fendpoints-station-detail">Station detail</a></td>
+</tr>
+</tbody>
+</table>
+<p>Forecast horizons and history retention depend on the plan; see
+<a href="#cudoc-reference%2Flimits-plans">Plans compared</a>.</p>
+<h2 id="cudoc-index-endpoints">Endpoints at a glance</h2>
+<p>Each row is one section of the endpoint reference. The method and the path are
+read from the table at the top of that section, and the description is its
+first paragraph, so this table cannot drift from the reference.</p>
+<table>
+<thead>
+<tr>
+<th style="min-width: 10rem">Endpoint</th>
+<th style="min-width: 5rem">Method</th>
+<th style="min-width: 13rem">Path</th>
+<th>What it returns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="#cudoc-reference%2Fendpoints-weather-current">Current conditions</a></td>
+<td>GET</td>
+<td>/v1/weather/current</td>
+<td>Returns the latest observation from one station.</td>
+</tr>
+<tr>
+<td><a href="#cudoc-reference%2Fendpoints-forecast-hourly">Hourly forecast</a></td>
+<td>GET</td>
+<td>/v1/forecast/hourly</td>
+<td>Returns up to 48 hourly forecast points for one station.</td>
+</tr>
+<tr>
+<td><a href="#cudoc-reference%2Fendpoints-forecast-daily">Daily forecast</a></td>
+<td>GET</td>
+<td>/v1/forecast/daily</td>
+<td>Returns one forecast summary per calendar day, up to seven days ahead.</td>
+</tr>
+<tr>
+<td><a href="#cudoc-reference%2Fendpoints-weather-history">Observation history</a></td>
+<td>GET</td>
+<td>/v1/weather/history</td>
+<td>Returns past observations from one station in a time range, oldest first.</td>
+</tr>
+<tr>
+<td><a href="#cudoc-reference%2Fendpoints-stations">Station directory</a></td>
+<td>GET</td>
+<td>/v1/stations</td>
+<td>Lists the stations a key may read, with their location and status.</td>
+</tr>
+<tr>
+<td><a href="#cudoc-reference%2Fendpoints-station-detail">Station detail</a></td>
+<td>GET</td>
+<td>/v1/stations/{code}</td>
+<td>Returns one station's metadata, including its sensors and time zone.</td>
+</tr>
+<tr>
+<td><a href="#cudoc-reference%2Fendpoints-alerts">Weather alerts</a></td>
+<td>GET</td>
+<td>/v1/alerts</td>
+<td>Lists active severe-weather alerts for a region, relayed from the national
+service.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="cudoc-index-concepts">Concepts</h2>
+<h3 id="cudoc-index-stations">Stations and station codes</h3>
+<p>A station is one physical site with a fixed set of sensors. Every station has a
+code of the form <code>SITE-NN</code>: a three-letter site code and a two-digit sequence
+number, so a site with several masts has <code>BGO-01</code>, <code>BGO-02</code> and so on. Codes
+never change and are never reused; a station that stops reporting for good is
+marked <code>retired</code> and keeps its code.</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Site</th>
+<th>Elevation</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>OSL-01</code></td>
+<td>Oslo</td>
+<td>94 m</td>
+<td><code>active</code></td>
+</tr>
+<tr>
+<td><code>BGO-01</code></td>
+<td>Bergen</td>
+<td>12 m</td>
+<td><code>active</code></td>
+</tr>
+<tr>
+<td><code>BGO-02</code></td>
+<td>Bergen</td>
+<td>320 m</td>
+<td><code>maintenance</code></td>
+</tr>
+<tr>
+<td><code>TRD-01</code></td>
+<td>Trondheim</td>
+<td>8 m</td>
+<td><code>active</code></td>
+</tr>
+<tr>
+<td><code>TOS-01</code></td>
+<td>Tromsø</td>
+<td>100 m</td>
+<td><code>active</code></td>
+</tr>
+<tr>
+<td><code>SVG-01</code></td>
+<td>Stavanger</td>
+<td>4 m</td>
+<td><code>retired</code></td>
+</tr>
+</tbody>
+</table>
+<p>The list above is illustrative; the
+<a href="#cudoc-reference%2Fendpoints-stations">station directory</a> is the source of truth for
+the stations a key may read.</p>
+<h3 id="cudoc-index-observations">Observations and forecasts</h3>
+<p>An observation is a reading a station actually made, stamped with the instant
+it was made. A forecast point is the model's expectation for a future instant,
+stamped with that instant and with the model run that produced it. The two are
+never mixed in one response: the current-conditions and history endpoints
+return observations, and the forecast endpoints return forecast points.</p>
+<h3 id="cudoc-index-units">Units</h3>
+<p>Every numeric field is returned in metric units unless the request asks for
+<code>units=imperial</code>. Field names do not change with the unit system; only the
+values and the <code>units</code> object in the response do, so a client can always read
+the unit next to the value instead of assuming it.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Metric</th>
+<th>Imperial</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>temperature</code></td>
+<td>°C</td>
+<td>°F</td>
+</tr>
+<tr>
+<td><code>windSpeed</code></td>
+<td>m/s</td>
+<td>mph</td>
+</tr>
+<tr>
+<td><code>pressure</code></td>
+<td>hPa</td>
+<td>inHg</td>
+</tr>
+<tr>
+<td><code>precipitation</code></td>
+<td>mm</td>
+<td>in</td>
+</tr>
+<tr>
+<td><code>visibility</code></td>
+<td>km</td>
+<td>mi</td>
+</tr>
+</tbody>
+</table>
+<h3 id="cudoc-index-timestamps">Timestamps</h3>
+<p>Every instant is ISO 8601 in UTC with a <code>Z</code> suffix: <code>observedAt</code> on an
+observation, <code>validAt</code> and <code>issuedAt</code> on a forecast, <code>lastObservedAt</code> on a
+station. Converting to local time is the client's job; a station's IANA time
+zone is in its <a href="#cudoc-reference%2Fendpoints-station-detail">detail record</a> so the
+conversion can be exact.</p>
+<h3 id="cudoc-index-versioning">Versioning</h3>
+<p>The path prefix <code>/v1</code> names the version. Additive changes, such as a new field,
+a new optional parameter or a new endpoint, ship within <code>/v1</code> without notice,
+so a client must ignore fields it does not know. Any change to an existing
+shape is announced in the <a href="#cudoc-release-notes-upcoming">release notes</a> at least
+ninety days before it takes effect, and the previous behaviour stays available
+for that period.</p>
+<h2 id="cudoc-index-conventions">Conventions</h2>
+<p>The handbook uses a small set of marks, and each means the same thing in the
+site, the PDF and the Word file.</p>
+<table>
+<thead>
+<tr>
+<th>Mark</th>
+<th style="min-width: 16rem">Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A <code>New</code>, <code>Beta</code> or <code>Latest</code> badge after a heading</td>
+<td>The section was added in the latest release, is in beta and may change on thirty days' notice, or describes the newest release.</td>
+</tr>
+<tr>
+<td>A <strong>Note</strong> or <strong>Tip</strong> box</td>
+<td>Background or a shortcut; skipping it costs nothing.</td>
+</tr>
+<tr>
+<td>An <strong>Important</strong>, <strong>Warning</strong> or <strong>Caution</strong> box</td>
+<td>Something that costs a key, a quota or data if ignored.</td>
+</tr>
+<tr>
+<td>A <strong>Ready</strong> box</td>
+<td>A checkpoint listing what a client needs before it moves on.</td>
+</tr>
+<tr>
+<td><code>code</code> in running text</td>
+<td>A literal parameter, field, header or value.</td>
+</tr>
+</tbody>
+</table>
+<p>Request and response samples are given as <code>curl</code>, Node.js and Python, and
+every JSON sample is a real response for the station <code>OSL-01</code>.</p>
+<h2 id="cudoc-index-start">Where to start</h2>
+<ol>
+<li>Read <a href="#cudoc-getting-started-getting-started">Getting started</a> for a key, a
+first request and a polling schedule.</li>
+<li>Keep <a href="#cudoc-reference%2Flimits-windows">Rate limits</a> open while you design that
+schedule; the request costs table tells you what each call weighs.</li>
+<li>Handle every code in <a href="#cudoc-reference%2Ferrors-errors">Error codes</a> before you
+switch to a live key.</li>
+<li>Check the <a href="#cudoc-release-notes-release-notes">release notes</a> before upgrading
+a client.</li>
+</ol>
+<aside class="cudoc-callout cudoc-callout-tip" data-callout="tip">
+<p class="cudoc-callout-title">Reading this on paper?</p>
+<p>External links print their address after the text, and links between
+documents jump inside the bound file. The contents page at the front lists
+the page each document starts on.</p>
+</aside></article><article class="cudoc-doc" id="cudoc-getting-started" data-document="cudoc-getting-started"><h1 id="cudoc-getting-started-getting-started">Getting started</h1>
+<p>Four steps take you from nothing to a first forecast in production: a key, a
+request, a look at the response, and a polling schedule that respects the
+cache. The whole flow is plain HTTPS with a key in a header; there is no SDK to
+install, and any HTTP client will do.</p>
+<p><img src="assets/request-flow.png" alt="A request travels from your service to the Northlight edge and, on a cache miss, to the forecast store"></p>
+<h2 id="cudoc-getting-started-key">Get a key</h2>
+<p>Keys are issued per project and scoped to the stations a project may read. A
+project is created in the Northlight console, and every key it issues carries
+the project's plan and its station list. Two kinds of key exist:</p>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Prefix</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Live</td>
+<td><code>nlk_live_</code></td>
+<td>Reads real stations and counts against the project's plan.</td>
+</tr>
+<tr>
+<td>Test</td>
+<td><code>nlk_test_</code></td>
+<td>Reads the synthetic station <code>TEST-01</code> only, returns fixed data and is never rate limited.</td>
+</tr>
+</tbody>
+</table>
+<p>Start with a test key. <code>TEST-01</code> reports the same reading every ten minutes and
+a forecast that is always 12 °C and calm, so your parser can be checked against
+known values before a live key is involved.</p>
+<h5 id="cudoc-getting-started-requirements">Requirements</h5>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th colspan="2">Prerequisites</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Register</td>
+<td><ul>
+<li>A project name</li>
+<li>A billing contact</li>
+<li>At least one station</li>
+</ul></td>
+<td><ul>
+<li>Accepted terms</li>
+<li>A callback URL</li>
+</ul></td>
+</tr>
+<tr>
+<td>Rotate</td>
+<td colspan="2"><ul>
+<li>The current key</li>
+<li>Owner role</li>
+</ul></td>
+</tr>
+<tr>
+<td>Revoke</td>
+<td colspan="2"><ul>
+<li>Owner role</li>
+</ul></td>
+</tr>
+</tbody>
+</table>
+<p>Store the key in your secret manager and expose it to your service as an
+environment variable; the examples below read <code>NORTHLIGHT_KEY</code>.</p>
+<aside class="cudoc-callout cudoc-callout-important" data-callout="important">
+<p class="cudoc-callout-title">Keep the key out of the browser</p>
+<p>A key grants every scope its project holds. Call Northlight from your own
+backend and pass results on; never ship the key in client-side code, a
+mobile app or a public repository. If a key leaks, revoke it in the console
+and issue a new one; requests with a revoked key fail with <code>key_revoked</code>.</p>
+</aside>
+<h2 id="cudoc-getting-started-request">Make a request  <span class="cudoc-badge">New</span></h2>
+<p>Send the key in the <code>Authorization</code> header and ask for a station by its code:</p>
+<pre><code class="hljs language-sh">curl -H <span class="hljs-string">"Authorization: Bearer <span class="hljs-variable">$NORTHLIGHT_KEY</span>"</span> \
+  <span class="hljs-string">"https://api.northlight.example/v1/weather/current?station=OSL-01"</span></code></pre>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"station"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"OSL-01"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"observedAt"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"2026-09-22T06:00:00Z"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"temperature"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">11.4</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"windSpeed"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">3.2</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"windDirection"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">240</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"humidity"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">87</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"pressure"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1009.6</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"precipitation"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.0</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"conditions"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"overcast"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"stale"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"units"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"temperature"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"C"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"windSpeed"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"m/s"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"pressure"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"hPa"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"precipitation"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"mm"</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span></code></pre>
+<p>The same request from a Node.js service, with the error envelope handled:</p>
+<pre><code class="hljs language-js"><span class="hljs-keyword">const</span> response = <span class="hljs-keyword">await</span> <span class="hljs-title function_">fetch</span>(
+  <span class="hljs-string">"https://api.northlight.example/v1/weather/current?station=OSL-01"</span>,
+  { <span class="hljs-attr">headers</span>: { <span class="hljs-title class_">Authorization</span>: <span class="hljs-string">`Bearer <span class="hljs-subst">${process.env.NORTHLIGHT_KEY}</span>`</span> } },
+)
+<span class="hljs-keyword">const</span> body = <span class="hljs-keyword">await</span> response.<span class="hljs-title function_">json</span>()
+<span class="hljs-keyword">if</span> (!response.<span class="hljs-property">ok</span>) <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">Error</span>(<span class="hljs-string">`<span class="hljs-subst">${body.error.code}</span>: <span class="hljs-subst">${body.error.message}</span>`</span>)
+<span class="hljs-variable language_">console</span>.<span class="hljs-title function_">log</span>(<span class="hljs-string">`<span class="hljs-subst">${body.station}</span>: <span class="hljs-subst">${body.temperature}</span> °<span class="hljs-subst">${body.units.temperature}</span>`</span>)</code></pre>
+<p>And from Python:</p>
+<pre><code class="hljs language-python"><span class="hljs-keyword">import</span> os
+<span class="hljs-keyword">import</span> requests
+
+response = requests.get(
+    <span class="hljs-string">"https://api.northlight.example/v1/weather/current"</span>,
+    params={<span class="hljs-string">"station"</span>: <span class="hljs-string">"OSL-01"</span>},
+    headers={<span class="hljs-string">"Authorization"</span>: <span class="hljs-string">f"Bearer <span class="hljs-subst">{os.environ[<span class="hljs-string">'NORTHLIGHT_KEY'</span>]}</span>"</span>},
+    timeout=<span class="hljs-number">5</span>,
+)
+body = response.json()
+<span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> response.ok:
+    <span class="hljs-keyword">raise</span> RuntimeError(<span class="hljs-string">f"<span class="hljs-subst">{body[<span class="hljs-string">'error'</span>][<span class="hljs-string">'code'</span>]}</span>: <span class="hljs-subst">{body[<span class="hljs-string">'error'</span>][<span class="hljs-string">'message'</span>]}</span>"</span>)
+<span class="hljs-built_in">print</span>(body[<span class="hljs-string">"station"</span>], body[<span class="hljs-string">"temperature"</span>], body[<span class="hljs-string">"units"</span>][<span class="hljs-string">"temperature"</span>])</code></pre>
+<h2 id="cudoc-getting-started-response">Read the response</h2>
+<p>Every response carries <code>observedAt</code>, the instant the station reported<sup><a href="#cudoc-getting-started-user-content-fn-utc" id="cudoc-getting-started-user-content-fnref-utc" data-footnote-ref="" aria-describedby="cudoc-getting-started-footnote-label">1</a></sup>,
+and a <code>units</code> object naming the unit of every numeric field. The fields you
+will use most:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th style="min-width: 18rem">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>observedAt</code></td>
+<td>string</td>
+<td>When the station made the reading, ISO 8601 in UTC.</td>
+</tr>
+<tr>
+<td><code>temperature</code></td>
+<td>number</td>
+<td>Air temperature two metres above ground.</td>
+</tr>
+<tr>
+<td><code>windSpeed</code></td>
+<td>number</td>
+<td>Ten-minute mean wind speed; gusts are in <code>windGust</code> when the station has it.</td>
+</tr>
+<tr>
+<td><code>windDirection</code></td>
+<td>integer</td>
+<td>Degrees clockwise from north, the direction the wind comes from.</td>
+</tr>
+<tr>
+<td><code>conditions</code></td>
+<td>string</td>
+<td>One of <code>clear</code>, <code>partly-cloudy</code>, <code>overcast</code>, <code>fog</code>, <code>rain</code>, <code>snow</code>, <code>sleet</code>.</td>
+</tr>
+<tr>
+<td><code>stale</code></td>
+<td>boolean</td>
+<td><code>true</code> when the reading is older than fifteen minutes.</td>
+</tr>
+</tbody>
+</table>
+<p>A missing station returns <code>404</code> with a machine-readable <code>code</code>, listed under
+<a href="#cudoc-reference%2Ferrors-errors">Error codes</a>. Branch on the code; the <code>message</code> is
+for humans and may change between releases.</p>
+<p>Two response headers matter from the first request on. <code>X-Limit-Minute</code> and
+<code>X-Limit-Hour</code> report how many requests remain in the current windows, and
+<code>ETag</code> identifies the reading, so a later request can send <code>If-None-Match</code> and
+receive a <code>304</code> that does not count against any window:</p>
+<pre><code class="hljs language-http"><span class="hljs-keyword">GET</span> <span class="hljs-string">/v1/weather/current?station=OSL-01</span> <span class="hljs-meta">HTTP/1.1</span>
+<span class="hljs-attribute">Host</span><span class="hljs-punctuation">: </span>api.northlight.example
+<span class="hljs-attribute">Authorization</span><span class="hljs-punctuation">: </span>Bearer nlk_live_…
+<span class="hljs-attribute">If-None-Match</span><span class="hljs-punctuation">: </span>"obs-OSL-01-1758520800"</code></pre>
+<h2 id="cudoc-getting-started-limits">Stay within the limits</h2>
+<p>Current conditions are cached at the edge for sixty seconds, so polling faster
+than that returns the same reading and spends your quota. The windows and the
+headers that report them are in <a href="#cudoc-reference%2Flimits-windows">Rate limits</a>; the
+short version is below.</p>
+<h2 id="cudoc-getting-started-embed-1-1-windows">Windows</h2>
+<p>As a new integrator you share one rule: a key has a rolling minute window on
+<code>/v1/weather/current</code> and a rolling hour window across all endpoints, the size
+of each depends on the plan, and both counters are reported on every response.
+A request that finds either window empty is answered with <code>429 rate_limited</code>
+and is not counted.</p>
+<table>
+<thead>
+<tr>
+<th>Header</th>
+<th style="min-width: 16rem">Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>X-Limit-Minute</code></td>
+<td>Requests left in the current minute window.</td>
+</tr>
+<tr>
+<td><code>X-Limit-Hour</code></td>
+<td>Requests left in the current hour window.</td>
+</tr>
+<tr>
+<td><code>Retry-After</code></td>
+<td>Seconds to wait, present only on a <code>429</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>Windows are rolling, not aligned to the clock: a request made at 12:00:30
+leaves the minute window at 12:01:30. A <code>304</code> answer to a conditional request
+counts against neither window, and neither does a <code>429</code> or a <code>5xx</code>.</p>
+<p>A schedule that works for most services:</p>
+<ol>
+<li>Poll <code>/v1/weather/current</code> once a minute per station, offset by a few
+seconds per station so the requests do not all land at once.</li>
+<li>Fetch the hourly forecast once an hour, shortly after the model run lands
+at five past the hour.</li>
+<li>Send <code>If-None-Match</code> on every poll and treat a <code>304</code> as "nothing new".</li>
+<li>On a <code>429</code>, wait for <code>Retry-After</code>; on a <code>503</code>, back off as described in
+<a href="#cudoc-reference%2Flimits-backoff">Backoff</a>.</li>
+</ol>
+<aside class="cudoc-callout cudoc-callout-warning" data-callout="warning">
+<p class="cudoc-callout-title">Bursts are counted per key</p>
+<p>Two services sharing one key share one window. Give each service its own key
+so a spike in one cannot starve the other, and so a leaked key can be revoked
+without stopping everything else.</p>
+</aside>
+<h2 id="cudoc-getting-started-production">Go to production</h2>
+<p>Before switching from the test key to a live one, check that your client:</p>
+<ul>
+<li>reads <code>units</code> instead of assuming metric;</li>
+<li>treats <code>stale: true</code> as a reason to show the reading's age, not to drop it;</li>
+<li>handles every code in <a href="#cudoc-reference%2Ferrors-errors">Error codes</a>, including
+<code>station_retired</code>, which arrives one day for any long-running client;</li>
+<li>logs <code>X-Request-Id</code> from every response, so support can find the request;</li>
+<li>ignores fields it does not know, since additive changes ship without notice
+(see <a href="#cudoc-index-versioning">Versioning</a>).</li>
+</ul>
+<aside class="cudoc-callout cudoc-callout-success" data-callout="success">
+<p class="cudoc-callout-title">Ready for a live key</p>
+<p>A client that passes the list above moves to a live key by changing one
+environment variable. Nothing else in the request changes between the two
+kinds of key.</p>
+</aside>
+<section data-footnotes="" class="footnotes"><h2 class="sr-only" id="cudoc-getting-started-footnote-label">Footnotes</h2>
+<ol>
+<li id="cudoc-getting-started-user-content-fn-utc">
+<p>Always UTC, always with a <code>Z</code> suffix. Convert at the edge of your own
+system, not in the data layer; the station's IANA time zone is in its
+<a href="#cudoc-reference%2Fendpoints-station-detail">detail record</a>. <a href="#cudoc-getting-started-user-content-fnref-utc" data-footnote-backref="" aria-label="Back to reference 1" class="data-footnote-backref">↩</a></p>
+</li>
+</ol>
+</section></article><article class="cudoc-doc" id="cudoc-reference%2Fendpoints" data-document="cudoc-reference%2Fendpoints"><h1 id="cudoc-reference%2Fendpoints-reference">Endpoint reference</h1>
+<p>Each second-level section describes one endpoint. The first table of a section
+is its basic information, which the overview page reads into a summary table;
+the tables that follow describe parameters and the response. Error responses
+share one shape and are listed separately under <a href="#cudoc-reference%2Ferrors-errors">Error codes</a>.</p>
+<p>All endpoints are served from <code>https://api.northlight.example</code> and answer <code>GET</code>
+only. Requests carry these headers:</p>
+<table>
+<thead>
+<tr>
+<th>Header</th>
+<th>Required</th>
+<th style="min-width: 18rem">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Authorization</code></td>
+<td>yes</td>
+<td><code>Bearer</code> followed by a live or test key.</td>
+</tr>
+<tr>
+<td><code>Accept</code></td>
+<td>no</td>
+<td><code>application/json</code>, the only representation; any other value is answered with <code>406</code>.</td>
+</tr>
+<tr>
+<td><code>If-None-Match</code></td>
+<td>no</td>
+<td>The <code>ETag</code> of an earlier response; a <code>304</code> means it is still current.</td>
+</tr>
+<tr>
+<td><code>X-Request-Id</code></td>
+<td>no</td>
+<td>Your own correlation id, echoed back; one is generated when absent.</td>
+</tr>
+</tbody>
+</table>
+<p>List endpoints paginate with a cursor: a response that has more rows carries
+<code>page.next</code>, and passing it as <code>cursor</code> returns the next page. Cursors are
+opaque and expire after ten minutes.</p>
+<h2 id="cudoc-reference%2Fendpoints-weather-current">Current conditions</h2>
+<p>Returns the latest observation from one station.</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Auth</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/v1/weather/current</code></td>
+<td>Bearer</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th style="min-width: 18rem">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>station</code></td>
+<td>string</td>
+<td>yes</td>
+<td>The station code, such as <code>OSL-01</code>. One station per request.</td>
+</tr>
+<tr>
+<td><code>units</code></td>
+<td>string</td>
+<td>no</td>
+<td><code>metric</code> (default) or <code>imperial</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>The response is one observation object. Readings older than fifteen minutes
+carry <code>stale: true</code>; a station that has not reported for six hours is answered
+with <code>503 upstream_delayed</code> instead.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th style="min-width: 18rem">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>station</code></td>
+<td>string</td>
+<td>The station code as requested.</td>
+</tr>
+<tr>
+<td><code>observedAt</code></td>
+<td>string</td>
+<td>The reading's instant, ISO 8601 in UTC.</td>
+</tr>
+<tr>
+<td><code>temperature</code></td>
+<td>number</td>
+<td>Air temperature two metres above ground.</td>
+</tr>
+<tr>
+<td><code>windSpeed</code></td>
+<td>number</td>
+<td>Ten-minute mean wind speed.</td>
+</tr>
+<tr>
+<td><code>windGust</code></td>
+<td>number</td>
+<td>Highest three-second gust in the same ten minutes; absent without a gust sensor.</td>
+</tr>
+<tr>
+<td><code>windDirection</code></td>
+<td>integer</td>
+<td>Degrees clockwise from north.</td>
+</tr>
+<tr>
+<td><code>humidity</code></td>
+<td>integer</td>
+<td>Relative humidity in percent.</td>
+</tr>
+<tr>
+<td><code>pressure</code></td>
+<td>number</td>
+<td>Pressure reduced to sea level.</td>
+</tr>
+<tr>
+<td><code>precipitation</code></td>
+<td>number</td>
+<td>Precipitation in the last ten minutes.</td>
+</tr>
+<tr>
+<td><code>conditions</code></td>
+<td>string</td>
+<td>A summary word; see <a href="#cudoc-getting-started-response">Read the response</a>.</td>
+</tr>
+<tr>
+<td><code>stale</code></td>
+<td>boolean</td>
+<td><code>true</code> when <code>observedAt</code> is more than fifteen minutes old.</td>
+</tr>
+<tr>
+<td><code>units</code></td>
+<td>object</td>
+<td>The unit of every numeric field.</td>
+</tr>
+</tbody>
+</table>
+<p>Responses are cached at the edge for sixty seconds and carry an <code>ETag</code>.</p>
+<h2 id="cudoc-reference%2Fendpoints-forecast-hourly">Hourly forecast</h2>
+<p>Returns up to 48 hourly forecast points for one station.</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Auth</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/v1/forecast/hourly</code></td>
+<td>Bearer</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th style="min-width: 18rem">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>station</code></td>
+<td>string</td>
+<td>yes</td>
+<td>The station code.</td>
+</tr>
+<tr>
+<td><code>hours</code></td>
+<td>integer</td>
+<td>no</td>
+<td>1 to 48, default 24. Values above 48 are clamped, not rejected.</td>
+</tr>
+<tr>
+<td><code>units</code></td>
+<td>string</td>
+<td>no</td>
+<td><code>metric</code> (default) or <code>imperial</code>.</td>
+</tr>
+<tr>
+<td><code>fields</code></td>
+<td>list</td>
+<td>no</td>
+<td><ul>
+<li><code>temperature</code></li>
+<li><code>wind</code></li>
+<li><code>precipitation</code>
+<ul>
+<li>Probability and amount</li>
+</ul>
+</li>
+<li><code>cloudCover</code></li>
+</ul></td>
+</tr>
+</tbody>
+</table>
+<p><code>fields</code> narrows the response to the named groups; without it every group is
+returned. The response carries the model run that produced the points and the
+points themselves:</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"station"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"OSL-01"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"issuedAt"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"2026-09-22T05:05:00Z"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"points"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">"validAt"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"2026-09-22T07:00:00Z"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"temperature"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">12.1</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"windSpeed"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">4.0</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"windDirection"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">250</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"precipitationProbability"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.15</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"precipitationAmount"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.0</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"cloudCover"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.9</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"units"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"temperature"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"C"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"windSpeed"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"m/s"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"precipitationAmount"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"mm"</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span></code></pre>
+<p>Beyond 24 hours the Community plan receives no points; the other plans receive
+up to 48. See <a href="#cudoc-reference%2Flimits-plans">Plans compared</a>.</p>
+<h2 id="cudoc-reference%2Fendpoints-forecast-daily">Daily forecast</h2>
+<p>Returns one forecast summary per calendar day, up to seven days ahead.</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Auth</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/v1/forecast/daily</code></td>
+<td>Bearer</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th style="min-width: 18rem">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>station</code></td>
+<td>string</td>
+<td>yes</td>
+<td>The station code.</td>
+</tr>
+<tr>
+<td><code>days</code></td>
+<td>integer</td>
+<td>no</td>
+<td>1 to 7, default 5. Days are calendar days in the station's time zone.</td>
+</tr>
+<tr>
+<td><code>units</code></td>
+<td>string</td>
+<td>no</td>
+<td><code>metric</code> (default) or <code>imperial</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>Each day carries <code>temperatureMin</code>, <code>temperatureMax</code>, <code>precipitationTotal</code>,
+<code>precipitationProbability</code>, the dominant <code>conditions</code> word, and <code>sunrise</code> and
+<code>sunset</code> in UTC. The first day is today in the station's local time, which may
+already be partly in the past; its minimum and maximum cover the whole day.</p>
+<aside class="cudoc-callout cudoc-callout-note" data-callout="note">
+<p class="cudoc-callout-title">Daily summaries are derived</p>
+<p>A day's summary is computed from the hourly points of the same model run, so
+the two forecast endpoints never disagree about the same run. They can differ
+when a new run has landed between two requests; compare <code>issuedAt</code>.</p>
+</aside>
+<h2 id="cudoc-reference%2Fendpoints-weather-history">Observation history</h2>
+<p>Returns past observations from one station in a time range, oldest first.</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Auth</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/v1/weather/history</code></td>
+<td>Bearer</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th style="min-width: 18rem">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>station</code></td>
+<td>string</td>
+<td>yes</td>
+<td>The station code.</td>
+</tr>
+<tr>
+<td><code>from</code></td>
+<td>string</td>
+<td>yes</td>
+<td>Start of the range, ISO 8601, inclusive.</td>
+</tr>
+<tr>
+<td><code>to</code></td>
+<td>string</td>
+<td>no</td>
+<td>End of the range, exclusive; defaults to now.</td>
+</tr>
+<tr>
+<td><code>step</code></td>
+<td>string</td>
+<td>no</td>
+<td><code>10m</code> (default), <code>1h</code> or <code>1d</code>. Coarser steps return means, with min and max for temperature.</td>
+</tr>
+<tr>
+<td><code>limit</code></td>
+<td>integer</td>
+<td>no</td>
+<td>Rows per page, 1 to 1,000, default 500.</td>
+</tr>
+<tr>
+<td><code>cursor</code></td>
+<td>string</td>
+<td>no</td>
+<td><code>page.next</code> from the previous page.</td>
+</tr>
+</tbody>
+</table>
+<p>How far back <code>from</code> may reach depends on the plan's history retention; a range
+that starts earlier is answered with <code>400 range_too_wide</code> rather than being
+silently clipped. A range that spans more than 31 days at the <code>10m</code> step is
+rejected the same way; use <code>1h</code> or <code>1d</code> for long ranges.</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"station"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"OSL-01"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"step"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1h"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"rows"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">"observedAt"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"2026-09-21T00:00:00Z"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"temperature"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">9.8</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"temperatureMin"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">9.1</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"temperatureMax"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">10.4</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"windSpeed"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2.1</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"precipitation"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.0</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"page"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span> <span class="hljs-attr">"next"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"eyJvIjoiMjAyNi0wOS0yMVQwMTowMDowMFoifQ"</span> <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"units"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span> <span class="hljs-attr">"temperature"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"C"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"windSpeed"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"m/s"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"precipitation"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"mm"</span> <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span></code></pre>
+<h2 id="cudoc-reference%2Fendpoints-stations">Station directory</h2>
+<p>Lists the stations a key may read, with their location and status.</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Auth</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/v1/stations</code></td>
+<td>Bearer</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th style="min-width: 18rem">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>region</code></td>
+<td>string</td>
+<td>no</td>
+<td>An ISO 3166-2 code to narrow the list, such as <code>NO-03</code>.</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>string</td>
+<td>no</td>
+<td><code>active</code>, <code>maintenance</code> or <code>retired</code>.</td>
+</tr>
+<tr>
+<td><code>limit</code></td>
+<td>integer</td>
+<td>no</td>
+<td>Rows per page, 1 to 200, default 50.</td>
+</tr>
+<tr>
+<td><code>cursor</code></td>
+<td>string</td>
+<td>no</td>
+<td><code>page.next</code> from the previous page.</td>
+</tr>
+</tbody>
+</table>
+<p>Each row carries the code, the site name, coordinates, elevation, status and
+the instant of the last observation. Retired stations are included only when
+<code>status=retired</code> is asked for, so a client that lists stations sees them
+disappear rather than fail.</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"stations"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">"code"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"OSL-01"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"site"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Oslo"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"latitude"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">59.9423</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"longitude"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">10.7203</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"elevation"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">94</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"status"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"active"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"lastObservedAt"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"2026-09-22T06:00:00Z"</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">"code"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"BGO-02"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"site"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Bergen"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"latitude"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">60.3982</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"longitude"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">5.3241</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"elevation"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">320</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"status"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"maintenance"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"lastObservedAt"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"2026-09-19T14:10:00Z"</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"page"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span> <span class="hljs-attr">"next"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">null</span></span> <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span></code></pre>
+<h2 id="cudoc-reference%2Fendpoints-station-detail">Station detail</h2>
+<p>Returns one station's metadata, including its sensors and time zone.</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Auth</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/v1/stations/{code}</code></td>
+<td>Bearer</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th style="min-width: 18rem">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>code</code></td>
+<td>string</td>
+<td>yes</td>
+<td>The station code, in the path.</td>
+</tr>
+</tbody>
+</table>
+<p>The detail adds to the directory row the station's IANA time zone, its sensor
+list with the make and the installation date of each, the date it first
+reported and, for a retired station, the date it stopped. Metadata changes
+rarely; cache it for a day.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th style="min-width: 18rem">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>timezone</code></td>
+<td>string</td>
+<td>IANA zone name, such as <code>Europe/Oslo</code>.</td>
+</tr>
+<tr>
+<td><code>sensors</code></td>
+<td>list</td>
+<td><ul>
+<li><code>temperature</code></li>
+<li><code>wind</code></li>
+<li><code>humidity</code></li>
+<li><code>pressure</code></li>
+<li><code>precipitation</code></li>
+</ul></td>
+</tr>
+<tr>
+<td><code>since</code></td>
+<td>string</td>
+<td>The date the station first reported.</td>
+</tr>
+<tr>
+<td><code>retiredAt</code></td>
+<td>string</td>
+<td>Present only for a retired station.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="cudoc-reference%2Fendpoints-alerts">Weather alerts  <span class="cudoc-badge">Beta</span></h2>
+<p>Lists active severe-weather alerts for a region, relayed from the national
+service.</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Auth</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/v1/alerts</code></td>
+<td>Bearer</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th style="min-width: 18rem">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>region</code></td>
+<td>string</td>
+<td>yes</td>
+<td>An ISO 3166-2 code.</td>
+</tr>
+<tr>
+<td><code>severity</code></td>
+<td>string</td>
+<td>no</td>
+<td><code>yellow</code>, <code>orange</code> or <code>red</code>; lower levels are excluded.</td>
+</tr>
+</tbody>
+</table>
+<p>Each alert carries <code>event</code> (<code>wind</code>, <code>rain</code>, <code>snow</code>, <code>ice</code> or <code>flood</code>),
+<code>severity</code>, <code>onset</code>, <code>expires</code> and a <code>headline</code> in the region's language. The
+endpoint is in beta: its shape may change with thirty days' notice rather than
+ninety, and it is available on the Business and Enterprise plans.</p>
+<aside class="cudoc-callout cudoc-callout-caution" data-callout="caution">
+<p class="cudoc-callout-title">Not a warning service</p>
+<p>Alerts are relayed with a delay of up to five minutes and may be withdrawn.
+Use them to annotate a forecast, not to trigger safety-critical actions.</p>
+</aside></article><article class="cudoc-doc" id="cudoc-reference%2Flimits" data-document="cudoc-reference%2Flimits"><h1 id="cudoc-reference%2Flimits-rate-limits">Rate limits</h1>
+<p>Limits protect the stations, which report on fixed schedules, from being asked
+the same question thousands of times a minute. They are generous for any client
+that respects the cache, and every response says where you stand, so a
+well-behaved client never has to guess.</p>
+<h2 id="cudoc-reference%2Flimits-windows">Windows</h2>
+<p>Every plan shares one rule: a key has a rolling minute window on
+<code>/v1/weather/current</code> and a rolling hour window across all endpoints, the size
+of each depends on the plan, and both counters are reported on every response.
+A request that finds either window empty is answered with <code>429 rate_limited</code>
+and is not counted.</p>
+<table>
+<thead>
+<tr>
+<th>Header</th>
+<th style="min-width: 16rem">Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>X-Limit-Minute</code></td>
+<td>Requests left in the current minute window.</td>
+</tr>
+<tr>
+<td><code>X-Limit-Hour</code></td>
+<td>Requests left in the current hour window.</td>
+</tr>
+<tr>
+<td><code>Retry-After</code></td>
+<td>Seconds to wait, present only on a <code>429</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>Windows are rolling, not aligned to the clock: a request made at 12:00:30
+leaves the minute window at 12:01:30. A <code>304</code> answer to a conditional request
+counts against neither window, and neither does a <code>429</code> or a <code>5xx</code>.</p>
+<h3 id="cudoc-reference%2Flimits-backoff">Backoff</h3>
+<p>On a <code>429</code> or a <code>503</code>, wait for <code>Retry-After</code> when present, otherwise double the
+delay from one second up to thirty, and stop after five attempts. Add a random
+fraction of a second to every delay so that several clients that failed
+together do not retry together.</p>
+<pre><code class="hljs language-js"><span class="hljs-keyword">async</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">withBackoff</span>(<span class="hljs-params">request, attempts = <span class="hljs-number">5</span></span>) {
+  <span class="hljs-keyword">let</span> delay = <span class="hljs-number">1000</span>
+  <span class="hljs-keyword">for</span> (<span class="hljs-keyword">let</span> attempt = <span class="hljs-number">1</span>; ; attempt++) {
+    <span class="hljs-keyword">const</span> response = <span class="hljs-keyword">await</span> <span class="hljs-title function_">request</span>()
+    <span class="hljs-keyword">if</span> (response.<span class="hljs-property">status</span> !== <span class="hljs-number">429</span> &#x26;&#x26; response.<span class="hljs-property">status</span> !== <span class="hljs-number">503</span>) <span class="hljs-keyword">return</span> response
+    <span class="hljs-keyword">if</span> (attempt === attempts) <span class="hljs-keyword">return</span> response
+    <span class="hljs-keyword">const</span> retryAfter = <span class="hljs-title class_">Number</span>(response.<span class="hljs-property">headers</span>.<span class="hljs-title function_">get</span>(<span class="hljs-string">"retry-after"</span>))
+    <span class="hljs-keyword">const</span> wait =
+      retryAfter > <span class="hljs-number">0</span> ? retryAfter * <span class="hljs-number">1000</span> : delay + <span class="hljs-title class_">Math</span>.<span class="hljs-title function_">random</span>() * <span class="hljs-number">1000</span>
+    <span class="hljs-keyword">await</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">Promise</span>(<span class="hljs-function">(<span class="hljs-params">resolve</span>) =></span> <span class="hljs-built_in">setTimeout</span>(resolve, wait))
+    delay = <span class="hljs-title class_">Math</span>.<span class="hljs-title function_">min</span>(delay * <span class="hljs-number">2</span>, <span class="hljs-number">30_000</span>)
+  }
+}</code></pre>
+<h3 id="cudoc-reference%2Flimits-caching">Caching</h3>
+<p>Current conditions are cached at the edge for sixty seconds, so a poll faster
+than that returns the same reading and spends the minute window for nothing.
+Forecasts are cached until the next model run, and history responses for a
+day. Every cached response carries an <code>ETag</code>; sending it back as
+<code>If-None-Match</code> turns an unchanged answer into a <code>304</code> that costs nothing.</p>
+<h2 id="cudoc-reference%2Flimits-costs">Request costs</h2>
+<p>Not every request weighs the same against the hour window. Heavier queries cost
+more, so a client that pages through history with small pages pays more than
+one that asks for large pages.</p>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Cost</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="#cudoc-reference%2Fendpoints-weather-current">Current conditions</a></td>
+<td>1</td>
+<td>Also counted in the minute window.</td>
+</tr>
+<tr>
+<td><a href="#cudoc-reference%2Fendpoints-forecast-hourly">Hourly forecast</a></td>
+<td>2</td>
+<td>Regardless of <code>hours</code> and <code>fields</code>.</td>
+</tr>
+<tr>
+<td><a href="#cudoc-reference%2Fendpoints-forecast-daily">Daily forecast</a></td>
+<td>2</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#cudoc-reference%2Fendpoints-weather-history">Observation history</a></td>
+<td>5 per page</td>
+<td>A page of 1,000 rows costs the same as one of 10.</td>
+</tr>
+<tr>
+<td><a href="#cudoc-reference%2Fendpoints-stations">Station directory</a></td>
+<td>1 per page</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#cudoc-reference%2Fendpoints-station-detail">Station detail</a></td>
+<td>1</td>
+<td>Cache it for a day.</td>
+</tr>
+<tr>
+<td><a href="#cudoc-reference%2Fendpoints-alerts">Weather alerts</a></td>
+<td>1</td>
+<td>Business and Enterprise plans.</td>
+</tr>
+</tbody>
+</table>
+<p><code>X-Limit-Hour</code> reports the remaining hour budget in cost units, not in
+requests; <code>X-Limit-Minute</code> counts requests, since only one endpoint has a
+minute window.</p>
+<h2 id="cudoc-reference%2Flimits-plans">Plans compared</h2>
+<p>The plans differ in window size, forecast horizon, history retention and
+support. The table has seven columns, so the paginated outputs put it on a
+landscape page of its own.</p>
+<div class="cudoc-wide"><table>
+<thead>
+<tr>
+<th>Plan</th>
+<th>Stations</th>
+<th>Minute window</th>
+<th>Hour window</th>
+<th>Forecast hours</th>
+<th>History</th>
+<th>Support</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Community</td>
+<td>3</td>
+<td>60</td>
+<td>600</td>
+<td>24</td>
+<td>7 days</td>
+<td>Forum</td>
+</tr>
+<tr>
+<td>Team</td>
+<td>25</td>
+<td>120</td>
+<td>6,000</td>
+<td>48</td>
+<td>90 days</td>
+<td>Email, 2 days</td>
+</tr>
+<tr>
+<td>Business</td>
+<td>250</td>
+<td>600</td>
+<td>60,000</td>
+<td>48</td>
+<td>1 year</td>
+<td>Email, 1 day</td>
+</tr>
+<tr>
+<td>Enterprise</td>
+<td>Custom</td>
+<td>Custom</td>
+<td>Custom</td>
+<td>48</td>
+<td>Custom</td>
+<td>Named contact</td>
+</tr>
+</tbody>
+</table></div>
+<p>Stations counts the distinct stations a project's keys may read, not the number
+of keys; a project may hold up to ten keys. The minute window applies per key,
+and the hour window applies to the project as a whole, so it is shared by every
+key the project holds.</p>
+<h3 id="cudoc-reference%2Flimits-changing-plans">Changing plans</h3>
+<p>An upgrade takes effect within a minute and widens the current windows in
+place, so a client that is being limited recovers without waiting for the hour
+to roll over. A downgrade takes effect at the end of the billing period. History
+older than the new retention stops being served at that point but is kept for
+thirty days, so a downgrade made by mistake can be reversed without loss.</p>
+<table>
+<thead>
+<tr>
+<th>Change</th>
+<th>Takes effect</th>
+<th>Windows</th>
+<th>History</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Upgrade</td>
+<td>Within a minute</td>
+<td>Widened in place</td>
+<td>Older history becomes available at once</td>
+</tr>
+<tr>
+<td>Downgrade</td>
+<td>End of the billing period</td>
+<td>Narrowed at the next hour window</td>
+<td>Kept for thirty days, then trimmed</td>
+</tr>
+<tr>
+<td>Cancellation</td>
+<td>End of the billing period</td>
+<td>Live keys stop; test keys keep working</td>
+<td>Exportable for thirty days</td>
+</tr>
+</tbody>
+</table>
+<div class="cudoc-page-break" data-cudoc-break="page" hidden></div>
+<h2 id="cudoc-reference%2Flimits-measuring">Appendix: measuring your own usage</h2>
+<p>Log the two limit headers with every response and chart the minimum per minute.
+A flat line near zero means a client is polling faster than the sixty-second
+cache refreshes; slow it down rather than raising the plan. One log line per
+response is enough:</p>
+<pre><code class="hljs language-text">2026-09-22T06:00:01Z GET /v1/weather/current station=OSL-01 status=200 minute=57 hour=5931 request=req_7f3a9c2e</code></pre>
+<p>A query over a day of such lines shows where the window runs lowest:</p>
+<pre><code class="hljs language-sql"><span class="hljs-keyword">SELECT</span> date_trunc(<span class="hljs-string">'minute'</span>, <span class="hljs-keyword">at</span>) <span class="hljs-keyword">AS</span> <span class="hljs-keyword">minute</span>, <span class="hljs-built_in">min</span>(minute_left) <span class="hljs-keyword">AS</span> worst
+<span class="hljs-keyword">FROM</span> northlight_requests
+<span class="hljs-keyword">WHERE</span> <span class="hljs-keyword">at</span> <span class="hljs-operator">></span> now() <span class="hljs-operator">-</span> <span class="hljs-type">interval</span> <span class="hljs-string">'1 day'</span>
+<span class="hljs-keyword">GROUP</span> <span class="hljs-keyword">BY</span> <span class="hljs-number">1</span>
+<span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> worst
+LIMIT <span class="hljs-number">20</span>;</code></pre>
+<p>Three patterns account for almost every limit incident:</p>
+<ul>
+<li><strong>Synchronized polling.</strong> Every instance of a service wakes on the same
+second. Offset instances by a few seconds each.</li>
+<li><strong>Retry storms.</strong> A <code>503</code> from one station is retried at once by every
+instance. Use the backoff above; the jitter is not optional.</li>
+<li><strong>Missing conditional requests.</strong> A poll that ignores <code>ETag</code> pays for every
+unchanged reading. Send <code>If-None-Match</code>.</li>
+</ul>
+<aside class="cudoc-callout cudoc-callout-caution" data-callout="caution">
+<p class="cudoc-callout-title">Retired keys keep counting</p>
+<p>Requests made with a retired key are rejected but still counted against the
+project for one hour, so rotate keys during a quiet period and switch every
+consumer before the old key is revoked.</p>
+</aside></article><article class="cudoc-doc" id="cudoc-reference%2Ferrors" data-document="cudoc-reference%2Ferrors"><h1 id="cudoc-reference%2Ferrors-errors">Error codes</h1>
+<p>Every error response has the same shape: an <code>error</code> object with a <code>code</code> from
+the table below, a human-readable <code>message</code> that may change between releases,
+the <code>requestId</code> of the failed request and, for validation errors, a <code>details</code>
+object naming the parameter. Branch on the code, never on the message.</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"error"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"code"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"parameter_invalid"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"message"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"hours must be an integer between 1 and 48"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"requestId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"req_7f3a9c2e"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"details"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span> <span class="hljs-attr">"parameter"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"hours"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"received"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"0"</span> <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span></code></pre>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th style="min-width: 18rem">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>code</code></td>
+<td>string</td>
+<td>One of the codes below. Stable; treat unknown codes as errors.</td>
+</tr>
+<tr>
+<td><code>message</code></td>
+<td>string</td>
+<td>For humans and logs. Not stable.</td>
+</tr>
+<tr>
+<td><code>requestId</code></td>
+<td>string</td>
+<td>Quote it to support. Also sent as the <code>X-Request-Id</code> header.</td>
+</tr>
+<tr>
+<td><code>details</code></td>
+<td>object</td>
+<td>Present on <code>400</code> errors; names the parameter and the value seen.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="cudoc-reference%2Ferrors-all-codes">All codes</h2>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>HTTP</th>
+<th style="min-width: 16rem">Meaning</th>
+<th>Retry</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>parameter_missing</code></td>
+<td>400</td>
+<td>A required parameter is absent.</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>parameter_invalid</code></td>
+<td>400</td>
+<td>A parameter has the wrong type or is out of range.</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>range_too_wide</code></td>
+<td>400</td>
+<td>A history range is too long for its step or starts before the retention.</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>key_invalid</code></td>
+<td>401</td>
+<td>The <code>Authorization</code> header is missing or malformed.</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>key_revoked</code></td>
+<td>401</td>
+<td>The key was revoked or rotated.</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>key_scope</code></td>
+<td>403</td>
+<td>The key's project does not cover the station.</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>plan_required</code></td>
+<td>403</td>
+<td>The endpoint or the horizon needs a higher plan.</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>station_unknown</code></td>
+<td>404</td>
+<td>No station has that code.</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>not_acceptable</code></td>
+<td>406</td>
+<td><code>Accept</code> names a representation other than JSON.</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>station_retired</code></td>
+<td>410</td>
+<td>The station stopped reporting permanently.</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>rate_limited</code></td>
+<td>429</td>
+<td>The window is exhausted.</td>
+<td>After <code>Retry-After</code></td>
+</tr>
+<tr>
+<td><code>upstream_delayed</code></td>
+<td>503</td>
+<td>The station has not reported in time.</td>
+<td>With backoff</td>
+</tr>
+<tr>
+<td><code>maintenance</code></td>
+<td>503</td>
+<td>The API is being upgraded; announced in the release notes.</td>
+<td>After <code>Retry-After</code></td>
+</tr>
+</tbody>
+</table>
+<aside class="cudoc-callout cudoc-callout-note" data-callout="note">
+<p class="cudoc-callout-title">Retrying</p>
+<p>The backoff rule for <code>rate_limited</code>, <code>upstream_delayed</code> and <code>maintenance</code> is
+in <a href="#cudoc-reference%2Flimits-backoff">Rate limits</a>. No <code>4xx</code> other than <code>429</code> is worth
+retrying without changing the request.</p>
+</aside>
+<h2 id="cudoc-reference%2Ferrors-request-errors">Request errors</h2>
+<p>A <code>400</code> describes a request that can be corrected before it is sent again. The
+<code>details</code> object names the parameter and repeats the value the server saw, so
+nothing has to be parsed out of the message. Validate ranges before sending:
+<code>hours</code> is 1 to 48, <code>days</code> 1 to 7, <code>limit</code> 1 to 1,000 for history and 1 to 200
+for the directory, and <code>step</code> is one of <code>10m</code>, <code>1h</code> and <code>1d</code>.</p>
+<p><code>range_too_wide</code> is the one <code>400</code> that depends on the plan. It is returned when
+<code>from</code> is earlier than the plan's history retention allows, and when a range at
+the <code>10m</code> step spans more than 31 days. The <code>details</code> object carries
+<code>earliest</code>, the first instant the plan can serve, so a client can clamp its
+range and retry once.</p>
+<h2 id="cudoc-reference%2Ferrors-authorization-errors">Authorization errors</h2>
+<p>A <code>401</code> means the key itself was not accepted. <code>key_invalid</code> is almost always a
+formatting problem: a missing <code>Bearer</code> prefix, a key pasted with a trailing
+newline from a secrets file, or a test key sent to a live station. <code>key_revoked</code>
+follows a rotation or a revocation and is permanent for that key; deploy the
+new key everywhere before revoking the old one.</p>
+<p>A <code>403</code> means the key is fine but the request is not. <code>key_scope</code> says the
+station is not in the key's project; add it in the console rather than creating
+a second project. <code>plan_required</code> says the endpoint or the horizon is not in
+the plan, and its <code>details.plan</code> names the lowest plan that allows it.</p>
+<h2 id="cudoc-reference%2Ferrors-availability-errors">Availability errors</h2>
+<p>A <code>503</code> is temporary by definition. <code>upstream_delayed</code> means the station has
+been silent for more than six hours; the station directory shows the same in
+<code>lastObservedAt</code>, and the station usually returns within a day. <code>maintenance</code>
+is rare and announced in the <a href="#cudoc-release-notes-upcoming">release notes</a>
+beforehand, and it always carries <code>Retry-After</code>.</p>
+<p>A client that sorts codes into three groups covers every case:</p>
+<pre><code class="hljs language-js"><span class="hljs-keyword">switch</span> (body.<span class="hljs-property">error</span>?.<span class="hljs-property">code</span>) {
+  <span class="hljs-keyword">case</span> <span class="hljs-string">"rate_limited"</span>:
+  <span class="hljs-keyword">case</span> <span class="hljs-string">"upstream_delayed"</span>:
+  <span class="hljs-keyword">case</span> <span class="hljs-string">"maintenance"</span>:
+    <span class="hljs-keyword">return</span> <span class="hljs-title function_">retryLater</span>(response)
+  <span class="hljs-keyword">case</span> <span class="hljs-string">"station_retired"</span>:
+    <span class="hljs-keyword">return</span> <span class="hljs-title function_">removeStation</span>(station)
+  <span class="hljs-keyword">case</span> <span class="hljs-string">"key_revoked"</span>:
+    <span class="hljs-keyword">return</span> <span class="hljs-title function_">alertOperators</span>(<span class="hljs-string">"Northlight key revoked"</span>)
+  <span class="hljs-attr">default</span>:
+    <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">Error</span>(<span class="hljs-string">`<span class="hljs-subst">${body.error.code}</span>: <span class="hljs-subst">${body.error.message}</span>`</span>)
+}</code></pre>
+<aside class="cudoc-callout cudoc-callout-tip" data-callout="tip">
+<p class="cudoc-callout-title">Exercise every branch</p>
+<p>The synthetic station <code>TEST-01</code> accepts a <code>simulate</code> parameter naming any
+code in the table, so every branch of your error handling can be tested
+without waiting for the real thing.</p>
+</aside></article><article class="cudoc-doc" id="cudoc-release-notes" data-document="cudoc-release-notes"><h1 id="cudoc-release-notes-release-notes">Release notes</h1>
+<p>Changes to the API, newest first. Dates are the day a change reached every
+region. Additive changes are listed for information; changes that alter an
+existing shape are announced under <a href="#cudoc-release-notes-upcoming">Upcoming changes</a> at least
+ninety days before they take effect.</p>
+<h2 id="cudoc-release-notes-upcoming">Upcoming changes</h2>
+<table>
+<thead>
+<tr>
+<th>Change</th>
+<th style="min-width: 8rem">Announced</th>
+<th style="min-width: 8rem">Effective</th>
+<th>Affects</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The <code>windMs</code> and <code>temperatureC</code> aliases leave current conditions; read <code>windSpeed</code>, <code>temperature</code> and <code>units</code>.</td>
+<td>2026-09-15</td>
+<td>2026-12-15</td>
+<td>Current conditions, history</td>
+</tr>
+<tr>
+<td>Weather alerts leave beta; <code>headline</code> becomes an object with one entry per language.</td>
+<td>2026-09-15</td>
+<td>2026-10-15</td>
+<td>Weather alerts</td>
+</tr>
+<tr>
+<td>Cursor expiry shortens from one hour to ten minutes.</td>
+<td>2026-07-02</td>
+<td>2026-10-01</td>
+<td>Station directory, history</td>
+</tr>
+</tbody>
+</table>
+<h2 id="cudoc-release-notes-r-2026-09-15">2026-09-15  <span class="cudoc-badge">Latest</span></h2>
+<ul>
+<li><code>fields</code> on the hourly forecast accepts <code>precipitation</code>, returning
+probability and expected amount, and <code>cloudCover</code>.
+→ <a href="#cudoc-reference%2Fendpoints-forecast-hourly">Hourly forecast</a></li>
+<li><code>X-Limit-Hour</code> is now sent on every response, not only when the minute
+window is low.</li>
+<li>The hour window is charged in cost units; existing budgets were converted so
+that no client pays more than before.
+→ <a href="#cudoc-reference%2Flimits-costs">Request costs</a></li>
+<li>The weather alerts endpoint opens in beta for the Business and Enterprise
+plans. → <a href="#cudoc-reference%2Fendpoints-alerts">Weather alerts</a></li>
+<li>The synthetic station <code>TEST-01</code> accepts <code>simulate</code> to reproduce any error
+code. → <a href="#cudoc-reference%2Ferrors-errors">Error codes</a></li>
+</ul>
+<h2 id="cudoc-release-notes-r-2026-07-02">2026-07-02</h2>
+<ul>
+<li>Readings older than fifteen minutes carry <code>stale: true</code> instead of being
+withheld.</li>
+<li>The <code>station_retired</code> error replaces a generic <code>404</code> for stations that
+stopped reporting permanently.</li>
+<li>Observation history accepts <code>step=1d</code>, returning daily means with the
+minimum and maximum temperature.</li>
+<li>Station detail returns <code>timezone</code>, <code>sensors</code> and <code>since</code>.</li>
+</ul>
+<h2 id="cudoc-release-notes-r-2026-05-20">2026-05-20</h2>
+<ul>
+<li>Daily forecast endpoint added, up to seven days ahead.
+→ <a href="#cudoc-reference%2Fendpoints-forecast-daily">Daily forecast</a></li>
+<li>Every cached response carries an <code>ETag</code>, and a <code>304</code> answer counts against
+no window. → <a href="#cudoc-reference%2Flimits-caching">Caching</a></li>
+<li>The station directory paginates with <code>limit</code> up to 200 rows and a
+<code>page.next</code> cursor.</li>
+</ul>
+<h2 id="cudoc-release-notes-r-2026-04-10">2026-04-10</h2>
+<ul>
+<li>First public release of <code>/v1</code>: current conditions, hourly forecast,
+observation history and the station directory.</li>
+<li>Community, Team and Business plans; Enterprise by arrangement.</li>
+<li>Test keys and the synthetic station <code>TEST-01</code>.</li>
+</ul>
+<aside class="cudoc-callout cudoc-callout-success" data-callout="success">
+<p class="cudoc-callout-title">Deprecation policy</p>
+<p>A field or endpoint is announced here at least ninety days before it changes
+shape, and the previous behaviour stays available for that period. Beta
+endpoints carry a thirty-day notice instead and say so on their reference
+page.</p>
+</aside></article></main></div></body></html>

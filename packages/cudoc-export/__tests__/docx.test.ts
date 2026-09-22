@@ -564,6 +564,40 @@ describe("node mapping", () => {
     }
   })
 
+  it("scales an embedded image to the page's height as well as its width", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "cudoc-docx-tall-"))
+    try {
+      // A one-pixel PNG whose header claims 200 by 6000: the size reader
+      // trusts the header, and Word stores the bytes without decoding them.
+      const png = Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+        "base64",
+      )
+      png.writeUInt32BE(200, 16)
+      png.writeUInt32BE(6000, 20)
+      fs.writeFileSync(path.join(root, "tall.png"), png)
+      const { document: xml } = await archive([
+        document({
+          tree: compile("# T\n\n![Tall](./tall.png)\n"),
+          resolveImage: (url) => path.join(root, url.replace(/^\.\//, "")),
+        }),
+      ])
+      const extent = xml.match(/<wp:extent cx="(\d+)" cy="(\d+)"\/>/)
+      expect(extent).not.toBeNull()
+      // The print stylesheet's `max-height` is the content height; the same
+      // bound applies here, in pixels at 96 per inch, and the width follows.
+      const height = resolvePageOptions().geometry.content.height
+      const pageHeight = Math.round((parseFloat(height) / 25.4) * 96)
+      const emu = 9525
+      expect(Math.round(Number(extent![2]) / emu)).toBe(pageHeight)
+      expect(Math.round(Number(extent![1]) / emu)).toBe(
+        Math.round(200 * (pageHeight / 6000)),
+      )
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+
   it("keeps an authored break out of the file when told to", async () => {
     const { document: xml } = await archive([document()], {
       page: resolvePageOptions({ authoredBreaks: false }),

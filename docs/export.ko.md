@@ -53,6 +53,14 @@ npx cudoc-export build docs --out-dir site
 
 생성기는 문서를 수집하고 임베드를 처리한 뒤 HTML, 스타일, 로컬 자산을 출력합니다. 문서 탐색, 제목 목차, 콜아웃, 가로로 스크롤되는 표, 코드 강조가 함께 들어갑니다.
 
+## 완성 예시
+
+아래의 옵션 하나하나를 상상하지 않고 산출물에서 직접 볼 수 있도록, 완성된 내보내기 결과 한 벌이 저장소에 들어 있습니다. 가상의 날씨 API를 다루는 문서 여섯 개가 [`examples/export/showcase/`](../examples/export/showcase/)에 있고, [`showcase.config.mjs`](../examples/export/showcase.config.mjs)가 이를 [`examples/export/showcase-output/`](../examples/export/showcase-output/)으로 내보냅니다. 스물여덟 쪽짜리 묶음 파일은 [`northlight-handbook.pdf`](../examples/export/showcase-output/northlight-handbook.pdf)로, 같은 묶음의 Word 판은 [`northlight-handbook.docx`](../examples/export/showcase-output/northlight-handbook.docx)로, 문서 하나만 내보낸 결과는 [`getting-started.pdf`](../examples/export/showcase-output/getting-started.pdf)나 [`getting-started.docx`](../examples/export/showcase-output/getting-started.docx)로 바로 열 수 있고, 사이트는 저장소를 디스크에 받은 뒤 그 디렉터리의 `index.html`을 열면 됩니다.
+
+문서들은 작성자가 Markdown으로 쓰는 것만 씁니다. 명시적 앵커와 배지, 등록한 `success` 타입을 포함한 알림, 긴 열을 나누는 배치 규칙이 붙은 표 셀 안의 목록, 각 엔드포인트의 메서드와 경로를 레퍼런스에서 읽어 개요 페이지의 요약 표로 만드는 임베드, `replace`로 문맥에 맞게 고쳐 쓴 임베드 절, 각주, 이미지, `curl`과 Node.js와 Python과 HTTP와 SQL로 쓴 요청·응답 예시, 열이 일곱인 표, 부록 앞의 `cudoc-pagebreak` 펜스입니다. 설정은 세 형식을 두 단위로 모두 내보내고, 표지 이미지와 쪽 번호가 붙은 목차, 고정된 `date`를 쓰는 머리글과 바닥글, 링크 주소 인쇄, 열이 여섯 이상인 표의 가로 쪽, 설명 열과 날짜 열의 최소 폭, 메모 런타임과 테마 전환 버튼을 켜고, `tokens`로 세 산출물 모두에 닿는 강조색을 지정합니다.
+
+예시는 `examples/export`를 설치한 뒤 그 안에서 `npm run showcase`로 다시 만들고, `tests/scripts/export-showcase.mjs`가 커밋된 텍스트 산출물이 현재 패키지의 결과와 다르면 실패하므로 릴리스보다 뒤처지지 않습니다.
+
 ## 기존 사이트와 함께 생성
 
 먼저 [호스트 가이드](./README.ko.md#사이트에-설치하기)의 수집기를 실행합니다. 실제 호스트 컴파일러의 결과를 수집하고 임베드를 준비해야 합니다. 해당 프로젝트에 `cudoc-export`을 설치하고 `site.config.mjs`를 작성합니다.
