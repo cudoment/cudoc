@@ -1,0 +1,257 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;; connect-src &#x27;none&#x27;"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Getting started · Northlight Weather API</title><link rel="stylesheet" href="cudoc.css"><link rel="stylesheet" href="cudoc-annotations.css"><script src="cudoc-theme.js"></script></head><body><a class="skip" href="#main-content">Skip to content</a><header><a href="index.html">Northlight Weather API</a></header><div class="layout"><nav class="sidebar" aria-label="Documents"><p class="nav-title">Documents</p><ul><li><a href="index.html">Northlight Weather API</a></li><li><a href="getting-started.html" aria-current="page">Getting started</a></li><li><a href="reference/endpoints.html">Endpoint reference</a></li><li><a href="reference/limits.html">Rate limits</a></li><li><a href="reference/errors.html">Error codes</a></li><li><a href="release-notes.html">Release notes</a></li></ul></nav><main id="main-content" data-cudoc-document="getting-started" data-cudoc-ast-hash="00692da818cbb0f12580a53c66d77e36cafb0950701b9430fb2dff12d331026f" data-cudoc-source-hash="ad416fddcaeda82086fce8a5c9bcda0ed3d27d91209d162e06296561c60bf52f" data-cudoc-site="5e7dc36292808d20" data-cudoc-generator="cudoc-export 0.5.0"><h1 id="getting-started" data-cudoc-block="getting-started:831d0f72">Getting started</h1>
+<p data-cudoc-block="getting-started:1e389f8f">Four steps take you from nothing to a first forecast in production: a key, a
+request, a look at the response, and a polling schedule that respects the
+cache. The whole flow is plain HTTPS with a key in a header; there is no SDK to
+install, and any HTTP client will do.</p>
+<p data-cudoc-block="getting-started:e3b0c442"><img src="assets/request-flow.png" alt="A request travels from your service to the Northlight edge and, on a cache miss, to the forecast store"></p>
+<h2 id="key" data-cudoc-block="key:36d2f296">Get a key</h2>
+<p data-cudoc-block="key:d12b0672">Keys are issued per project and scoped to the stations a project may read. A
+project is created in the Northlight console, and every key it issues carries
+the project's plan and its station list. Two kinds of key exist:</p>
+<table>
+<thead>
+<tr data-cudoc-block="key:b200c3e7">
+<th>Kind</th>
+<th>Prefix</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr data-cudoc-block="key:6af66a44">
+<td>Live</td>
+<td><code>nlk_live_</code></td>
+<td>Reads real stations and counts against the project's plan.</td>
+</tr>
+<tr data-cudoc-block="key:3c6c82ce">
+<td>Test</td>
+<td><code>nlk_test_</code></td>
+<td>Reads the synthetic station <code>TEST-01</code> only, returns fixed data and is never rate limited.</td>
+</tr>
+</tbody>
+</table>
+<p data-cudoc-block="key:3e62efbe">Start with a test key. <code>TEST-01</code> reports the same reading every ten minutes and
+a forecast that is always 12 °C and calm, so your parser can be checked against
+known values before a live key is involved.</p>
+<h5 id="requirements" data-cudoc-block="requirements:e0cdd07f">Requirements</h5>
+<table>
+<thead>
+<tr data-cudoc-block="requirements:1e529ad2">
+<th>Step</th>
+<th colspan="2">Prerequisites</th>
+</tr>
+</thead>
+<tbody>
+<tr data-cudoc-block="requirements:81b78fc4">
+<td>Register</td>
+<td><ul>
+<li data-cudoc-block="requirements:a47f442d">A project name</li>
+<li data-cudoc-block="requirements:dfdd3de8">A billing contact</li>
+<li data-cudoc-block="requirements:5015dc68">At least one station</li>
+</ul></td>
+<td><ul>
+<li data-cudoc-block="requirements:c0a8a2f3">Accepted terms</li>
+<li data-cudoc-block="requirements:a541d3a2">A callback URL</li>
+</ul></td>
+</tr>
+<tr data-cudoc-block="requirements:c49c87a0">
+<td>Rotate</td>
+<td colspan="2"><ul>
+<li data-cudoc-block="requirements:d0552a8f">The current key</li>
+<li data-cudoc-block="requirements:e755cfe2">Owner role</li>
+</ul></td>
+</tr>
+<tr data-cudoc-block="requirements:c82b69d2">
+<td>Revoke</td>
+<td colspan="2"><ul>
+<li data-cudoc-block="requirements:e755cfe2~2">Owner role</li>
+</ul></td>
+</tr>
+</tbody>
+</table>
+<p data-cudoc-block="requirements:391ddc1f">Store the key in your secret manager and expose it to your service as an
+environment variable; the examples below read <code>NORTHLIGHT_KEY</code>.</p>
+<aside class="cudoc-callout cudoc-callout-important" data-callout="important" data-cudoc-block="requirements:0f234fdf">
+<p class="cudoc-callout-title" data-cudoc-block="requirements:66610df8">Keep the key out of the browser</p>
+<p data-cudoc-block="requirements:13b952a4">A key grants every scope its project holds. Call Northlight from your own
+backend and pass results on; never ship the key in client-side code, a
+mobile app or a public repository. If a key leaks, revoke it in the console
+and issue a new one; requests with a revoked key fail with <code>key_revoked</code>.</p>
+</aside>
+<h2 id="request" data-cudoc-block="request:823ce432">Make a request  <span class="cudoc-badge">New</span></h2>
+<p data-cudoc-block="request:447fe663">Send the key in the <code>Authorization</code> header and ask for a station by its code:</p>
+<pre data-cudoc-block="request:1379b1d7"><code class="hljs language-sh">curl -H <span class="hljs-string">"Authorization: Bearer <span class="hljs-variable">$NORTHLIGHT_KEY</span>"</span> \
+  <span class="hljs-string">"https://api.northlight.example/v1/weather/current?station=OSL-01"</span></code></pre>
+<pre data-cudoc-block="request:f7acbc46"><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"station"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"OSL-01"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"observedAt"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"2026-09-22T06:00:00Z"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"temperature"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">11.4</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"windSpeed"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">3.2</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"windDirection"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">240</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"humidity"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">87</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"pressure"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1009.6</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"precipitation"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.0</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"conditions"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"overcast"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"stale"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"units"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"temperature"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"C"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"windSpeed"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"m/s"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"pressure"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"hPa"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"precipitation"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"mm"</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span></code></pre>
+<p data-cudoc-block="request:ec049893">The same request from a Node.js service, with the error envelope handled:</p>
+<pre data-cudoc-block="request:aa1f84f7"><code class="hljs language-js"><span class="hljs-keyword">const</span> response = <span class="hljs-keyword">await</span> <span class="hljs-title function_">fetch</span>(
+  <span class="hljs-string">"https://api.northlight.example/v1/weather/current?station=OSL-01"</span>,
+  { <span class="hljs-attr">headers</span>: { <span class="hljs-title class_">Authorization</span>: <span class="hljs-string">`Bearer <span class="hljs-subst">${process.env.NORTHLIGHT_KEY}</span>`</span> } },
+)
+<span class="hljs-keyword">const</span> body = <span class="hljs-keyword">await</span> response.<span class="hljs-title function_">json</span>()
+<span class="hljs-keyword">if</span> (!response.<span class="hljs-property">ok</span>) <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">Error</span>(<span class="hljs-string">`<span class="hljs-subst">${body.error.code}</span>: <span class="hljs-subst">${body.error.message}</span>`</span>)
+<span class="hljs-variable language_">console</span>.<span class="hljs-title function_">log</span>(<span class="hljs-string">`<span class="hljs-subst">${body.station}</span>: <span class="hljs-subst">${body.temperature}</span> °<span class="hljs-subst">${body.units.temperature}</span>`</span>)</code></pre>
+<p data-cudoc-block="request:ec59268f">And from Python:</p>
+<pre data-cudoc-block="request:896c23e0"><code class="hljs language-python"><span class="hljs-keyword">import</span> os
+<span class="hljs-keyword">import</span> requests
+
+response = requests.get(
+    <span class="hljs-string">"https://api.northlight.example/v1/weather/current"</span>,
+    params={<span class="hljs-string">"station"</span>: <span class="hljs-string">"OSL-01"</span>},
+    headers={<span class="hljs-string">"Authorization"</span>: <span class="hljs-string">f"Bearer <span class="hljs-subst">{os.environ[<span class="hljs-string">'NORTHLIGHT_KEY'</span>]}</span>"</span>},
+    timeout=<span class="hljs-number">5</span>,
+)
+body = response.json()
+<span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> response.ok:
+    <span class="hljs-keyword">raise</span> RuntimeError(<span class="hljs-string">f"<span class="hljs-subst">{body[<span class="hljs-string">'error'</span>][<span class="hljs-string">'code'</span>]}</span>: <span class="hljs-subst">{body[<span class="hljs-string">'error'</span>][<span class="hljs-string">'message'</span>]}</span>"</span>)
+<span class="hljs-built_in">print</span>(body[<span class="hljs-string">"station"</span>], body[<span class="hljs-string">"temperature"</span>], body[<span class="hljs-string">"units"</span>][<span class="hljs-string">"temperature"</span>])</code></pre>
+<h2 id="response" data-cudoc-block="response:c7faab95">Read the response</h2>
+<p data-cudoc-block="response:dc250ef3">Every response carries <code>observedAt</code>, the instant the station reported<sup><a href="#user-content-fn-utc" id="user-content-fnref-utc" data-footnote-ref="" aria-describedby="footnote-label">1</a></sup>,
+and a <code>units</code> object naming the unit of every numeric field. The fields you
+will use most:</p>
+<table>
+<thead>
+<tr data-cudoc-block="response:e0d1a980">
+<th>Field</th>
+<th>Type</th>
+<th style="min-width: 18rem">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr data-cudoc-block="response:39de546d">
+<td><code>observedAt</code></td>
+<td>string</td>
+<td>When the station made the reading, ISO 8601 in UTC.</td>
+</tr>
+<tr data-cudoc-block="response:60a9314f">
+<td><code>temperature</code></td>
+<td>number</td>
+<td>Air temperature two metres above ground.</td>
+</tr>
+<tr data-cudoc-block="response:a3f689d5">
+<td><code>windSpeed</code></td>
+<td>number</td>
+<td>Ten-minute mean wind speed; gusts are in <code>windGust</code> when the station has it.</td>
+</tr>
+<tr data-cudoc-block="response:5a48d997">
+<td><code>windDirection</code></td>
+<td>integer</td>
+<td>Degrees clockwise from north, the direction the wind comes from.</td>
+</tr>
+<tr data-cudoc-block="response:39b977b9">
+<td><code>conditions</code></td>
+<td>string</td>
+<td>One of <code>clear</code>, <code>partly-cloudy</code>, <code>overcast</code>, <code>fog</code>, <code>rain</code>, <code>snow</code>, <code>sleet</code>.</td>
+</tr>
+<tr data-cudoc-block="response:f9337f79">
+<td><code>stale</code></td>
+<td>boolean</td>
+<td><code>true</code> when the reading is older than fifteen minutes.</td>
+</tr>
+</tbody>
+</table>
+<p data-cudoc-block="response:e5ff75ec">A missing station returns <code>404</code> with a machine-readable <code>code</code>, listed under
+<a href="reference/errors.html#errors">Error codes</a>. Branch on the code; the <code>message</code> is
+for humans and may change between releases.</p>
+<p data-cudoc-block="response:0fc40956">Two response headers matter from the first request on. <code>X-Limit-Minute</code> and
+<code>X-Limit-Hour</code> report how many requests remain in the current windows, and
+<code>ETag</code> identifies the reading, so a later request can send <code>If-None-Match</code> and
+receive a <code>304</code> that does not count against any window:</p>
+<pre data-cudoc-block="response:3fc56360"><code class="hljs language-http"><span class="hljs-keyword">GET</span> <span class="hljs-string">/v1/weather/current?station=OSL-01</span> <span class="hljs-meta">HTTP/1.1</span>
+<span class="hljs-attribute">Host</span><span class="hljs-punctuation">: </span>api.northlight.example
+<span class="hljs-attribute">Authorization</span><span class="hljs-punctuation">: </span>Bearer nlk_live_…
+<span class="hljs-attribute">If-None-Match</span><span class="hljs-punctuation">: </span>"obs-OSL-01-1758520800"</code></pre>
+<h2 id="limits" data-cudoc-block="limits:6a6dfeb3">Stay within the limits</h2>
+<p data-cudoc-block="limits:a77a29bf">Current conditions are cached at the edge for sixty seconds, so polling faster
+than that returns the same reading and spends your quota. The windows and the
+headers that report them are in <a href="reference/limits.html#windows">Rate limits</a>; the
+short version is below.</p>
+<h2 id="embed-1-1-windows" data-cudoc-block="embed-1-1-windows:d598026a">Windows</h2>
+<p data-cudoc-block="embed-1-1-windows:a30beadd">As a new integrator you share one rule: a key has a rolling minute window on
+<code>/v1/weather/current</code> and a rolling hour window across all endpoints, the size
+of each depends on the plan, and both counters are reported on every response.
+A request that finds either window empty is answered with <code>429 rate_limited</code>
+and is not counted.</p>
+<table>
+<thead>
+<tr data-cudoc-block="embed-1-1-windows:167c55ba">
+<th>Header</th>
+<th style="min-width: 16rem">Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr data-cudoc-block="embed-1-1-windows:a5c18031">
+<td><code>X-Limit-Minute</code></td>
+<td>Requests left in the current minute window.</td>
+</tr>
+<tr data-cudoc-block="embed-1-1-windows:cb4387db">
+<td><code>X-Limit-Hour</code></td>
+<td>Requests left in the current hour window.</td>
+</tr>
+<tr data-cudoc-block="embed-1-1-windows:7ca9c1cc">
+<td><code>Retry-After</code></td>
+<td>Seconds to wait, present only on a <code>429</code>.</td>
+</tr>
+</tbody>
+</table>
+<p data-cudoc-block="embed-1-1-windows:2b0ac229">Windows are rolling, not aligned to the clock: a request made at 12:00:30
+leaves the minute window at 12:01:30. A <code>304</code> answer to a conditional request
+counts against neither window, and neither does a <code>429</code> or a <code>5xx</code>.</p>
+<p data-cudoc-block="embed-1-1-windows:7b9db32a">A schedule that works for most services:</p>
+<ol>
+<li data-cudoc-block="embed-1-1-windows:02d1d966">Poll <code>/v1/weather/current</code> once a minute per station, offset by a few
+seconds per station so the requests do not all land at once.</li>
+<li data-cudoc-block="embed-1-1-windows:56b9763f">Fetch the hourly forecast once an hour, shortly after the model run lands
+at five past the hour.</li>
+<li data-cudoc-block="embed-1-1-windows:f648b116">Send <code>If-None-Match</code> on every poll and treat a <code>304</code> as "nothing new".</li>
+<li data-cudoc-block="embed-1-1-windows:73b5a90a">On a <code>429</code>, wait for <code>Retry-After</code>; on a <code>503</code>, back off as described in
+<a href="reference/limits.html#backoff">Backoff</a>.</li>
+</ol>
+<aside class="cudoc-callout cudoc-callout-warning" data-callout="warning" data-cudoc-block="embed-1-1-windows:921ea477">
+<p class="cudoc-callout-title" data-cudoc-block="embed-1-1-windows:23a88dea">Bursts are counted per key</p>
+<p data-cudoc-block="embed-1-1-windows:2a9182ce">Two services sharing one key share one window. Give each service its own key
+so a spike in one cannot starve the other, and so a leaked key can be revoked
+without stopping everything else.</p>
+</aside>
+<h2 id="production" data-cudoc-block="production:fae0b6fb">Go to production</h2>
+<p data-cudoc-block="production:828cdc83">Before switching from the test key to a live one, check that your client:</p>
+<ul>
+<li data-cudoc-block="production:c961768b">reads <code>units</code> instead of assuming metric;</li>
+<li data-cudoc-block="production:ca9505cb">treats <code>stale: true</code> as a reason to show the reading's age, not to drop it;</li>
+<li data-cudoc-block="production:01fe6c69">handles every code in <a href="reference/errors.html#errors">Error codes</a>, including
+<code>station_retired</code>, which arrives one day for any long-running client;</li>
+<li data-cudoc-block="production:6f0b91bb">logs <code>X-Request-Id</code> from every response, so support can find the request;</li>
+<li data-cudoc-block="production:489f34dc">ignores fields it does not know, since additive changes ship without notice
+(see <a href="index.html#versioning">Versioning</a>).</li>
+</ul>
+<aside class="cudoc-callout cudoc-callout-success" data-callout="success" data-cudoc-block="production:dd96a00c">
+<p class="cudoc-callout-title" data-cudoc-block="production:62e36f00">Ready for a live key</p>
+<p data-cudoc-block="production:d5186eb4">A client that passes the list above moves to a live key by changing one
+environment variable. Nothing else in the request changes between the two
+kinds of key.</p>
+</aside>
+<section data-footnotes="" class="footnotes"><h2 class="sr-only" id="footnote-label" data-cudoc-block="footnote-label:ad6fb546">Footnotes</h2>
+<ol>
+<li id="user-content-fn-utc" data-cudoc-block="footnote-label:41e17584">
+<p data-cudoc-block="footnote-label:41e17584~2">Always UTC, always with a <code>Z</code> suffix. Convert at the edge of your own
+system, not in the data layer; the station's IANA time zone is in its
+<a href="reference/endpoints.html#station-detail">detail record</a>. <a href="#user-content-fnref-utc" data-footnote-backref="" aria-label="Back to reference 1" class="data-footnote-backref">↩</a></p>
+</li>
+</ol>
+</section><footer>Northlight Weather API</footer></main><nav class="toc" aria-label="On this page"><p class="nav-title">On this page</p><ul><li data-depth="2"><a href="#key">Get a key</a></li><li data-depth="5"><a href="#requirements">Requirements</a></li><li data-depth="2"><a href="#request">Make a request</a></li><li data-depth="2"><a href="#response">Read the response</a></li><li data-depth="2"><a href="#limits">Stay within the limits</a></li><li data-depth="2"><a href="#embed-1-1-windows">Windows</a></li><li data-depth="2"><a href="#production">Go to production</a></li></ul></nav></div><script defer src="cudoc-annotations.js"></script></body></html>

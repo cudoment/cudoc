@@ -57,6 +57,19 @@ Choose `links: "relative"` (default) for local files, `"host"` for the primary d
 
 Choose `host`, `cudoc` or `both` independently for `headingAnchor`, `badge`, `tableCellList`, `callout` and `link`. The representative callout is `> [!NOTE] Title`. Authors do not register cudoc React components in the recommended setup. Syntax-only rendering needs no stored JSON; cross-document embedding requires document collection.
 
+## See the output
+
+The repository keeps one finished export, a six-document API handbook built by [`showcase.config.mjs`](https://github.com/cudoment/cudoc/blob/main/examples/export/showcase.config.mjs) from [these Markdown sources](https://github.com/cudoment/cudoc/tree/main/examples/export/showcase), so each format can be opened before anything is installed:
+
+| Format           | One document                                                                                                                           | Bound volume                                                                                                                                   |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| HTML site        | [`getting-started.html`](https://github.com/cudoment/cudoc/blob/main/examples/export/showcase-output/getting-started.html)             | [`index.html`](https://github.com/cudoment/cudoc/blob/main/examples/export/showcase-output/index.html), the landing page                       |
+| Print-ready HTML | [`getting-started.print.html`](https://github.com/cudoment/cudoc/blob/main/examples/export/showcase-output/getting-started.print.html) | [`northlight-handbook.print.html`](https://github.com/cudoment/cudoc/blob/main/examples/export/showcase-output/northlight-handbook.print.html) |
+| PDF              | [`getting-started.pdf`](https://github.com/cudoment/cudoc/blob/main/examples/export/showcase-output/getting-started.pdf)               | [`northlight-handbook.pdf`](https://github.com/cudoment/cudoc/blob/main/examples/export/showcase-output/northlight-handbook.pdf)               |
+| Word             | [`getting-started.docx`](https://github.com/cudoment/cudoc/blob/main/examples/export/showcase-output/getting-started.docx)             | [`northlight-handbook.docx`](https://github.com/cudoment/cudoc/blob/main/examples/export/showcase-output/northlight-handbook.docx)             |
+
+The PDFs open in GitHub's viewer and the Word files download; the HTML files show as source there and open as pages from a clone of the repository. [What the sample demonstrates](https://github.com/cudoment/cudoc/blob/main/docs/export.md#a-complete-example) is described in the usage guide.
+
 - [Usage guide](https://github.com/cudoment/cudoc/tree/main/docs/export.md) · [한국어 가이드](https://github.com/cudoment/cudoc/tree/main/docs/export.ko.md)
 - [Markdown syntax](https://github.com/cudoment/cudoc/tree/main/docs/syntax.md)
 - [Embedding](https://github.com/cudoment/cudoc/tree/main/docs/embedding.md)

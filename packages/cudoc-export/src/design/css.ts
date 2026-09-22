@@ -276,6 +276,10 @@ pre {
   overflow: visible;
   print-color-adjust: exact;
 }
+pre code {
+  white-space: inherit;
+  overflow-wrap: inherit;
+}
 .cudoc-callout,
 details {
   break-inside: auto;

@@ -1,3 +1,7 @@
+@page {
+  size: 210mm 297mm;
+  margin: 20mm 20mm 22mm 20mm;
+}
 
 :root {
   color-scheme: light dark;
@@ -18,8 +22,8 @@
   --line-soft: #eef2f7;
 
   /* Accent and status. Each pairs with its own tinted surface. */
-  --accent: #1d4ed8;
-  --accent-soft: #dbeafe;
+  --accent: #155e75;
+  --accent-soft: #e0f2fe;
   --warn: #b45309;
   --warn-wash: #fef6e7;
   --danger: #b91c1c;
@@ -63,54 +67,7 @@
   --head-h: 3.5rem;
   --ease: 160ms cubic-bezier(0.4, 0, 0.2, 1);
 }
-@media (prefers-color-scheme: dark) {
-  :root:where(:not([data-theme="light"])) {
-    --canvas: #0b1120;
-    --paper: #0f172a;
-    --wash: #1b2336;
-    --row-alt: #141d31;
-    --ink: #f8fafc;
-    --muted: #94a3b8;
-    --faint: #8b9ab0;
-    --line: #334155;
-    --line-soft: #1e293b;
-    --accent: #7cb0fb;
-    --accent-soft: #1e3252;
-    --warn: #fbbf24;
-    --warn-wash: #2b2110;
-    --danger: #f87171;
-    --danger-wash: #2c1618;
-    --code-keyword: #c4b5fd;
-    --code-string: #5eead4;
-    --code-comment: #8b9ab0;
-    --code-number: #fcd34d;
-  }
-}
-:root:where([data-theme="dark"]) {
-  color-scheme: dark;
-  --canvas: #0b1120;
-  --paper: #0f172a;
-  --wash: #1b2336;
-  --row-alt: #141d31;
-  --ink: #f8fafc;
-  --muted: #94a3b8;
-  --faint: #8b9ab0;
-  --line: #334155;
-  --line-soft: #1e293b;
-  --accent: #7cb0fb;
-  --accent-soft: #1e3252;
-  --warn: #fbbf24;
-  --warn-wash: #2b2110;
-  --danger: #f87171;
-  --danger-wash: #2c1618;
-  --code-keyword: #c4b5fd;
-  --code-string: #5eead4;
-  --code-comment: #8b9ab0;
-  --code-number: #fcd34d;
-}
-:root:where([data-theme="light"]) {
-  color-scheme: light;
-}
+
 @media (prefers-reduced-motion: reduce) {
   :root {
     --ease: 1ms linear;
@@ -757,4 +714,178 @@ footer {
     font-variant-numeric: tabular-nums;
     color: var(--muted);
   }
+}
+
+html,
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 10.5pt;
+}
+header,
+.sidebar,
+.toc,
+.skip {
+  display: none;
+}
+.layout {
+  display: block;
+  max-width: none;
+  padding: 0;
+}
+main,
+.prose,
+.prose > *,
+.cudoc-callout,
+details {
+  max-inline-size: none;
+}
+p,
+li,
+blockquote,
+dd {
+  orphans: 3;
+  widows: 3;
+}
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  break-after: avoid;
+  break-inside: avoid;
+}
+h2 + *,
+h3 + *,
+h4 + * {
+  break-before: avoid;
+}
+pre {
+  break-inside: auto;
+  orphans: 2;
+  widows: 2;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow: visible;
+  print-color-adjust: exact;
+}
+pre code {
+  white-space: inherit;
+  overflow-wrap: inherit;
+}
+.cudoc-callout,
+details {
+  break-inside: auto;
+  orphans: 2;
+  widows: 2;
+  box-decoration-break: clone;
+  print-color-adjust: exact;
+}
+.cudoc-callout-title,
+summary {
+  break-after: avoid;
+}
+table {
+  display: table;
+  width: 100%;
+  table-layout: auto;
+  overflow: visible;
+  break-inside: auto;
+}
+thead {
+  display: table-header-group;
+}
+tfoot {
+  display: table-footer-group;
+}
+tr {
+  break-inside: avoid;
+}
+thead th,
+tbody tr:nth-child(even) {
+  print-color-adjust: exact;
+}
+img,
+svg,
+figure {
+  break-inside: avoid;
+  max-height: 245mm;
+  height: auto;
+}
+figcaption {
+  break-before: avoid;
+}
+.cudoc-page-break {
+  display: block;
+  height: 0;
+  break-after: page;
+}
+.cudoc-cover {
+  break-after: page;
+}
+.cudoc-contents {
+  break-after: page;
+}
+.cudoc-doc {
+  break-before: page;
+}
+.cudoc-contents-list {
+  list-style: none;
+  padding: 0;
+}
+.cudoc-contents-list a {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: end;
+  gap: 0.4em;
+  text-decoration: none;
+}
+.cudoc-contents-fill {
+  border-bottom: 1px dotted var(--line);
+  transform: translateY(-0.3em);
+}
+.cudoc-contents-page {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.cudoc-cover {
+  height: 255mm;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding-bottom: 12%;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  print-color-adjust: exact;
+}
+.cudoc-cover h1 {
+  margin: 0;
+  font-size: calc(var(--text-3xl) * 1.25);
+}
+.cudoc-cover-image .cudoc-cover-title {
+  align-self: flex-start;
+  max-width: 80%;
+  padding: var(--space-4) var(--space-6);
+  background: var(--paper);
+}
+.cudoc-cover-image {
+  background-image: url("cudoc-cover.png");
+}
+a[href^="http://"]::after,
+a[href^="https://"]::after {
+  content: " (" attr(href) ")";
+  font-size: var(--text-xs);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+@page cudoc-wide {
+  size: 297mm 210mm;
+}
+.cudoc-wide {
+  page: cudoc-wide;
+  break-before: page;
+  break-after: page;
 }

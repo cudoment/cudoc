@@ -18,8 +18,8 @@
   --line-soft: #eef2f7;
 
   /* Accent and status. Each pairs with its own tinted surface. */
-  --accent: #1d4ed8;
-  --accent-soft: #dbeafe;
+  --accent: #155e75;
+  --accent-soft: #e0f2fe;
   --warn: #b45309;
   --warn-wash: #fef6e7;
   --danger: #b91c1c;
@@ -74,8 +74,8 @@
     --faint: #8b9ab0;
     --line: #334155;
     --line-soft: #1e293b;
-    --accent: #7cb0fb;
-    --accent-soft: #1e3252;
+    --accent: #67e8f9;
+    --accent-soft: #164e63;
     --warn: #fbbf24;
     --warn-wash: #2b2110;
     --danger: #f87171;
@@ -97,8 +97,8 @@
   --faint: #8b9ab0;
   --line: #334155;
   --line-soft: #1e293b;
-  --accent: #7cb0fb;
-  --accent-soft: #1e3252;
+  --accent: #67e8f9;
+  --accent-soft: #164e63;
   --warn: #fbbf24;
   --warn-wash: #2b2110;
   --danger: #f87171;

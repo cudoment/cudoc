@@ -35,6 +35,10 @@ Commands in the table run inside the corresponding example directory after `npm 
 
 Each build synchronizes shared fixtures and collects documents before rendering. Edit [fixtures](./fixtures/portable.md), not the generated copies under each example's docs/content directory. Rebuild after editing fixtures. The HTML example can be shared by copying its entire `site/` directory.
 
+## Export showcase
+
+[`export/showcase/`](./export/showcase/) is a six-document handbook for a fictional weather API, and [`export/showcase.config.mjs`](./export/showcase.config.mjs) exports it as a site, per-document PDF and Word files and a bound volume with a cover and contents page into [`export/showcase-output/`](./export/showcase-output/), which is committed so the output can be opened without building anything. `npm run showcase` inside `export/` rebuilds it, and `tests/scripts/export-showcase.mjs` checks that the committed copy matches the current packages. [The export guide](../docs/export.md#a-complete-example) walks through what it demonstrates.
+
 ## Collection integrations
 
 | Host       | Collector                                                                   |

@@ -38,6 +38,16 @@ describe("page rules", () => {
     expect(rules).toMatch(/tr \{\n\s*break-inside: avoid;/)
   })
 
+  it("lets a long code line wrap instead of shrinking every page to fit it", () => {
+    // The screen stylesheet keeps `pre code` unwrapped because a code block
+    // can scroll there. On paper that child rule would win over the `pre`
+    // rule, one line wider than the page would overflow it, and Chrome would
+    // scale the whole document down until the line fits.
+    expect(rules).toMatch(/pre \{[^}]*white-space: pre-wrap;/)
+    expect(rules).toMatch(/pre code \{[^}]*white-space: inherit;/)
+    expect(rules).toMatch(/pre code \{[^}]*overflow-wrap: inherit;/)
+  })
+
   it("keeps the reading colour rather than forcing black", () => {
     expect(rules).toContain("color: var(--ink);")
     expect(rules).not.toContain("#000")

@@ -104,11 +104,12 @@ without that project a test could contradict a compiler contract and still pass.
 
 ## Checks that run outside the runner
 
-Three checks cannot run inside vitest: two rewrite a fixture every example
-shares, and the third packs and installs every package. They live in
+Four checks cannot run inside vitest: two rewrite a fixture every example
+shares, the third packs and installs every package, and the fourth rebuilds the
+committed export showcase and compares it with the committed copy. They live in
 [`scripts/`](./scripts/README.md) and run in sequence.
 
 ```sh
-npm run test:scripts   # the three above
-npm run test:all       # npm test, then the three above
+npm run test:scripts   # the four above
+npm run test:all       # npm test, then the four above
 ```
