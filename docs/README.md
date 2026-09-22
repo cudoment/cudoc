@@ -66,4 +66,4 @@ So the rule of thumb is narrow: keep sections that other documents embed in Mark
 
 cudoc covers Markdown syntax normalization, cross-document embedding, AST projection and HTML generation. Configuration belongs in the site setup; authors write ordinary Markdown and cudoc markers, and never import or register cudoc components.
 
-Native syntax support is limited to the forms each guide lists. Arbitrary host plugins and dynamic components do not automatically become portable: a component whose content depends on runtime state cannot travel through an embed or into exported HTML. Link monitoring and collection watching are not provided.
+Native syntax support is limited to the forms each guide lists. Arbitrary host plugins and dynamic components do not automatically become portable: a component whose content depends on runtime state cannot travel through an embed or into exported HTML. Live link monitoring is not provided; collection does repeat on change through `cudoc collect --watch`, described under [collection setup](./embedding.md#set-up-collection).
