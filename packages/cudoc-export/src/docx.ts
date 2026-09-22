@@ -503,8 +503,12 @@ function imageRun(node: DocumentNode, context: Context): ParagraphChild[] {
   // An SVG needs a raster fallback docx cannot generate and cudoc ships no
   // rasterizer, so it becomes its alt text rather than a broken picture.
   if (!size) return fallback("is not a PNG, JPEG, GIF or BMP Word can embed")
-  const pageWidth = pixels(context.options.page.geometry.content.width)
-  const scale = Math.min(1, pageWidth / size.width)
+  // The print stylesheet bounds an image to the page it is given, by width
+  // and by height; Word gets the same bound so a tall figure never runs past
+  // the page.
+  const { content } = context.options.page.geometry
+  const box = { width: pixels(content.width), height: pixels(content.height) }
+  const scale = Math.min(1, box.width / size.width, box.height / size.height)
   return [
     new ImageRun({
       type: size.type,

@@ -358,7 +358,9 @@ id는 `Cudoc*`, Word의 `Heading1`~`Heading6`, `TOC1`, `IndexLink`입니다. 기
 표준 오류에 보고합니다. `docx.rawHtml: "text"`는 그 노드를 `CudocCodeBlock`
 문단으로(인라인이면 `CudocCode` 런으로) 쓰고 대신 `html-as-text`를 보고합니다. PNG,
 JPEG, GIF, BMP가 아니거나 로컬 파일로 해석되지 않는 이미지는 대체 텍스트가 되며
-`image-as-text`로 보고합니다.
+`image-as-text`로 보고합니다. Word가 내장할 수 있는 이미지는 비율을 유지한 채
+본문 폭과 본문 높이에 모두 들어갈 때까지 줄이는데, 인쇄 스타일시트가 이미지에 두는
+한계와 같습니다.
 `docx.calloutStyle: "table"`은 콜아웃마다 셀 하나짜리 표를 만들어 셀이 왼쪽 선과
 색조를 갖고, 그 안의 문단은 이 모드에서만 선언되는 `CudocCallout<Type>Plain`과
 `...PlainTitle` 스타일을 씁니다. 정규화를 거치고도 남은 컴포넌트(`mdx*`나 지시문
