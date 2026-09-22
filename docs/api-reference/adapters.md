@@ -372,7 +372,9 @@ drop is reported once per document in `diagnostics` and on the CLI's stderr;
 `docx.rawHtml: "text"` writes them as `CudocCodeBlock` paragraphs (inline ones
 as `CudocCode` runs) and reports `html-as-text` instead. An image that is not a
 PNG, JPEG, GIF or BMP, or that resolves to no local file, becomes its alt text
-and is reported as `image-as-text`. `docx.calloutStyle:
+and is reported as `image-as-text`; one Word can embed is scaled down, keeping
+its proportions, until it fits both the content width and the content height,
+the same bound the print stylesheet puts on it. `docx.calloutStyle:
 "table"` puts each callout in a one-cell table whose cell carries the left rule
 and the wash, with its paragraphs in `CudocCallout<Type>Plain` and
 `...PlainTitle` styles that are declared only in that mode. A component that
