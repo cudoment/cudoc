@@ -146,6 +146,16 @@ Explicit heading anchors, badges, callouts with real titles, and nested lists in
 
 The source document never changes. → [Document embedding](./docs/embedding.md)
 
+### Edit the source, and every copy follows while you write
+
+Run `cudoc collect --watch` beside your dev server. Saving a document collects it again in the time it takes to compile that one file: the documents whose text changed are compiled, the embeds that read one of them are resolved again, everything else is reused. On the MDX hosts the loader you registered tells the dev server that the pages embedding it changed, so the copy in the browser updates without a restart, and a document that fails to compile is a message in the terminal while the last good result stays in place.
+
+```sh
+cudoc collect --watch --config cudoc.config.mjs
+```
+
+VitePress and Eleventy load the library when their configuration is evaluated, so there the dev server is restarted after the change. → [Collection setup](./docs/embedding.md#set-up-collection), [Watching](./docs/api-reference/node.md#watching)
+
 ### One set of documents, three destinations
 
 Your site, a shareable HTML bundle, and a machine-readable AST corpus — all from the same Markdown, all resolved the same way.
