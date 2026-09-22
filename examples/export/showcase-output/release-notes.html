@@ -1,0 +1,26 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;; connect-src &#x27;none&#x27;"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Release notes · Northlight Weather API</title><link rel="stylesheet" href="cudoc.css"><link rel="stylesheet" href="cudoc-annotations.css"><script src="cudoc-theme.js"></script></head><body><a class="skip" href="#main-content">Skip to content</a><header><a href="index.html">Northlight Weather API</a></header><div class="layout"><nav class="sidebar" aria-label="Documents"><p class="nav-title">Documents</p><ul><li><a href="index.html">Northlight Weather API</a></li><li><a href="getting-started.html">Getting started</a></li><li><a href="reference/endpoints.html">Endpoint reference</a></li><li><a href="reference/limits.html">Rate limits</a></li><li><a href="reference/errors.html">Error codes</a></li><li><a href="release-notes.html" aria-current="page">Release notes</a></li></ul></nav><main id="main-content" data-cudoc-document="release-notes" data-cudoc-ast-hash="4a992e00686fed48a0ba988ae453b9968c454a6e6cd99baa9c41ccc11a4aac8a" data-cudoc-source-hash="90f263df3c86748b689577b757cb1be37551b788486876c546f1a9f72842887b" data-cudoc-site="5e7dc36292808d20" data-cudoc-generator="cudoc-export 0.5.0"><h1 id="release-notes" data-cudoc-block="release-notes:1254829b">Release notes</h1>
+<p data-cudoc-block="release-notes:2287d546">Changes to the API, newest first. Dates are the day a change reached every
+region.</p>
+<h2 id="r-2026-09-15" data-cudoc-block="r-2026-09-15:c4b9465a">2026-09-15  <span class="cudoc-badge">Latest</span></h2>
+<ul>
+<li data-cudoc-block="r-2026-09-15:b728f6aa"><code>fields</code> on the hourly forecast accepts <code>precipitation</code>, returning
+probability and expected amount. → <a href="reference/endpoints.html#forecast-hourly">Hourly forecast</a></li>
+<li data-cudoc-block="r-2026-09-15:43274eb9"><code>X-Limit-Hour</code> is now sent on every response, not only when the minute
+window is low.</li>
+</ul>
+<h2 id="r-2026-07-02" data-cudoc-block="r-2026-07-02:9896cbc5">2026-07-02</h2>
+<ul>
+<li data-cudoc-block="r-2026-07-02:f058ea13">Readings older than fifteen minutes carry <code>stale: true</code> instead of being
+withheld.</li>
+<li data-cudoc-block="r-2026-07-02:944d5eb2">The <code>station_retired</code> error replaces a generic <code>404</code> for stations that
+stopped reporting permanently.</li>
+</ul>
+<h2 id="r-2026-04-10" data-cudoc-block="r-2026-04-10:02677856">2026-04-10</h2>
+<ul>
+<li data-cudoc-block="r-2026-04-10:8f2f73d3">First public release of <code>/v1</code>.</li>
+</ul>
+<aside class="cudoc-callout cudoc-callout-success" data-callout="success" data-cudoc-block="r-2026-04-10:635efcad">
+<p class="cudoc-callout-title" data-cudoc-block="r-2026-04-10:5acfe848">Deprecation policy</p>
+<p data-cudoc-block="r-2026-04-10:1d0fa9a2">A field or endpoint is announced here at least ninety days before it changes
+shape, and the previous behaviour stays available for that period.</p>
+</aside><footer>Northlight Weather API</footer></main><nav class="toc" aria-label="On this page"><p class="nav-title">On this page</p><ul><li data-depth="2"><a href="#r-2026-09-15">2026-09-15</a></li><li data-depth="2"><a href="#r-2026-07-02">2026-07-02</a></li><li data-depth="2"><a href="#r-2026-04-10">2026-04-10</a></li></ul></nav></div><script defer src="cudoc-annotations.js"></script></body></html>

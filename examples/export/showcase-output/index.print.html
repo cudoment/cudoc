@@ -1,0 +1,60 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Northlight Weather API · Northlight Weather API</title><link rel="stylesheet" href="cudoc-print.css"></head><body class="cudoc-print"><div class="layout"><main id="main-content"><article class="cudoc-doc" id="cudoc-index" data-document="cudoc-index"><h1 id="northlight-weather-api">Northlight Weather API <span class="cudoc-badge">v1</span></h1>
+<p>Northlight serves current conditions and short-range forecasts for a network of
+weather stations. This handbook is one set of Markdown documents that cudoc
+publishes three ways: as the site you are reading, as a bound PDF with a cover
+and contents page, and as a Word file with real styles. Every figure below is
+drawn from the reference pages, so a correction there reaches this page too.</p>
+<aside class="cudoc-callout cudoc-callout-note" data-callout="note">
+<p class="cudoc-callout-title">How this handbook is built</p>
+<p>The site, the PDF and the Word file come from one <code>cudoc-export build</code> run
+and one set of design tokens. The configuration is a single file,
+<code>showcase.config.mjs</code>, beside the documents.</p>
+</aside>
+<h2 id="endpoints">Endpoints at a glance</h2>
+<p>Each row is one section of the endpoint reference. The method and the path are
+read from the table at the top of that section, and the description is its
+first paragraph.</p>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th style="min-width: 5rem">Method</th>
+<th style="min-width: 14rem">Path</th>
+<th>What it returns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="reference/endpoints.pdf">Current conditions</a></td>
+<td>GET</td>
+<td>/v1/weather/current</td>
+<td>Returns the latest observation from one station.</td>
+</tr>
+<tr>
+<td><a href="reference/endpoints.pdf">Hourly forecast</a></td>
+<td>GET</td>
+<td>/v1/forecast/hourly</td>
+<td>Returns up to 48 hourly forecast points for one station.</td>
+</tr>
+<tr>
+<td><a href="reference/endpoints.pdf">Station directory</a></td>
+<td>GET</td>
+<td>/v1/stations</td>
+<td>Lists the stations a key may read, with their location and status.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="start">Where to start</h2>
+<ol>
+<li>Read <a href="getting-started.pdf">Getting started</a> for a key and a
+first request.</li>
+<li>Keep <a href="reference/limits.pdf">Rate limits</a> open while you design a
+polling schedule.</li>
+<li>Check the <a href="release-notes.pdf">release notes</a> before upgrading
+a client.</li>
+</ol>
+<aside class="cudoc-callout cudoc-callout-tip" data-callout="tip">
+<p class="cudoc-callout-title">Reading this on paper?</p>
+<p>External links print their address after the text, and links between
+documents jump inside the bound file.</p>
+</aside></article></main></div></body></html>

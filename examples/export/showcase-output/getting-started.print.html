@@ -1,0 +1,99 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Getting started · Northlight Weather API</title><link rel="stylesheet" href="cudoc-print.css"></head><body class="cudoc-print"><div class="layout"><main id="main-content"><article class="cudoc-doc" id="cudoc-getting-started" data-document="cudoc-getting-started"><h1 id="getting-started">Getting started</h1>
+<p>Three steps take you from nothing to a first forecast. The whole flow is one
+HTTPS request with a key in a header; there is no SDK to install.</p>
+<p><img src="assets/request-flow.png" alt="A request travels from your service to the Northlight edge and, on a cache miss, to the forecast store"></p>
+<h2 id="key">Get a key</h2>
+<p>Keys are issued per project and scoped to the stations a project may read.</p>
+<h5 id="requirements">Requirements</h5>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th colspan="2">Prerequisites</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Register</td>
+<td><ul>
+<li>A project name</li>
+<li>A billing contact</li>
+<li>At least one station</li>
+</ul></td>
+<td><ul>
+<li>Accepted terms</li>
+<li>A callback URL</li>
+</ul></td>
+</tr>
+<tr>
+<td>Rotate</td>
+<td colspan="2"><ul>
+<li>The current key</li>
+<li>Owner role</li>
+</ul></td>
+</tr>
+</tbody>
+</table>
+<aside class="cudoc-callout cudoc-callout-important" data-callout="important">
+<p class="cudoc-callout-title">Keep the key out of the browser</p>
+<p>A key grants every scope its project holds. Call Northlight from your own
+backend and pass results on; never ship the key in client-side code.</p>
+</aside>
+<h2 id="request">Make a request  <span class="cudoc-badge">New</span></h2>
+<p>Send the key in the <code>Authorization</code> header and ask for a station by its code:</p>
+<pre><code class="hljs language-sh">curl -H <span class="hljs-string">"Authorization: Bearer <span class="hljs-variable">$NORTHLIGHT_KEY</span>"</span> \
+  <span class="hljs-string">"https://api.northlight.example/v1/weather/current?station=OSL-01"</span></code></pre>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"station"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"OSL-01"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"observedAt"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"2026-09-22T06:00:00Z"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"temperatureC"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">11.4</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"windMs"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">3.2</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"conditions"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"overcast"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+<p>Every response carries <code>observedAt</code>, the instant the station reported<sup><a href="#user-content-fn-utc" id="user-content-fnref-utc" data-footnote-ref="" aria-describedby="footnote-label">1</a></sup>. A
+missing station returns <code>404</code> with a machine-readable <code>code</code>, listed under
+<a href="reference/errors.pdf">Error codes</a>.</p>
+<h2 id="limits">Stay within the limits</h2>
+<p>Current conditions are cached at the edge for sixty seconds, so polling faster
+than that returns the same reading and spends your quota. The windows and the
+headers that report them are in <a href="reference/limits.pdf">Rate limits</a>;
+the short version is below.</p>
+<h2 id="embed-1-1-windows">Windows</h2>
+<p>As a new integrator you share one rule: a key may make 60 requests per rolling minute to
+<code>/v1/weather/current</code> and 600 per rolling hour across all endpoints. Both
+counters are reported on every response.</p>
+<table>
+<thead>
+<tr>
+<th>Header</th>
+<th style="min-width: 16rem">Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>X-Limit-Minute</code></td>
+<td>Requests left in the current minute window.</td>
+</tr>
+<tr>
+<td><code>X-Limit-Hour</code></td>
+<td>Requests left in the current hour window.</td>
+</tr>
+<tr>
+<td><code>Retry-After</code></td>
+<td>Seconds to wait, present only on a <code>429</code>.</td>
+</tr>
+</tbody>
+</table>
+<aside class="cudoc-callout cudoc-callout-warning" data-callout="warning">
+<p class="cudoc-callout-title">Bursts are counted per key</p>
+<p>Two services sharing one key share one window. Give each service its own key
+so a spike in one cannot starve the other.</p>
+</aside>
+<section data-footnotes="" class="footnotes"><h2 class="sr-only" id="footnote-label">Footnotes</h2>
+<ol>
+<li id="user-content-fn-utc">
+<p>Always UTC, always with a <code>Z</code> suffix. Convert at the edge of your own
+system, not in the data layer. <a href="#user-content-fnref-utc" data-footnote-backref="" aria-label="Back to reference 1" class="data-footnote-backref">↩</a></p>
+</li>
+</ol>
+</section></article></main></div></body></html>

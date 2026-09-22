@@ -168,6 +168,8 @@ Your site, a shareable HTML bundle, and a machine-readable AST corpus — all fr
 
 HTML export offers three hyperlink policies — local files, deployed URLs, or no links at all — so the same content works whether it is browsed from disk or published.
 
+A complete sample is committed with the repository: a six-document API handbook exported from [one configuration](./examples/export/showcase.config.mjs) into a site, per-document files and a bound volume with a cover and a contents page. Open [the PDF](./examples/export/showcase-output/northlight-handbook.pdf) or [the Word file](./examples/export/showcase-output/northlight-handbook.docx) directly, and clone the repository to browse [the site](./examples/export/showcase-output/index.html) from disk; the [sources](./examples/export/showcase/) show the Markdown that produced them. → [A complete example](./docs/export.md#a-complete-example)
+
 ---
 
 ## Reference

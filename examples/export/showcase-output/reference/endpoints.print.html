@@ -1,0 +1,147 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Endpoint reference · Northlight Weather API</title><link rel="stylesheet" href="../cudoc-print.css"></head><body class="cudoc-print"><div class="layout"><main id="main-content"><article class="cudoc-doc" id="cudoc-reference%2Fendpoints" data-document="cudoc-reference%2Fendpoints"><h1 id="reference">Endpoint reference</h1>
+<p>Each section describes one endpoint. The first table of a section is its basic
+information, which the overview page reads into a summary table; the tables that
+follow describe parameters and the response. Error responses are listed
+separately under <a href="errors.pdf">Error codes</a>.</p>
+<h2 id="weather-current">Current conditions</h2>
+<p>Returns the latest observation from one station.</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Auth</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/v1/weather/current</code></td>
+<td>Bearer</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th style="min-width: 18rem">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>station</code></td>
+<td>string</td>
+<td>yes</td>
+<td>The station code, such as <code>OSL-01</code>. One station per request.</td>
+</tr>
+<tr>
+<td><code>units</code></td>
+<td>string</td>
+<td>no</td>
+<td><code>metric</code> (default) or <code>imperial</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>The response is one observation object. Readings older than fifteen minutes
+carry <code>stale: true</code>.</p>
+<h2 id="forecast-hourly">Hourly forecast</h2>
+<p>Returns up to 48 hourly forecast points for one station.</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Auth</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/v1/forecast/hourly</code></td>
+<td>Bearer</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th style="min-width: 18rem">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>station</code></td>
+<td>string</td>
+<td>yes</td>
+<td>The station code.</td>
+</tr>
+<tr>
+<td><code>hours</code></td>
+<td>integer</td>
+<td>no</td>
+<td>1 to 48, default 24. Values above 48 are clamped, not rejected.</td>
+</tr>
+<tr>
+<td><code>fields</code></td>
+<td>list</td>
+<td>no</td>
+<td><ul>
+<li><code>temperature</code></li>
+<li><code>wind</code></li>
+<li><code>precipitation</code>
+<ul>
+<li>Probability and amount</li>
+</ul>
+</li>
+</ul></td>
+</tr>
+</tbody>
+</table>
+<h2 id="stations">Station directory</h2>
+<p>Lists the stations a key may read, with their location and status.</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Auth</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/v1/stations</code></td>
+<td>Bearer</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th style="min-width: 18rem">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>region</code></td>
+<td>string</td>
+<td>no</td>
+<td>An ISO 3166-2 code to narrow the list.</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>string</td>
+<td>no</td>
+<td><code>active</code>, <code>maintenance</code> or <code>retired</code>.</td>
+</tr>
+</tbody>
+</table></article></main></div></body></html>

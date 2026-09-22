@@ -1,0 +1,26 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Release notes · Northlight Weather API</title><link rel="stylesheet" href="cudoc-print.css"></head><body class="cudoc-print"><div class="layout"><main id="main-content"><article class="cudoc-doc" id="cudoc-release-notes" data-document="cudoc-release-notes"><h1 id="release-notes">Release notes</h1>
+<p>Changes to the API, newest first. Dates are the day a change reached every
+region.</p>
+<h2 id="r-2026-09-15">2026-09-15  <span class="cudoc-badge">Latest</span></h2>
+<ul>
+<li><code>fields</code> on the hourly forecast accepts <code>precipitation</code>, returning
+probability and expected amount. → <a href="reference/endpoints.pdf">Hourly forecast</a></li>
+<li><code>X-Limit-Hour</code> is now sent on every response, not only when the minute
+window is low.</li>
+</ul>
+<h2 id="r-2026-07-02">2026-07-02</h2>
+<ul>
+<li>Readings older than fifteen minutes carry <code>stale: true</code> instead of being
+withheld.</li>
+<li>The <code>station_retired</code> error replaces a generic <code>404</code> for stations that
+stopped reporting permanently.</li>
+</ul>
+<h2 id="r-2026-04-10">2026-04-10</h2>
+<ul>
+<li>First public release of <code>/v1</code>.</li>
+</ul>
+<aside class="cudoc-callout cudoc-callout-success" data-callout="success">
+<p class="cudoc-callout-title">Deprecation policy</p>
+<p>A field or endpoint is announced here at least ninety days before it changes
+shape, and the previous behaviour stays available for that period.</p>
+</aside></article></main></div></body></html>
