@@ -1,11 +1,14 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rate limits · Northlight Weather API</title><link rel="stylesheet" href="../cudoc-print.css"></head><body class="cudoc-print"><div class="layout"><main id="main-content"><article class="cudoc-doc" id="cudoc-reference%2Flimits" data-document="cudoc-reference%2Flimits"><h1 id="rate-limits">Rate limits</h1>
 <p>Limits protect the stations, which report on fixed schedules, from being asked
 the same question thousands of times a minute. They are generous for any client
-that respects the cache.</p>
+that respects the cache, and every response says where you stand, so a
+well-behaved client never has to guess.</p>
 <h2 id="windows">Windows</h2>
-<p>Every plan shares one rule: a key may make 60 requests per rolling minute to
-<code>/v1/weather/current</code> and 600 per rolling hour across all endpoints. Both
-counters are reported on every response.</p>
+<p>Every plan shares one rule: a key has a rolling minute window on
+<code>/v1/weather/current</code> and a rolling hour window across all endpoints, the size
+of each depends on the plan, and both counters are reported on every response.
+A request that finds either window empty is answered with <code>429 rate_limited</code>
+and is not counted.</p>
 <table>
 <thead>
 <tr>
@@ -28,12 +31,90 @@ counters are reported on every response.</p>
 </tr>
 </tbody>
 </table>
+<p>Windows are rolling, not aligned to the clock: a request made at 12:00:30
+leaves the minute window at 12:01:30. A <code>304</code> answer to a conditional request
+counts against neither window, and neither does a <code>429</code> or a <code>5xx</code>.</p>
 <h3 id="backoff">Backoff</h3>
 <p>On a <code>429</code> or a <code>503</code>, wait for <code>Retry-After</code> when present, otherwise double the
-delay from one second up to thirty, and stop after five attempts.</p>
+delay from one second up to thirty, and stop after five attempts. Add a random
+fraction of a second to every delay so that several clients that failed
+together do not retry together.</p>
+<pre><code class="hljs language-js"><span class="hljs-keyword">async</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">withBackoff</span>(<span class="hljs-params">request, attempts = <span class="hljs-number">5</span></span>) {
+  <span class="hljs-keyword">let</span> delay = <span class="hljs-number">1000</span>
+  <span class="hljs-keyword">for</span> (<span class="hljs-keyword">let</span> attempt = <span class="hljs-number">1</span>; ; attempt++) {
+    <span class="hljs-keyword">const</span> response = <span class="hljs-keyword">await</span> <span class="hljs-title function_">request</span>()
+    <span class="hljs-keyword">if</span> (response.<span class="hljs-property">status</span> !== <span class="hljs-number">429</span> &#x26;&#x26; response.<span class="hljs-property">status</span> !== <span class="hljs-number">503</span>) <span class="hljs-keyword">return</span> response
+    <span class="hljs-keyword">if</span> (attempt === attempts) <span class="hljs-keyword">return</span> response
+    <span class="hljs-keyword">const</span> retryAfter = <span class="hljs-title class_">Number</span>(response.<span class="hljs-property">headers</span>.<span class="hljs-title function_">get</span>(<span class="hljs-string">"retry-after"</span>))
+    <span class="hljs-keyword">const</span> wait =
+      retryAfter > <span class="hljs-number">0</span> ? retryAfter * <span class="hljs-number">1000</span> : delay + <span class="hljs-title class_">Math</span>.<span class="hljs-title function_">random</span>() * <span class="hljs-number">1000</span>
+    <span class="hljs-keyword">await</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">Promise</span>(<span class="hljs-function">(<span class="hljs-params">resolve</span>) =></span> <span class="hljs-built_in">setTimeout</span>(resolve, wait))
+    delay = <span class="hljs-title class_">Math</span>.<span class="hljs-title function_">min</span>(delay * <span class="hljs-number">2</span>, <span class="hljs-number">30_000</span>)
+  }
+}</code></pre>
+<h3 id="caching">Caching</h3>
+<p>Current conditions are cached at the edge for sixty seconds, so a poll faster
+than that returns the same reading and spends the minute window for nothing.
+Forecasts are cached until the next model run, and history responses for a
+day. Every cached response carries an <code>ETag</code>; sending it back as
+<code>If-None-Match</code> turns an unchanged answer into a <code>304</code> that costs nothing.</p>
+<h2 id="costs">Request costs</h2>
+<p>Not every request weighs the same against the hour window. Heavier queries cost
+more, so a client that pages through history with small pages pays more than
+one that asks for large pages.</p>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Cost</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="endpoints.pdf">Current conditions</a></td>
+<td>1</td>
+<td>Also counted in the minute window.</td>
+</tr>
+<tr>
+<td><a href="endpoints.pdf">Hourly forecast</a></td>
+<td>2</td>
+<td>Regardless of <code>hours</code> and <code>fields</code>.</td>
+</tr>
+<tr>
+<td><a href="endpoints.pdf">Daily forecast</a></td>
+<td>2</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="endpoints.pdf">Observation history</a></td>
+<td>5 per page</td>
+<td>A page of 1,000 rows costs the same as one of 10.</td>
+</tr>
+<tr>
+<td><a href="endpoints.pdf">Station directory</a></td>
+<td>1 per page</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="endpoints.pdf">Station detail</a></td>
+<td>1</td>
+<td>Cache it for a day.</td>
+</tr>
+<tr>
+<td><a href="endpoints.pdf">Weather alerts</a></td>
+<td>1</td>
+<td>Business and Enterprise plans.</td>
+</tr>
+</tbody>
+</table>
+<p><code>X-Limit-Hour</code> reports the remaining hour budget in cost units, not in
+requests; <code>X-Limit-Minute</code> counts requests, since only one endpoint has a
+minute window.</p>
 <h2 id="plans">Plans compared</h2>
-<p>The table has seven columns, so the paginated outputs put it on a landscape page
-of its own.</p>
+<p>The plans differ in window size, forecast horizon, history retention and
+support. The table has seven columns, so the paginated outputs put it on a
+landscape page of its own.</p>
 <div class="cudoc-wide"><table>
 <thead>
 <tr>
@@ -85,13 +166,72 @@ of its own.</p>
 </tr>
 </tbody>
 </table></div>
+<p>Stations counts the distinct stations a project's keys may read, not the number
+of keys; a project may hold up to ten keys. The minute window applies per key,
+and the hour window applies to the project as a whole, so it is shared by every
+key the project holds.</p>
+<h3 id="changing-plans">Changing plans</h3>
+<p>An upgrade takes effect within a minute and widens the current windows in
+place, so a client that is being limited recovers without waiting for the hour
+to roll over. A downgrade takes effect at the end of the billing period. History
+older than the new retention stops being served at that point but is kept for
+thirty days, so a downgrade made by mistake can be reversed without loss.</p>
+<table>
+<thead>
+<tr>
+<th>Change</th>
+<th>Takes effect</th>
+<th>Windows</th>
+<th>History</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Upgrade</td>
+<td>Within a minute</td>
+<td>Widened in place</td>
+<td>Older history becomes available at once</td>
+</tr>
+<tr>
+<td>Downgrade</td>
+<td>End of the billing period</td>
+<td>Narrowed at the next hour window</td>
+<td>Kept for thirty days, then trimmed</td>
+</tr>
+<tr>
+<td>Cancellation</td>
+<td>End of the billing period</td>
+<td>Live keys stop; test keys keep working</td>
+<td>Exportable for thirty days</td>
+</tr>
+</tbody>
+</table>
 <div class="cudoc-page-break" data-cudoc-break="page" hidden></div>
 <h2 id="measuring">Appendix: measuring your own usage</h2>
 <p>Log the two limit headers with every response and chart the minimum per minute.
 A flat line near zero means a client is polling faster than the sixty-second
-cache refreshes; slow it down rather than raising the plan.</p>
+cache refreshes; slow it down rather than raising the plan. One log line per
+response is enough:</p>
+<pre><code class="hljs language-text">2026-09-22T06:00:01Z GET /v1/weather/current station=OSL-01 status=200 minute=57 hour=5931 request=req_7f3a9c2e</code></pre>
+<p>A query over a day of such lines shows where the window runs lowest:</p>
+<pre><code class="hljs language-sql"><span class="hljs-keyword">SELECT</span> date_trunc(<span class="hljs-string">'minute'</span>, <span class="hljs-keyword">at</span>) <span class="hljs-keyword">AS</span> <span class="hljs-keyword">minute</span>, <span class="hljs-built_in">min</span>(minute_left) <span class="hljs-keyword">AS</span> worst
+<span class="hljs-keyword">FROM</span> northlight_requests
+<span class="hljs-keyword">WHERE</span> <span class="hljs-keyword">at</span> <span class="hljs-operator">></span> now() <span class="hljs-operator">-</span> <span class="hljs-type">interval</span> <span class="hljs-string">'1 day'</span>
+<span class="hljs-keyword">GROUP</span> <span class="hljs-keyword">BY</span> <span class="hljs-number">1</span>
+<span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> worst
+LIMIT <span class="hljs-number">20</span>;</code></pre>
+<p>Three patterns account for almost every limit incident:</p>
+<ul>
+<li><strong>Synchronized polling.</strong> Every instance of a service wakes on the same
+second. Offset instances by a few seconds each.</li>
+<li><strong>Retry storms.</strong> A <code>503</code> from one station is retried at once by every
+instance. Use the backoff above; the jitter is not optional.</li>
+<li><strong>Missing conditional requests.</strong> A poll that ignores <code>ETag</code> pays for every
+unchanged reading. Send <code>If-None-Match</code>.</li>
+</ul>
 <aside class="cudoc-callout cudoc-callout-caution" data-callout="caution">
 <p class="cudoc-callout-title">Retired keys keep counting</p>
 <p>Requests made with a retired key are rejected but still counted against the
-project for one hour, so rotate keys during a quiet period.</p>
+project for one hour, so rotate keys during a quiet period and switch every
+consumer before the old key is revoked.</p>
 </aside></article></main></div></body></html>

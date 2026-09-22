@@ -1,8 +1,44 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;; connect-src &#x27;none&#x27;"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Endpoint reference · Northlight Weather API</title><link rel="stylesheet" href="../cudoc.css"><link rel="stylesheet" href="../cudoc-annotations.css"><script src="../cudoc-theme.js"></script></head><body><a class="skip" href="#main-content">Skip to content</a><header><a href="../index.html">Northlight Weather API</a></header><div class="layout"><nav class="sidebar" aria-label="Documents"><p class="nav-title">Documents</p><ul><li><a href="../index.html">Northlight Weather API</a></li><li><a href="../getting-started.html">Getting started</a></li><li><a href="endpoints.html" aria-current="page">Endpoint reference</a></li><li><a href="limits.html">Rate limits</a></li><li><a href="errors.html">Error codes</a></li><li><a href="../release-notes.html">Release notes</a></li></ul></nav><main id="main-content" data-cudoc-document="reference/endpoints" data-cudoc-ast-hash="aafeb3b9bb081d2955895471bce848ffaaab156111405c2c337ae632e5e2b493" data-cudoc-source-hash="54df2f50de503095f51eb45bdc128ec119ca9e501684a5272ebbcd6eebdb8f53" data-cudoc-site="5e7dc36292808d20" data-cudoc-generator="cudoc-export 0.5.0"><h1 id="reference" data-cudoc-block="reference:44c987f8">Endpoint reference</h1>
-<p data-cudoc-block="reference:49f98838">Each section describes one endpoint. The first table of a section is its basic
-information, which the overview page reads into a summary table; the tables that
-follow describe parameters and the response. Error responses are listed
-separately under <a href="errors.html#errors">Error codes</a>.</p>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;; connect-src &#x27;none&#x27;"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Endpoint reference · Northlight Weather API</title><link rel="stylesheet" href="../cudoc.css"><link rel="stylesheet" href="../cudoc-annotations.css"><script src="../cudoc-theme.js"></script></head><body><a class="skip" href="#main-content">Skip to content</a><header><a href="../index.html">Northlight Weather API</a></header><div class="layout"><nav class="sidebar" aria-label="Documents"><p class="nav-title">Documents</p><ul><li><a href="../index.html">Northlight Weather API</a></li><li><a href="../getting-started.html">Getting started</a></li><li><a href="endpoints.html" aria-current="page">Endpoint reference</a></li><li><a href="limits.html">Rate limits</a></li><li><a href="errors.html">Error codes</a></li><li><a href="../release-notes.html">Release notes</a></li></ul></nav><main id="main-content" data-cudoc-document="reference/endpoints" data-cudoc-ast-hash="7a4093f61bed28b97f00dca8de3b567a1b2cf44087d2a2e69daa75496a331012" data-cudoc-source-hash="e03b49c5a9d937054d2f92406e8d415047040957fb141a7e8d440ac4db3f3c23" data-cudoc-site="5e7dc36292808d20" data-cudoc-generator="cudoc-export 0.5.0"><h1 id="reference" data-cudoc-block="reference:44c987f8">Endpoint reference</h1>
+<p data-cudoc-block="reference:65d5f221">Each second-level section describes one endpoint. The first table of a section
+is its basic information, which the overview page reads into a summary table;
+the tables that follow describe parameters and the response. Error responses
+share one shape and are listed separately under <a href="errors.html#errors">Error codes</a>.</p>
+<p data-cudoc-block="reference:3bd345a6">All endpoints are served from <code>https://api.northlight.example</code> and answer <code>GET</code>
+only. Requests carry these headers:</p>
+<table>
+<thead>
+<tr data-cudoc-block="reference:6a1ef810">
+<th>Header</th>
+<th>Required</th>
+<th style="min-width: 18rem">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr data-cudoc-block="reference:6d6fa146">
+<td><code>Authorization</code></td>
+<td>yes</td>
+<td><code>Bearer</code> followed by a live or test key.</td>
+</tr>
+<tr data-cudoc-block="reference:44007a31">
+<td><code>Accept</code></td>
+<td>no</td>
+<td><code>application/json</code>, the only representation; any other value is answered with <code>406</code>.</td>
+</tr>
+<tr data-cudoc-block="reference:bd7ecce0">
+<td><code>If-None-Match</code></td>
+<td>no</td>
+<td>The <code>ETag</code> of an earlier response; a <code>304</code> means it is still current.</td>
+</tr>
+<tr data-cudoc-block="reference:f5c2ffc2">
+<td><code>X-Request-Id</code></td>
+<td>no</td>
+<td>Your own correlation id, echoed back; one is generated when absent.</td>
+</tr>
+</tbody>
+</table>
+<p data-cudoc-block="reference:b530622f">List endpoints paginate with a cursor: a response that has more rows carries
+<code>page.next</code>, and passing it as <code>cursor</code> returns the next page. Cursors are
+opaque and expire after ten minutes.</p>
 <h2 id="weather-current" data-cudoc-block="weather-current:8e4f7d71">Current conditions</h2>
 <p data-cudoc-block="weather-current:c37854cd">Returns the latest observation from one station.</p>
 <table>
@@ -45,8 +81,81 @@ separately under <a href="errors.html#errors">Error codes</a>.</p>
 </tr>
 </tbody>
 </table>
-<p data-cudoc-block="weather-current:042a3487">The response is one observation object. Readings older than fifteen minutes
-carry <code>stale: true</code>.</p>
+<p data-cudoc-block="weather-current:5c01c680">The response is one observation object. Readings older than fifteen minutes
+carry <code>stale: true</code>; a station that has not reported for six hours is answered
+with <code>503 upstream_delayed</code> instead.</p>
+<table>
+<thead>
+<tr data-cudoc-block="weather-current:e0d1a980">
+<th>Field</th>
+<th>Type</th>
+<th style="min-width: 18rem">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr data-cudoc-block="weather-current:e8631838">
+<td><code>station</code></td>
+<td>string</td>
+<td>The station code as requested.</td>
+</tr>
+<tr data-cudoc-block="weather-current:d55983be">
+<td><code>observedAt</code></td>
+<td>string</td>
+<td>The reading's instant, ISO 8601 in UTC.</td>
+</tr>
+<tr data-cudoc-block="weather-current:60a9314f">
+<td><code>temperature</code></td>
+<td>number</td>
+<td>Air temperature two metres above ground.</td>
+</tr>
+<tr data-cudoc-block="weather-current:ceaa754b">
+<td><code>windSpeed</code></td>
+<td>number</td>
+<td>Ten-minute mean wind speed.</td>
+</tr>
+<tr data-cudoc-block="weather-current:367b0ccf">
+<td><code>windGust</code></td>
+<td>number</td>
+<td>Highest three-second gust in the same ten minutes; absent without a gust sensor.</td>
+</tr>
+<tr data-cudoc-block="weather-current:5dc6073a">
+<td><code>windDirection</code></td>
+<td>integer</td>
+<td>Degrees clockwise from north.</td>
+</tr>
+<tr data-cudoc-block="weather-current:071c55a2">
+<td><code>humidity</code></td>
+<td>integer</td>
+<td>Relative humidity in percent.</td>
+</tr>
+<tr data-cudoc-block="weather-current:502c6e29">
+<td><code>pressure</code></td>
+<td>number</td>
+<td>Pressure reduced to sea level.</td>
+</tr>
+<tr data-cudoc-block="weather-current:d697ed26">
+<td><code>precipitation</code></td>
+<td>number</td>
+<td>Precipitation in the last ten minutes.</td>
+</tr>
+<tr data-cudoc-block="weather-current:fa91d862">
+<td><code>conditions</code></td>
+<td>string</td>
+<td>A summary word; see <a href="../getting-started.html#response">Read the response</a>.</td>
+</tr>
+<tr data-cudoc-block="weather-current:a3766e05">
+<td><code>stale</code></td>
+<td>boolean</td>
+<td><code>true</code> when <code>observedAt</code> is more than fifteen minutes old.</td>
+</tr>
+<tr data-cudoc-block="weather-current:0483c5ca">
+<td><code>units</code></td>
+<td>object</td>
+<td>The unit of every numeric field.</td>
+</tr>
+</tbody>
+</table>
+<p data-cudoc-block="weather-current:9fb549af">Responses are cached at the edge for sixty seconds and carry an <code>ETag</code>.</p>
 <h2 id="forecast-hourly" data-cudoc-block="forecast-hourly:c7e005a0">Hourly forecast</h2>
 <p data-cudoc-block="forecast-hourly:ed7ebb64">Returns up to 48 hourly forecast points for one station.</p>
 <table>
@@ -87,7 +196,13 @@ carry <code>stale: true</code>.</p>
 <td>no</td>
 <td>1 to 48, default 24. Values above 48 are clamped, not rejected.</td>
 </tr>
-<tr data-cudoc-block="forecast-hourly:1a23cdc1">
+<tr data-cudoc-block="forecast-hourly:cad7f8fb">
+<td><code>units</code></td>
+<td>string</td>
+<td>no</td>
+<td><code>metric</code> (default) or <code>imperial</code>.</td>
+</tr>
+<tr data-cudoc-block="forecast-hourly:8656bdf9">
 <td><code>fields</code></td>
 <td>list</td>
 <td>no</td>
@@ -99,10 +214,180 @@ carry <code>stale: true</code>.</p>
 <li data-cudoc-block="forecast-hourly:d0d3a7bb">Probability and amount</li>
 </ul>
 </li>
+<li data-cudoc-block="forecast-hourly:9d3e5507"><code>cloudCover</code></li>
 </ul></td>
 </tr>
 </tbody>
 </table>
+<p data-cudoc-block="forecast-hourly:7a878e2a"><code>fields</code> narrows the response to the named groups; without it every group is
+returned. The response carries the model run that produced the points and the
+points themselves:</p>
+<pre data-cudoc-block="forecast-hourly:02017754"><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"station"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"OSL-01"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"issuedAt"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"2026-09-22T05:05:00Z"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"points"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">"validAt"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"2026-09-22T07:00:00Z"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"temperature"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">12.1</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"windSpeed"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">4.0</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"windDirection"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">250</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"precipitationProbability"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.15</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"precipitationAmount"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.0</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"cloudCover"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.9</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"units"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"temperature"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"C"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"windSpeed"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"m/s"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"precipitationAmount"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"mm"</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span></code></pre>
+<p data-cudoc-block="forecast-hourly:1ab3bed0">Beyond 24 hours the Community plan receives no points; the other plans receive
+up to 48. See <a href="limits.html#plans">Plans compared</a>.</p>
+<h2 id="forecast-daily" data-cudoc-block="forecast-daily:b65ecc9f">Daily forecast</h2>
+<p data-cudoc-block="forecast-daily:5cfdfcb5">Returns one forecast summary per calendar day, up to seven days ahead.</p>
+<table>
+<thead>
+<tr data-cudoc-block="forecast-daily:77408873">
+<th>Method</th>
+<th>Path</th>
+<th>Auth</th>
+</tr>
+</thead>
+<tbody>
+<tr data-cudoc-block="forecast-daily:76229839">
+<td>GET</td>
+<td><code>/v1/forecast/daily</code></td>
+<td>Bearer</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr data-cudoc-block="forecast-daily:a03b04f8">
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th style="min-width: 18rem">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr data-cudoc-block="forecast-daily:2a8b9536">
+<td><code>station</code></td>
+<td>string</td>
+<td>yes</td>
+<td>The station code.</td>
+</tr>
+<tr data-cudoc-block="forecast-daily:0ec868e0">
+<td><code>days</code></td>
+<td>integer</td>
+<td>no</td>
+<td>1 to 7, default 5. Days are calendar days in the station's time zone.</td>
+</tr>
+<tr data-cudoc-block="forecast-daily:cad7f8fb">
+<td><code>units</code></td>
+<td>string</td>
+<td>no</td>
+<td><code>metric</code> (default) or <code>imperial</code>.</td>
+</tr>
+</tbody>
+</table>
+<p data-cudoc-block="forecast-daily:0a920a93">Each day carries <code>temperatureMin</code>, <code>temperatureMax</code>, <code>precipitationTotal</code>,
+<code>precipitationProbability</code>, the dominant <code>conditions</code> word, and <code>sunrise</code> and
+<code>sunset</code> in UTC. The first day is today in the station's local time, which may
+already be partly in the past; its minimum and maximum cover the whole day.</p>
+<aside class="cudoc-callout cudoc-callout-note" data-callout="note" data-cudoc-block="forecast-daily:347add42">
+<p class="cudoc-callout-title" data-cudoc-block="forecast-daily:009ad34f">Daily summaries are derived</p>
+<p data-cudoc-block="forecast-daily:dd42f95e">A day's summary is computed from the hourly points of the same model run, so
+the two forecast endpoints never disagree about the same run. They can differ
+when a new run has landed between two requests; compare <code>issuedAt</code>.</p>
+</aside>
+<h2 id="weather-history" data-cudoc-block="weather-history:4e0783f5">Observation history</h2>
+<p data-cudoc-block="weather-history:78bca41e">Returns past observations from one station in a time range, oldest first.</p>
+<table>
+<thead>
+<tr data-cudoc-block="weather-history:77408873">
+<th>Method</th>
+<th>Path</th>
+<th>Auth</th>
+</tr>
+</thead>
+<tbody>
+<tr data-cudoc-block="weather-history:5ec28bbe">
+<td>GET</td>
+<td><code>/v1/weather/history</code></td>
+<td>Bearer</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr data-cudoc-block="weather-history:a03b04f8">
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th style="min-width: 18rem">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr data-cudoc-block="weather-history:2a8b9536">
+<td><code>station</code></td>
+<td>string</td>
+<td>yes</td>
+<td>The station code.</td>
+</tr>
+<tr data-cudoc-block="weather-history:08a50129">
+<td><code>from</code></td>
+<td>string</td>
+<td>yes</td>
+<td>Start of the range, ISO 8601, inclusive.</td>
+</tr>
+<tr data-cudoc-block="weather-history:fc7fa1b1">
+<td><code>to</code></td>
+<td>string</td>
+<td>no</td>
+<td>End of the range, exclusive; defaults to now.</td>
+</tr>
+<tr data-cudoc-block="weather-history:b4b4c184">
+<td><code>step</code></td>
+<td>string</td>
+<td>no</td>
+<td><code>10m</code> (default), <code>1h</code> or <code>1d</code>. Coarser steps return means, with min and max for temperature.</td>
+</tr>
+<tr data-cudoc-block="weather-history:7541c544">
+<td><code>limit</code></td>
+<td>integer</td>
+<td>no</td>
+<td>Rows per page, 1 to 1,000, default 500.</td>
+</tr>
+<tr data-cudoc-block="weather-history:73e5962f">
+<td><code>cursor</code></td>
+<td>string</td>
+<td>no</td>
+<td><code>page.next</code> from the previous page.</td>
+</tr>
+</tbody>
+</table>
+<p data-cudoc-block="weather-history:da925483">How far back <code>from</code> may reach depends on the plan's history retention; a range
+that starts earlier is answered with <code>400 range_too_wide</code> rather than being
+silently clipped. A range that spans more than 31 days at the <code>10m</code> step is
+rejected the same way; use <code>1h</code> or <code>1d</code> for long ranges.</p>
+<pre data-cudoc-block="weather-history:099c4da9"><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"station"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"OSL-01"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"step"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1h"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"rows"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">"observedAt"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"2026-09-21T00:00:00Z"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"temperature"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">9.8</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"temperatureMin"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">9.1</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"temperatureMax"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">10.4</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"windSpeed"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2.1</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"precipitation"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.0</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"page"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span> <span class="hljs-attr">"next"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"eyJvIjoiMjAyNi0wOS0yMVQwMTowMDowMFoifQ"</span> <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"units"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span> <span class="hljs-attr">"temperature"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"C"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"windSpeed"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"m/s"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"precipitation"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"mm"</span> <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span></code></pre>
 <h2 id="stations" data-cudoc-block="stations:1a00c58e">Station directory</h2>
 <p data-cudoc-block="stations:8ce4108f">Lists the stations a key may read, with their location and status.</p>
 <table>
@@ -131,11 +416,11 @@ carry <code>stale: true</code>.</p>
 </tr>
 </thead>
 <tbody>
-<tr data-cudoc-block="stations:efa38b27">
+<tr data-cudoc-block="stations:9fbbf1cc">
 <td><code>region</code></td>
 <td>string</td>
 <td>no</td>
-<td>An ISO 3166-2 code to narrow the list.</td>
+<td>An ISO 3166-2 code to narrow the list, such as <code>NO-03</code>.</td>
 </tr>
 <tr data-cudoc-block="stations:4c3ab8b6">
 <td><code>status</code></td>
@@ -143,5 +428,173 @@ carry <code>stale: true</code>.</p>
 <td>no</td>
 <td><code>active</code>, <code>maintenance</code> or <code>retired</code>.</td>
 </tr>
+<tr data-cudoc-block="stations:b1d8bdc8">
+<td><code>limit</code></td>
+<td>integer</td>
+<td>no</td>
+<td>Rows per page, 1 to 200, default 50.</td>
+</tr>
+<tr data-cudoc-block="stations:73e5962f">
+<td><code>cursor</code></td>
+<td>string</td>
+<td>no</td>
+<td><code>page.next</code> from the previous page.</td>
+</tr>
 </tbody>
-</table><footer>Northlight Weather API</footer></main><nav class="toc" aria-label="On this page"><p class="nav-title">On this page</p><ul><li data-depth="2"><a href="#weather-current">Current conditions</a></li><li data-depth="2"><a href="#forecast-hourly">Hourly forecast</a></li><li data-depth="2"><a href="#stations">Station directory</a></li></ul></nav></div><script defer src="../cudoc-annotations.js"></script></body></html>
+</table>
+<p data-cudoc-block="stations:226a52dd">Each row carries the code, the site name, coordinates, elevation, status and
+the instant of the last observation. Retired stations are included only when
+<code>status=retired</code> is asked for, so a client that lists stations sees them
+disappear rather than fail.</p>
+<pre data-cudoc-block="stations:5306a4b6"><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"stations"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">"code"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"OSL-01"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"site"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Oslo"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"latitude"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">59.9423</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"longitude"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">10.7203</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"elevation"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">94</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"status"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"active"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"lastObservedAt"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"2026-09-22T06:00:00Z"</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">"code"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"BGO-02"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"site"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Bergen"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"latitude"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">60.3982</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"longitude"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">5.3241</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"elevation"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">320</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"status"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"maintenance"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"lastObservedAt"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"2026-09-19T14:10:00Z"</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"page"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span> <span class="hljs-attr">"next"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">null</span></span> <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span></code></pre>
+<h2 id="station-detail" data-cudoc-block="station-detail:8ce755e4">Station detail</h2>
+<p data-cudoc-block="station-detail:9b67a71e">Returns one station's metadata, including its sensors and time zone.</p>
+<table>
+<thead>
+<tr data-cudoc-block="station-detail:77408873">
+<th>Method</th>
+<th>Path</th>
+<th>Auth</th>
+</tr>
+</thead>
+<tbody>
+<tr data-cudoc-block="station-detail:95985021">
+<td>GET</td>
+<td><code>/v1/stations/{code}</code></td>
+<td>Bearer</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr data-cudoc-block="station-detail:a03b04f8">
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th style="min-width: 18rem">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr data-cudoc-block="station-detail:55fd61d3">
+<td><code>code</code></td>
+<td>string</td>
+<td>yes</td>
+<td>The station code, in the path.</td>
+</tr>
+</tbody>
+</table>
+<p data-cudoc-block="station-detail:3ee50a40">The detail adds to the directory row the station's IANA time zone, its sensor
+list with the make and the installation date of each, the date it first
+reported and, for a retired station, the date it stopped. Metadata changes
+rarely; cache it for a day.</p>
+<table>
+<thead>
+<tr data-cudoc-block="station-detail:e0d1a980">
+<th>Field</th>
+<th>Type</th>
+<th style="min-width: 18rem">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr data-cudoc-block="station-detail:d31b2a2e">
+<td><code>timezone</code></td>
+<td>string</td>
+<td>IANA zone name, such as <code>Europe/Oslo</code>.</td>
+</tr>
+<tr data-cudoc-block="station-detail:6a9df43c">
+<td><code>sensors</code></td>
+<td>list</td>
+<td><ul>
+<li data-cudoc-block="station-detail:b314ae60"><code>temperature</code></li>
+<li data-cudoc-block="station-detail:9b58e681"><code>wind</code></li>
+<li data-cudoc-block="station-detail:ba3fb020"><code>humidity</code></li>
+<li data-cudoc-block="station-detail:b667446e"><code>pressure</code></li>
+<li data-cudoc-block="station-detail:029aa3da"><code>precipitation</code></li>
+</ul></td>
+</tr>
+<tr data-cudoc-block="station-detail:cc66eaef">
+<td><code>since</code></td>
+<td>string</td>
+<td>The date the station first reported.</td>
+</tr>
+<tr data-cudoc-block="station-detail:c4ac29fa">
+<td><code>retiredAt</code></td>
+<td>string</td>
+<td>Present only for a retired station.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="alerts" data-cudoc-block="alerts:1c1326e4">Weather alerts  <span class="cudoc-badge">Beta</span></h2>
+<p data-cudoc-block="alerts:34b4bef4">Lists active severe-weather alerts for a region, relayed from the national
+service.</p>
+<table>
+<thead>
+<tr data-cudoc-block="alerts:77408873">
+<th>Method</th>
+<th>Path</th>
+<th>Auth</th>
+</tr>
+</thead>
+<tbody>
+<tr data-cudoc-block="alerts:61448438">
+<td>GET</td>
+<td><code>/v1/alerts</code></td>
+<td>Bearer</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr data-cudoc-block="alerts:a03b04f8">
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th style="min-width: 18rem">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr data-cudoc-block="alerts:b40285da">
+<td><code>region</code></td>
+<td>string</td>
+<td>yes</td>
+<td>An ISO 3166-2 code.</td>
+</tr>
+<tr data-cudoc-block="alerts:7357e720">
+<td><code>severity</code></td>
+<td>string</td>
+<td>no</td>
+<td><code>yellow</code>, <code>orange</code> or <code>red</code>; lower levels are excluded.</td>
+</tr>
+</tbody>
+</table>
+<p data-cudoc-block="alerts:1b57d070">Each alert carries <code>event</code> (<code>wind</code>, <code>rain</code>, <code>snow</code>, <code>ice</code> or <code>flood</code>),
+<code>severity</code>, <code>onset</code>, <code>expires</code> and a <code>headline</code> in the region's language. The
+endpoint is in beta: its shape may change with thirty days' notice rather than
+ninety, and it is available on the Business and Enterprise plans.</p>
+<aside class="cudoc-callout cudoc-callout-caution" data-callout="caution" data-cudoc-block="alerts:49ec722d">
+<p class="cudoc-callout-title" data-cudoc-block="alerts:f3a71f3a">Not a warning service</p>
+<p data-cudoc-block="alerts:8de32ea7">Alerts are relayed with a delay of up to five minutes and may be withdrawn.
+Use them to annotate a forecast, not to trigger safety-critical actions.</p>
+</aside><footer>Northlight Weather API</footer></main><nav class="toc" aria-label="On this page"><p class="nav-title">On this page</p><ul><li data-depth="2"><a href="#weather-current">Current conditions</a></li><li data-depth="2"><a href="#forecast-hourly">Hourly forecast</a></li><li data-depth="2"><a href="#forecast-daily">Daily forecast</a></li><li data-depth="2"><a href="#weather-history">Observation history</a></li><li data-depth="2"><a href="#stations">Station directory</a></li><li data-depth="2"><a href="#station-detail">Station detail</a></li><li data-depth="2"><a href="#alerts">Weather alerts</a></li></ul></nav></div><script defer src="../cudoc-annotations.js"></script></body></html>

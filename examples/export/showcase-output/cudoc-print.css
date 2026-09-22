@@ -635,6 +635,10 @@ footer {
     overflow: visible;
     print-color-adjust: exact;
   }
+  pre code {
+    white-space: inherit;
+    overflow-wrap: inherit;
+  }
   .cudoc-callout,
   details {
     break-inside: auto;
@@ -766,6 +770,10 @@ pre {
   overflow: visible;
   print-color-adjust: exact;
 }
+pre code {
+  white-space: inherit;
+  overflow-wrap: inherit;
+}
 .cudoc-callout,
 details {
   break-inside: auto;
@@ -865,13 +873,6 @@ figcaption {
 }
 .cudoc-cover-image {
   background-image: url("cudoc-cover.png");
-}
-.cudoc-doc h1,
-.cudoc-doc h2 {
-  break-before: page;
-}
-.cudoc-doc > :first-child {
-  break-before: auto;
 }
 a[href^="http://"]::after,
 a[href^="https://"]::after {

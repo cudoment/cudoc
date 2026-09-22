@@ -1,11 +1,14 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;; connect-src &#x27;none&#x27;"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rate limits · Northlight Weather API</title><link rel="stylesheet" href="../cudoc.css"><link rel="stylesheet" href="../cudoc-annotations.css"><script src="../cudoc-theme.js"></script></head><body><a class="skip" href="#main-content">Skip to content</a><header><a href="../index.html">Northlight Weather API</a></header><div class="layout"><nav class="sidebar" aria-label="Documents"><p class="nav-title">Documents</p><ul><li><a href="../index.html">Northlight Weather API</a></li><li><a href="../getting-started.html">Getting started</a></li><li><a href="endpoints.html">Endpoint reference</a></li><li><a href="limits.html" aria-current="page">Rate limits</a></li><li><a href="errors.html">Error codes</a></li><li><a href="../release-notes.html">Release notes</a></li></ul></nav><main id="main-content" data-cudoc-document="reference/limits" data-cudoc-ast-hash="76e02fbb971ed68fdc74bc641fd3bf0283059b28c5f4853f1735f569d144763d" data-cudoc-source-hash="6b8c46d499071f4ff231a2173f2f3bc61f288fad73bdc62ea3f2722b84d7c1f9" data-cudoc-site="5e7dc36292808d20" data-cudoc-generator="cudoc-export 0.5.0"><h1 id="rate-limits" data-cudoc-block="rate-limits:6ed021f7">Rate limits</h1>
-<p data-cudoc-block="rate-limits:6a101da7">Limits protect the stations, which report on fixed schedules, from being asked
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;; connect-src &#x27;none&#x27;"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rate limits · Northlight Weather API</title><link rel="stylesheet" href="../cudoc.css"><link rel="stylesheet" href="../cudoc-annotations.css"><script src="../cudoc-theme.js"></script></head><body><a class="skip" href="#main-content">Skip to content</a><header><a href="../index.html">Northlight Weather API</a></header><div class="layout"><nav class="sidebar" aria-label="Documents"><p class="nav-title">Documents</p><ul><li><a href="../index.html">Northlight Weather API</a></li><li><a href="../getting-started.html">Getting started</a></li><li><a href="endpoints.html">Endpoint reference</a></li><li><a href="limits.html" aria-current="page">Rate limits</a></li><li><a href="errors.html">Error codes</a></li><li><a href="../release-notes.html">Release notes</a></li></ul></nav><main id="main-content" data-cudoc-document="reference/limits" data-cudoc-ast-hash="bd0b2da296b4c011dde1f7a20ef84ad172eecf19b5276e3276051844142c13f5" data-cudoc-source-hash="0522b491cab98a01a7e14f1975737b895cd3adbacd25c42d9e0f973189e3f522" data-cudoc-site="5e7dc36292808d20" data-cudoc-generator="cudoc-export 0.5.0"><h1 id="rate-limits" data-cudoc-block="rate-limits:6ed021f7">Rate limits</h1>
+<p data-cudoc-block="rate-limits:62036c9f">Limits protect the stations, which report on fixed schedules, from being asked
 the same question thousands of times a minute. They are generous for any client
-that respects the cache.</p>
+that respects the cache, and every response says where you stand, so a
+well-behaved client never has to guess.</p>
 <h2 id="windows" data-cudoc-block="windows:d598026a">Windows</h2>
-<p data-cudoc-block="windows:39bf0d05">Every plan shares one rule: a key may make 60 requests per rolling minute to
-<code>/v1/weather/current</code> and 600 per rolling hour across all endpoints. Both
-counters are reported on every response.</p>
+<p data-cudoc-block="windows:fb168545">Every plan shares one rule: a key has a rolling minute window on
+<code>/v1/weather/current</code> and a rolling hour window across all endpoints, the size
+of each depends on the plan, and both counters are reported on every response.
+A request that finds either window empty is answered with <code>429 rate_limited</code>
+and is not counted.</p>
 <table>
 <thead>
 <tr data-cudoc-block="windows:167c55ba">
@@ -28,12 +31,90 @@ counters are reported on every response.</p>
 </tr>
 </tbody>
 </table>
+<p data-cudoc-block="windows:2b0ac229">Windows are rolling, not aligned to the clock: a request made at 12:00:30
+leaves the minute window at 12:01:30. A <code>304</code> answer to a conditional request
+counts against neither window, and neither does a <code>429</code> or a <code>5xx</code>.</p>
 <h3 id="backoff" data-cudoc-block="backoff:f445870b">Backoff</h3>
-<p data-cudoc-block="backoff:a8aaa912">On a <code>429</code> or a <code>503</code>, wait for <code>Retry-After</code> when present, otherwise double the
-delay from one second up to thirty, and stop after five attempts.</p>
+<p data-cudoc-block="backoff:26862b24">On a <code>429</code> or a <code>503</code>, wait for <code>Retry-After</code> when present, otherwise double the
+delay from one second up to thirty, and stop after five attempts. Add a random
+fraction of a second to every delay so that several clients that failed
+together do not retry together.</p>
+<pre data-cudoc-block="backoff:a140c795"><code class="hljs language-js"><span class="hljs-keyword">async</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">withBackoff</span>(<span class="hljs-params">request, attempts = <span class="hljs-number">5</span></span>) {
+  <span class="hljs-keyword">let</span> delay = <span class="hljs-number">1000</span>
+  <span class="hljs-keyword">for</span> (<span class="hljs-keyword">let</span> attempt = <span class="hljs-number">1</span>; ; attempt++) {
+    <span class="hljs-keyword">const</span> response = <span class="hljs-keyword">await</span> <span class="hljs-title function_">request</span>()
+    <span class="hljs-keyword">if</span> (response.<span class="hljs-property">status</span> !== <span class="hljs-number">429</span> &#x26;&#x26; response.<span class="hljs-property">status</span> !== <span class="hljs-number">503</span>) <span class="hljs-keyword">return</span> response
+    <span class="hljs-keyword">if</span> (attempt === attempts) <span class="hljs-keyword">return</span> response
+    <span class="hljs-keyword">const</span> retryAfter = <span class="hljs-title class_">Number</span>(response.<span class="hljs-property">headers</span>.<span class="hljs-title function_">get</span>(<span class="hljs-string">"retry-after"</span>))
+    <span class="hljs-keyword">const</span> wait =
+      retryAfter > <span class="hljs-number">0</span> ? retryAfter * <span class="hljs-number">1000</span> : delay + <span class="hljs-title class_">Math</span>.<span class="hljs-title function_">random</span>() * <span class="hljs-number">1000</span>
+    <span class="hljs-keyword">await</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">Promise</span>(<span class="hljs-function">(<span class="hljs-params">resolve</span>) =></span> <span class="hljs-built_in">setTimeout</span>(resolve, wait))
+    delay = <span class="hljs-title class_">Math</span>.<span class="hljs-title function_">min</span>(delay * <span class="hljs-number">2</span>, <span class="hljs-number">30_000</span>)
+  }
+}</code></pre>
+<h3 id="caching" data-cudoc-block="caching:d211a4c2">Caching</h3>
+<p data-cudoc-block="caching:06f8907a">Current conditions are cached at the edge for sixty seconds, so a poll faster
+than that returns the same reading and spends the minute window for nothing.
+Forecasts are cached until the next model run, and history responses for a
+day. Every cached response carries an <code>ETag</code>; sending it back as
+<code>If-None-Match</code> turns an unchanged answer into a <code>304</code> that costs nothing.</p>
+<h2 id="costs" data-cudoc-block="costs:78dcefde">Request costs</h2>
+<p data-cudoc-block="costs:673548ec">Not every request weighs the same against the hour window. Heavier queries cost
+more, so a client that pages through history with small pages pays more than
+one that asks for large pages.</p>
+<table>
+<thead>
+<tr data-cudoc-block="costs:662cfc7c">
+<th>Endpoint</th>
+<th>Cost</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr data-cudoc-block="costs:af091c37">
+<td><a href="endpoints.html#weather-current">Current conditions</a></td>
+<td>1</td>
+<td>Also counted in the minute window.</td>
+</tr>
+<tr data-cudoc-block="costs:f57b811e">
+<td><a href="endpoints.html#forecast-hourly">Hourly forecast</a></td>
+<td>2</td>
+<td>Regardless of <code>hours</code> and <code>fields</code>.</td>
+</tr>
+<tr data-cudoc-block="costs:e2835c45">
+<td><a href="endpoints.html#forecast-daily">Daily forecast</a></td>
+<td>2</td>
+<td></td>
+</tr>
+<tr data-cudoc-block="costs:13e9e0de">
+<td><a href="endpoints.html#weather-history">Observation history</a></td>
+<td>5 per page</td>
+<td>A page of 1,000 rows costs the same as one of 10.</td>
+</tr>
+<tr data-cudoc-block="costs:4e132fdd">
+<td><a href="endpoints.html#stations">Station directory</a></td>
+<td>1 per page</td>
+<td></td>
+</tr>
+<tr data-cudoc-block="costs:b31dc0bf">
+<td><a href="endpoints.html#station-detail">Station detail</a></td>
+<td>1</td>
+<td>Cache it for a day.</td>
+</tr>
+<tr data-cudoc-block="costs:c07e8b74">
+<td><a href="endpoints.html#alerts">Weather alerts</a></td>
+<td>1</td>
+<td>Business and Enterprise plans.</td>
+</tr>
+</tbody>
+</table>
+<p data-cudoc-block="costs:fb7e4043"><code>X-Limit-Hour</code> reports the remaining hour budget in cost units, not in
+requests; <code>X-Limit-Minute</code> counts requests, since only one endpoint has a
+minute window.</p>
 <h2 id="plans" data-cudoc-block="plans:0b62982c">Plans compared</h2>
-<p data-cudoc-block="plans:3df03717">The table has seven columns, so the paginated outputs put it on a landscape page
-of its own.</p>
+<p data-cudoc-block="plans:e6296e24">The plans differ in window size, forecast horizon, history retention and
+support. The table has seven columns, so the paginated outputs put it on a
+landscape page of its own.</p>
 <table>
 <thead>
 <tr data-cudoc-block="plans:672bcf09">
@@ -85,13 +166,72 @@ of its own.</p>
 </tr>
 </tbody>
 </table>
+<p data-cudoc-block="plans:f1294765">Stations counts the distinct stations a project's keys may read, not the number
+of keys; a project may hold up to ten keys. The minute window applies per key,
+and the hour window applies to the project as a whole, so it is shared by every
+key the project holds.</p>
+<h3 id="changing-plans" data-cudoc-block="changing-plans:697bf6fe">Changing plans</h3>
+<p data-cudoc-block="changing-plans:3f9440da">An upgrade takes effect within a minute and widens the current windows in
+place, so a client that is being limited recovers without waiting for the hour
+to roll over. A downgrade takes effect at the end of the billing period. History
+older than the new retention stops being served at that point but is kept for
+thirty days, so a downgrade made by mistake can be reversed without loss.</p>
+<table>
+<thead>
+<tr data-cudoc-block="changing-plans:19721631">
+<th>Change</th>
+<th>Takes effect</th>
+<th>Windows</th>
+<th>History</th>
+</tr>
+</thead>
+<tbody>
+<tr data-cudoc-block="changing-plans:8934946b">
+<td>Upgrade</td>
+<td>Within a minute</td>
+<td>Widened in place</td>
+<td>Older history becomes available at once</td>
+</tr>
+<tr data-cudoc-block="changing-plans:5d77947a">
+<td>Downgrade</td>
+<td>End of the billing period</td>
+<td>Narrowed at the next hour window</td>
+<td>Kept for thirty days, then trimmed</td>
+</tr>
+<tr data-cudoc-block="changing-plans:fac61854">
+<td>Cancellation</td>
+<td>End of the billing period</td>
+<td>Live keys stop; test keys keep working</td>
+<td>Exportable for thirty days</td>
+</tr>
+</tbody>
+</table>
 <div class="cudoc-page-break" data-cudoc-break="page" hidden></div>
 <h2 id="measuring" data-cudoc-block="measuring:23429b54">Appendix: measuring your own usage</h2>
-<p data-cudoc-block="measuring:8b0d3021">Log the two limit headers with every response and chart the minimum per minute.
+<p data-cudoc-block="measuring:93cfe22c">Log the two limit headers with every response and chart the minimum per minute.
 A flat line near zero means a client is polling faster than the sixty-second
-cache refreshes; slow it down rather than raising the plan.</p>
-<aside class="cudoc-callout cudoc-callout-caution" data-callout="caution" data-cudoc-block="measuring:0ae503ae">
+cache refreshes; slow it down rather than raising the plan. One log line per
+response is enough:</p>
+<pre data-cudoc-block="measuring:2ed6d6d7"><code class="hljs language-text">2026-09-22T06:00:01Z GET /v1/weather/current station=OSL-01 status=200 minute=57 hour=5931 request=req_7f3a9c2e</code></pre>
+<p data-cudoc-block="measuring:24eaf0ff">A query over a day of such lines shows where the window runs lowest:</p>
+<pre data-cudoc-block="measuring:4bed2b1b"><code class="hljs language-sql"><span class="hljs-keyword">SELECT</span> date_trunc(<span class="hljs-string">'minute'</span>, <span class="hljs-keyword">at</span>) <span class="hljs-keyword">AS</span> <span class="hljs-keyword">minute</span>, <span class="hljs-built_in">min</span>(minute_left) <span class="hljs-keyword">AS</span> worst
+<span class="hljs-keyword">FROM</span> northlight_requests
+<span class="hljs-keyword">WHERE</span> <span class="hljs-keyword">at</span> <span class="hljs-operator">></span> now() <span class="hljs-operator">-</span> <span class="hljs-type">interval</span> <span class="hljs-string">'1 day'</span>
+<span class="hljs-keyword">GROUP</span> <span class="hljs-keyword">BY</span> <span class="hljs-number">1</span>
+<span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> worst
+LIMIT <span class="hljs-number">20</span>;</code></pre>
+<p data-cudoc-block="measuring:afaae865">Three patterns account for almost every limit incident:</p>
+<ul>
+<li data-cudoc-block="measuring:38aadb2c"><strong>Synchronized polling.</strong> Every instance of a service wakes on the same
+second. Offset instances by a few seconds each.</li>
+<li data-cudoc-block="measuring:ecb5d0b2"><strong>Retry storms.</strong> A <code>503</code> from one station is retried at once by every
+instance. Use the backoff above; the jitter is not optional.</li>
+<li data-cudoc-block="measuring:9fed0de3"><strong>Missing conditional requests.</strong> A poll that ignores <code>ETag</code> pays for every
+unchanged reading. Send <code>If-None-Match</code>.</li>
+</ul>
+<aside class="cudoc-callout cudoc-callout-caution" data-callout="caution" data-cudoc-block="measuring:5ad15fcf">
 <p class="cudoc-callout-title" data-cudoc-block="measuring:f801e008">Retired keys keep counting</p>
-<p data-cudoc-block="measuring:4f253eae">Requests made with a retired key are rejected but still counted against the
-project for one hour, so rotate keys during a quiet period.</p>
-</aside><footer>Northlight Weather API</footer></main><nav class="toc" aria-label="On this page"><p class="nav-title">On this page</p><ul><li data-depth="2"><a href="#windows">Windows</a></li><li data-depth="3"><a href="#backoff">Backoff</a></li><li data-depth="2"><a href="#plans">Plans compared</a></li><li data-depth="2"><a href="#measuring">Appendix: measuring your own usage</a></li></ul></nav></div><script defer src="../cudoc-annotations.js"></script></body></html>
+<p data-cudoc-block="measuring:38ce9f21">Requests made with a retired key are rejected but still counted against the
+project for one hour, so rotate keys during a quiet period and switch every
+consumer before the old key is revoked.</p>
+</aside><footer>Northlight Weather API</footer></main><nav class="toc" aria-label="On this page"><p class="nav-title">On this page</p><ul><li data-depth="2"><a href="#windows">Windows</a></li><li data-depth="3"><a href="#backoff">Backoff</a></li><li data-depth="3"><a href="#caching">Caching</a></li><li data-depth="2"><a href="#costs">Request costs</a></li><li data-depth="2"><a href="#plans">Plans compared</a></li><li data-depth="3"><a href="#changing-plans">Changing plans</a></li><li data-depth="2"><a href="#measuring">Appendix: measuring your own usage</a></li></ul></nav></div><script defer src="../cudoc-annotations.js"></script></body></html>

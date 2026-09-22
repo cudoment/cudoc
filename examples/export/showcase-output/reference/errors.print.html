@@ -1,7 +1,48 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Error codes · Northlight Weather API</title><link rel="stylesheet" href="../cudoc-print.css"></head><body class="cudoc-print"><div class="layout"><main id="main-content"><article class="cudoc-doc" id="cudoc-reference%2Ferrors" data-document="cudoc-reference%2Ferrors"><h1 id="errors">Error codes</h1>
-<p>Every error response carries a <code>code</code> from this table and a human-readable
-<code>message</code> that may change between releases; branch on the code, never on the
-message.</p>
+<p>Every error response has the same shape: an <code>error</code> object with a <code>code</code> from
+the table below, a human-readable <code>message</code> that may change between releases,
+the <code>requestId</code> of the failed request and, for validation errors, a <code>details</code>
+object naming the parameter. Branch on the code, never on the message.</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"error"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"code"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"parameter_invalid"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"message"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"hours must be an integer between 1 and 48"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"requestId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"req_7f3a9c2e"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"details"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span> <span class="hljs-attr">"parameter"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"hours"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"received"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"0"</span> <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span></code></pre>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th style="min-width: 18rem">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>code</code></td>
+<td>string</td>
+<td>One of the codes below. Stable; treat unknown codes as errors.</td>
+</tr>
+<tr>
+<td><code>message</code></td>
+<td>string</td>
+<td>For humans and logs. Not stable.</td>
+</tr>
+<tr>
+<td><code>requestId</code></td>
+<td>string</td>
+<td>Quote it to support. Also sent as the <code>X-Request-Id</code> header.</td>
+</tr>
+<tr>
+<td><code>details</code></td>
+<td>object</td>
+<td>Present on <code>400</code> errors; names the parameter and the value seen.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="all-codes">All codes</h2>
 <table>
 <thead>
 <tr>
@@ -13,21 +54,63 @@ message.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>station_unknown</code></td>
-<td>404</td>
-<td>No station has that code.</td>
+<td><code>parameter_missing</code></td>
+<td>400</td>
+<td>A required parameter is absent.</td>
 <td>No</td>
 </tr>
 <tr>
-<td><code>station_retired</code></td>
-<td>410</td>
-<td>The station stopped reporting permanently.</td>
+<td><code>parameter_invalid</code></td>
+<td>400</td>
+<td>A parameter has the wrong type or is out of range.</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>range_too_wide</code></td>
+<td>400</td>
+<td>A history range is too long for its step or starts before the retention.</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>key_invalid</code></td>
+<td>401</td>
+<td>The <code>Authorization</code> header is missing or malformed.</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>key_revoked</code></td>
+<td>401</td>
+<td>The key was revoked or rotated.</td>
 <td>No</td>
 </tr>
 <tr>
 <td><code>key_scope</code></td>
 <td>403</td>
 <td>The key's project does not cover the station.</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>plan_required</code></td>
+<td>403</td>
+<td>The endpoint or the horizon needs a higher plan.</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>station_unknown</code></td>
+<td>404</td>
+<td>No station has that code.</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>not_acceptable</code></td>
+<td>406</td>
+<td><code>Accept</code> names a representation other than JSON.</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>station_retired</code></td>
+<td>410</td>
+<td>The station stopped reporting permanently.</td>
 <td>No</td>
 </tr>
 <tr>
@@ -42,10 +125,63 @@ message.</p>
 <td>The station has not reported in time.</td>
 <td>With backoff</td>
 </tr>
+<tr>
+<td><code>maintenance</code></td>
+<td>503</td>
+<td>The API is being upgraded; announced in the release notes.</td>
+<td>After <code>Retry-After</code></td>
+</tr>
 </tbody>
 </table>
 <aside class="cudoc-callout cudoc-callout-note" data-callout="note">
 <p class="cudoc-callout-title">Retrying</p>
-<p>The backoff rule for <code>rate_limited</code> and <code>upstream_delayed</code> is in
-<a href="limits.pdf">Rate limits</a>.</p>
+<p>The backoff rule for <code>rate_limited</code>, <code>upstream_delayed</code> and <code>maintenance</code> is
+in <a href="limits.pdf">Rate limits</a>. No <code>4xx</code> other than <code>429</code> is worth
+retrying without changing the request.</p>
+</aside>
+<h2 id="request-errors">Request errors</h2>
+<p>A <code>400</code> describes a request that can be corrected before it is sent again. The
+<code>details</code> object names the parameter and repeats the value the server saw, so
+nothing has to be parsed out of the message. Validate ranges before sending:
+<code>hours</code> is 1 to 48, <code>days</code> 1 to 7, <code>limit</code> 1 to 1,000 for history and 1 to 200
+for the directory, and <code>step</code> is one of <code>10m</code>, <code>1h</code> and <code>1d</code>.</p>
+<p><code>range_too_wide</code> is the one <code>400</code> that depends on the plan. It is returned when
+<code>from</code> is earlier than the plan's history retention allows, and when a range at
+the <code>10m</code> step spans more than 31 days. The <code>details</code> object carries
+<code>earliest</code>, the first instant the plan can serve, so a client can clamp its
+range and retry once.</p>
+<h2 id="authorization-errors">Authorization errors</h2>
+<p>A <code>401</code> means the key itself was not accepted. <code>key_invalid</code> is almost always a
+formatting problem: a missing <code>Bearer</code> prefix, a key pasted with a trailing
+newline from a secrets file, or a test key sent to a live station. <code>key_revoked</code>
+follows a rotation or a revocation and is permanent for that key; deploy the
+new key everywhere before revoking the old one.</p>
+<p>A <code>403</code> means the key is fine but the request is not. <code>key_scope</code> says the
+station is not in the key's project; add it in the console rather than creating
+a second project. <code>plan_required</code> says the endpoint or the horizon is not in
+the plan, and its <code>details.plan</code> names the lowest plan that allows it.</p>
+<h2 id="availability-errors">Availability errors</h2>
+<p>A <code>503</code> is temporary by definition. <code>upstream_delayed</code> means the station has
+been silent for more than six hours; the station directory shows the same in
+<code>lastObservedAt</code>, and the station usually returns within a day. <code>maintenance</code>
+is rare and announced in the <a href="../release-notes.pdf">release notes</a>
+beforehand, and it always carries <code>Retry-After</code>.</p>
+<p>A client that sorts codes into three groups covers every case:</p>
+<pre><code class="hljs language-js"><span class="hljs-keyword">switch</span> (body.<span class="hljs-property">error</span>?.<span class="hljs-property">code</span>) {
+  <span class="hljs-keyword">case</span> <span class="hljs-string">"rate_limited"</span>:
+  <span class="hljs-keyword">case</span> <span class="hljs-string">"upstream_delayed"</span>:
+  <span class="hljs-keyword">case</span> <span class="hljs-string">"maintenance"</span>:
+    <span class="hljs-keyword">return</span> <span class="hljs-title function_">retryLater</span>(response)
+  <span class="hljs-keyword">case</span> <span class="hljs-string">"station_retired"</span>:
+    <span class="hljs-keyword">return</span> <span class="hljs-title function_">removeStation</span>(station)
+  <span class="hljs-keyword">case</span> <span class="hljs-string">"key_revoked"</span>:
+    <span class="hljs-keyword">return</span> <span class="hljs-title function_">alertOperators</span>(<span class="hljs-string">"Northlight key revoked"</span>)
+  <span class="hljs-attr">default</span>:
+    <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">Error</span>(<span class="hljs-string">`<span class="hljs-subst">${body.error.code}</span>: <span class="hljs-subst">${body.error.message}</span>`</span>)
+}</code></pre>
+<aside class="cudoc-callout cudoc-callout-tip" data-callout="tip">
+<p class="cudoc-callout-title">Exercise every branch</p>
+<p>The synthetic station <code>TEST-01</code> accepts a <code>simulate</code> parameter naming any
+code in the table, so every branch of your error handling can be tested
+without waiting for the real thing.</p>
 </aside></article></main></div></body></html>
