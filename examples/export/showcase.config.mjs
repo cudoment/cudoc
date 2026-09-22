@@ -32,8 +32,18 @@ export default {
       split: { minItems: 4, columns: 2 },
     },
   ],
-  // Parameter tables keep their description column readable in every format.
-  tableColumnWidths: [{ widths: { Description: "18rem", Meaning: "16rem" } }],
+  // Parameter tables keep their description column readable in every format,
+  // and date columns do not wrap.
+  tableColumnWidths: [
+    {
+      widths: {
+        Description: "18rem",
+        Meaning: "16rem",
+        Announced: "8rem",
+        Effective: "8rem",
+      },
+    },
+  ],
   tokens: {
     colors: {
       light: { accent: "#155e75", accentSoft: "#e0f2fe" },
@@ -52,7 +62,6 @@ export default {
     footer: { center: "{page} / {pages}" },
     // A fixed date keeps the output identical from one build to the next.
     date: "2026-09-22",
-    breakBefore: 2,
     linkUrls: true,
     wideTables: { minColumns: 6 },
   },
