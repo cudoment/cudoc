@@ -286,12 +286,11 @@
 }
 
 /* Push placement: while the panel is open the page keeps clear of it, so
-   the sidebar and contents column stay visible instead of being covered. */
+   the sidebar and contents column stay visible instead of being covered.
+   The header is in the body's flow, so this one padding narrows it too and
+   its right-aligned controls move by exactly the panel's width. */
 html.cudoc-ann-push body {
   padding-right: 22rem;
-}
-html.cudoc-ann-push header {
-  padding-right: calc(var(--space-6) + 22rem);
 }
 
 /* Notices. */
@@ -513,9 +512,6 @@ html.cudoc-ann-push header {
   /* Too narrow to share: the panel covers the page whatever the setting. */
   html.cudoc-ann-push body {
     padding-right: 0;
-  }
-  html.cudoc-ann-push header {
-    padding-right: var(--space-6);
   }
 }
 

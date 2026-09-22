@@ -558,9 +558,10 @@ local path. The panel's strings are English by default; a selector in its
 header switches to Korean, and the document's own `lang` is not consulted. A
 second header button chooses the panel's placement: _Narrow the page_, the
 default, sets the class `cudoc-ann-push` on `html` while the panel is open,
-which pads `body` and `header` on the right by the panel's width (22rem) so
-the sidebar and contents stay visible; _Cover the page_ lays the panel over
-them. Below 768px the panel always covers the page. Language, placement and
+which pads `body` on the right by the panel's width (22rem) so the sidebar
+and contents stay visible; the header sits in the body's flow, so it narrows
+by that width too and its right-aligned controls move exactly that far.
+_Cover the page_ lays the panel over them. Below 768px the panel always covers the page. Language, placement and
 name are remembered per browser under `cudoc-annotations:lang`, `:layout`
 and `:author`.
 `window.cudocAnnotations` exposes `create(exact, text)`,
