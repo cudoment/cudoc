@@ -46,9 +46,22 @@ export function hostedRoute(route: string, base: URL): string {
   ).href
 }
 
+/**
+ * A URL component decoded, or as written when a `%` in it is not an escape:
+ * `100%.md` is then looked up as it stands and reported with its document,
+ * instead of ending the export with a bare `URIError`.
+ */
+export const decodeComponent = (value: string): string => {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}
+
 export function createTargets(library: Library, base?: URL) {
   const key = (value: string) =>
-    decodeURIComponent(value).replace(/\/$/, "") || "/"
+    decodeComponent(value).replace(/\/$/, "") || "/"
   const routes = new Map(library.documents.map((doc) => [key(doc.route), doc]))
   const documents = new Map(library.documents.map((doc) => [doc.id, doc]))
   const withoutBase = (pathname: string) => {
@@ -62,7 +75,7 @@ export function createTargets(library: Library, base?: URL) {
     find(url: string, from: StoredDocument) {
       const [, pathname, suffix] = url.match(/^([^?#]*)(.*)$/)!
       if (!pathname) return { document: from, suffix }
-      const decoded = decodeURIComponent(pathname)
+      const decoded = decodeComponent(pathname)
       const sourcePath = path.posix.normalize(
         decoded.startsWith("/")
           ? decoded.slice(1)
@@ -75,8 +88,16 @@ export function createTargets(library: Library, base?: URL) {
         routes.get(
           key(withoutBase(pathname.startsWith("/") ? pathname : routePath)),
         )
-      const id = sourcePath.replace(/\.(?:mdx?|html)$/i, "").replace(/\/$/, "")
-      const bySource = documents.get(id) ?? documents.get(`${id}/index`)
+      const id = sourcePath
+        .replace(/\.(?:mdx?|html)$/i, "")
+        .replace(/\/$/, "")
+        .replace(/^\.$/, "")
+      const index = documents.get(id ? `${id}/index` : "index")
+      // A directory spelled as one, `guide/`, `./` or `..`, names its index
+      // document even beside a `guide.md`, as `cudoc check` reads it.
+      const bySource = /(?:^|\/)(?:\.\.?)?$/.test(decoded)
+        ? (index ?? documents.get(id))
+        : (documents.get(id) ?? index)
       // Markdown references name source files; extensionless/native URLs name routes.
       return {
         document: /\.mdx?$/i.test(pathname)
@@ -88,11 +109,18 @@ export function createTargets(library: Library, base?: URL) {
   }
 }
 
+/**
+ * A rewritten link: the destination alone, or with attributes for the element
+ * that carries it, such as the address a printed link shows beside its text.
+ */
+export type RewrittenLink =
+  string | { href: string; attributes: Record<string, string> }
+
 /** Apply to the complete page, including generated navigation and raw HTML. */
 export function rewritePageLinks(
   tree: Root,
   mode: SiteLinkMode,
-  rewrite: (url: string) => string,
+  rewrite: (url: string) => RewrittenLink,
 ): void {
   const walk = (node: Root | RootContent) => {
     if (node.type === "element" && ["a", "area"].includes(node.tagName)) {
@@ -114,8 +142,13 @@ export function rewritePageLinks(
       } else {
         for (const key of ["href", "xLinkHref"]) {
           const url = node.properties[key]
-          if (typeof url === "string" && !externalUrl(url))
-            node.properties[key] = rewrite(url)
+          if (typeof url !== "string" || externalUrl(url)) continue
+          const rewritten = rewrite(url)
+          if (typeof rewritten === "string") node.properties[key] = rewritten
+          else {
+            node.properties[key] = rewritten.href
+            Object.assign(node.properties, rewritten.attributes)
+          }
         }
       }
     }

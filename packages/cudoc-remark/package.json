@@ -1,7 +1,7 @@
 {
   "name": "cudoc-remark",
-  "version": "0.5.0",
-  "description": "Remark plugin for cudoc: heading anchors, badges, table cell lists and table column layout, each configurable.",
+  "version": "0.6.0",
+  "description": "Remark plugins for cudoc: syntax normalization, heading anchors, badges, callouts, table cell lists and layout, prepared embeds and the library loader.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -67,7 +67,8 @@
     "./loader": {
       "types": "./dist/loader.d.ts",
       "default": "./dist/loader.js"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist",
@@ -82,27 +83,22 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "@cudoment/cudoc": "0.5.0",
+    "@types/mdast": "^4.0.4",
+    "@cudoment/cudoc": "0.6.0",
     "estree-util-value-to-estree": "^3.5.0",
     "mdast-util-mdx-jsx": "^3.2.0",
-    "remark-gfm": "^4.0.1",
-    "remark-mdx": "^3.1.0",
-    "remark-parse": "^11.0.0",
     "unified": "^11.0.5",
     "unist-util-visit": "^5.0.0",
     "remark-directive": "^4.0.0",
     "acorn": "^8.15.0",
     "acorn-jsx": "^5.3.2",
-    "remark-frontmatter": "^5.0.0"
+    "remark-frontmatter": "^5.0.0",
+    "vfile": "^6.0.3"
   },
   "peerDependencies": {
-    "@types/mdast": "^4.0.4",
     "react": "^18.0.0 || ^19.0.0"
   },
   "peerDependenciesMeta": {
-    "@types/mdast": {
-      "optional": true
-    },
     "react": {
       "optional": true
     }

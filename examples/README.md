@@ -31,13 +31,19 @@ npm run dev
 | [eleventy](./eleventy/eleventy.config.mjs)          | Eleventy              | `npm run build` | `npx eleventy --serve`                   | `/portable/`         |
 | [export](./export/package.json)                     | Standalone HTML       | `npm run build` | Open `site/index.html`                   | `site/portable.html` |
 
-Commands in the table run inside the corresponding example directory after `npm ci`. Next.js also provides `dev:webpack` and `build:webpack`. Package manifests and lockfiles define the dependency versions; check those when upgrading a host. Each lockfile also records the linked workspace packages, their version and their dependencies, as npm saw them when it was written, so after a version bump or a dependency change under `packages/` run `npm run lock:examples` from the repository root to rewrite them without installing anything; `npm run test:examples` fails while they disagree.
+Commands in the table run inside the corresponding example directory after `npm ci`. Next.js also provides `dev:webpack` and `build:webpack`. Package manifests and lockfiles define the dependency versions; check those when upgrading a host. The locked host releases are the ones the [supported versions](../docs/README.md#supported-versions) table names. Where a host's own dependency tree carries a published advisory and a fixed release builds the example as before, the lockfile takes that release, pinned under `overrides` where the host's own range does not reach it: the Docusaurus example pins `serialize-javascript` and `uuid` (11.1.1, the fixed release whose CommonJS entry still serves `sockjs`'s one `v4()` call in `webpack-dev-server`), the Nextra example `@xmldom/xmldom` and `postcss`, and the Eleventy example depends on `markdown-it` 14.3.2. The [Docusaurus](../docs/docusaurus.md#step-1--install) and [Nextra](../docs/nextra.md#step-1--install) guides give readers the same pins, and the guide check fails when a site built from a guide reports an advisory its example does not. `npm audit` reports nothing in the Next.js, Docusaurus, Nextra, Eleventy and export examples. What it still reports in the VitePress example has no fixed release the host accepts, and concerns only the development server, never the built site:
+
+| Example   | Advisories                                                                                                                                                                                                                                                                                                                                                                                                                     | Why it stays                                                        |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| VitePress | [GHSA-fx2h-pf6j-xcff](https://github.com/advisories/GHSA-fx2h-pf6j-xcff) (high, `server.fs.deny` bypass on Windows), [GHSA-4w7w-66w2-5vf9](https://github.com/advisories/GHSA-4w7w-66w2-5vf9) and [GHSA-v6wh-96g9-6wx3](https://github.com/advisories/GHSA-v6wh-96g9-6wx3) in Vite 5.4.21, and [GHSA-67mh-4wv8-2f99](https://github.com/advisories/GHSA-67mh-4wv8-2f99) in esbuild 0.21.5, all reached through `vitepress dev` | VitePress 1.6.4 depends on Vite 5, and no Vite 5 release fixes them |
+
+Run `npm audit` in each example before a release; a finding not in this table is fixed first if a compatible release exists, and added here with its reason if none does. Each lockfile also records the linked workspace packages, their version and their dependencies, as npm saw them when it was written, so after a version bump or a dependency change under `packages/` run `npm run lock:examples` from the repository root to rewrite them without installing anything; `npm run test:examples` fails while they disagree.
 
 Each build synchronizes shared fixtures and collects documents before rendering. Edit [fixtures](./fixtures/portable.md), not the generated copies under each example's docs/content directory. Rebuild after editing fixtures. The HTML example can be shared by copying its entire `site/` directory.
 
 ## Export showcase
 
-[`export/showcase/`](./export/showcase/) is a six-document handbook for a fictional weather API, and [`export/showcase.config.mjs`](./export/showcase.config.mjs) exports it as a site, per-document PDF and Word files and a bound volume with a cover and contents page into [`export/showcase-output/`](./export/showcase-output/), which is committed so the output can be opened without building anything. `npm run showcase` inside `export/` rebuilds it, and `tests/scripts/export-showcase.mjs` checks that the committed copy matches the current packages. [The export guide](../docs/export.md#a-complete-example) walks through what it demonstrates.
+[`export/showcase/`](./export/showcase/) is a six-document handbook for a fictional weather API, and [`export/showcase.config.mjs`](./export/showcase.config.mjs) exports it as a site, per-document PDF and Word files and a bound volume with a cover and contents page into [`export/showcase-output/`](./export/showcase-output/), which is committed so the output can be opened without building anything. `npm run showcase` inside `export/` rebuilds it, and `tests/scripts/export-showcase.mjs` checks that the committed copy matches the current packages. [`pages.yml`](../.github/workflows/pages.yml) publishes the committed directory to GitHub Pages as it is, whenever it changes on main, once the repository's Pages source is set to GitHub Actions. [The export guide](../docs/export.md#a-complete-example) walks through what it demonstrates.
 
 ## Collection integrations
 
@@ -50,7 +56,7 @@ Each build synchronizes shared fixtures and collects documents before rendering.
 | Eleventy   | [collect.mjs](./eleventy/collect.mjs), the renderer shared with the site    |
 | Export     | Collection is part of `cudoc-export build`                                  |
 
-When adapting a collector, match syntax, plugins and routes to the rendering configuration and change `compilerId` after relevant changes. Internal Docusaurus processor imports are version-specific. Preparation must finish before a host attempts to render an embed.
+Every collector calls `collectDocuments` from `@cudoment/cudoc/node/watch`, which writes the library and the prepared embeds in one step, so a failed collection leaves the previous pair in place. The Next.js, Docusaurus and Nextra collectors also read [`fixtures/cudoc-options.mjs`](./fixtures/cudoc-options.mjs), which exists only in this repository so that every example is given the same options; to set up a site of your own, follow the [host guide](../docs/README.md#set-up-your-site), which shows every file it needs. When adapting a collector, match syntax, plugins and routes to the rendering configuration and change `compilerId` after relevant changes; the Docusaurus and Nextra collectors keep their document options in one `documentOptions` object that they give both to `collectDocuments` and to the host's remark plugins. Internal Docusaurus processor imports are version-specific. Collection must finish before a host attempts to render an embed.
 
 ## Export HTML from a host example
 
@@ -69,7 +75,8 @@ The existing host build and library stay unchanged. Use `--links relative` for l
 
 Every check is a test. `npm test` runs three tiers, and a tier whose
 prerequisite is missing reports skipped cases with the command that satisfies
-it, so a fresh clone still finishes with a meaningful result.
+it, so a fresh clone still finishes with a meaningful result. With
+`CUDOC_STRICT=1` set, any skipped case fails the run instead.
 
 | Tier                                          | Needs              | Command                 | What it asserts                                                                                                                                                |
 | --------------------------------------------- | ------------------ | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -97,11 +104,13 @@ in a shared fixture because each host spells it differently, so
 [native.test.ts](../tests/integration/native.test.ts) composes that half per
 host.
 
-The tiers are described in [`tests/README.md`](../tests/README.md). Three
+The tiers are described in [`tests/README.md`](../tests/README.md). Five
 further checks live in [`tests/scripts/`](../tests/scripts/README.md)
-rather than in the runner, because two of them rewrite a fixture that every
-example shares and the third packs and installs every package. Run them in
-sequence, or run everything at once:
+rather than in the runner: two of them rewrite a fixture that every example
+shares, the third packs and installs every package, the fourth follows each
+host guide in a new project, and the fifth rebuilds the committed export
+showcase and compares it with the committed copy. Run
+them in sequence, or run everything at once:
 
 ```sh
 npm run test:scripts

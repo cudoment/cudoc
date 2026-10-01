@@ -29,7 +29,8 @@ it("builds and relocates a complete site with relative links and assets", () => 
     fs.renameSync(outDir, moved)
     const html = fs.readFileSync(path.join(moved, "guide/setup.html"), "utf8")
     expect(html).toContain('href="../index.html"')
-    expect(html).toContain('src="../local image.svg"')
+    // Written as a URL: the file name's space is escaped.
+    expect(html).toContain('src="../local%20image.svg"')
     expect(html).toContain('data-callout="warning"')
     expect(html).toContain('class="hljs-keyword"')
     expect(fs.existsSync(path.join(moved, "local image.svg"))).toBe(true)
@@ -238,6 +239,39 @@ it("preserves trailing-slash routes and already-deployed route prefixes", () => 
   )
 })
 
+it("links a directory to its index document beside a document of its name", () => {
+  // `cudoc check` and embeds read `guide/`, `./guide/` and `..` as the
+  // directory; the exported page has to link where they said it would.
+  const p = project({
+    "guide.md": "# Guide\n\n## G (#g)",
+    "guide/index.md": "# Index\n\n## I (#i)",
+    "guide/sub/page.md": "# Page\n\n[up](..#i) [same](../#i)",
+    "reference.md": "# Reference\n\n[index](./guide/#i) [guide](./guide#g)",
+  })
+  buildDocuments({
+    sourceRoot: p.sourceRoot,
+    outDir: p.library,
+    routeSuffix: ".html",
+  })
+  buildSite({
+    sourceRoot: p.sourceRoot,
+    library: p.library,
+    outDir: p.outDir,
+    links: "relative",
+  })
+  const hrefs = (file: string) =>
+    parse(fs.readFileSync(path.join(p.outDir, file), "utf8"))
+      .querySelectorAll("main a")
+      .map((a) => a.getAttribute("href"))
+  expect(hrefs("reference.html")).toEqual(
+    expect.arrayContaining(["guide/index.html#i", "guide.html#g"]),
+  )
+  expect(hrefs("guide/sub/page.html")).toEqual(
+    expect.arrayContaining(["../index.html#i", "../index.html#i"]),
+  )
+  expect(hrefs("guide/sub/page.html")).not.toContain("../../guide.html#i")
+})
+
 it.each(["relative", "host"] as const)(
   "keeps generated navigation independent of overlapping native URLs in %s mode",
   (links) => {
@@ -414,4 +448,184 @@ it("refuses a public link into a private document unless the host serves it", ()
     'href="https://docs.example.com/internal/notes#notes"',
   )
   expect(fs.existsSync(path.join(p.outDir, "internal/notes.html"))).toBe(false)
+})
+
+it("ignores an empty srcset candidate a trailing comma leaves", () => {
+  // Browsers skip the empty candidate; resolving it would name the document's
+  // own directory and stop the export.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cudoc-export-"))
+  try {
+    const sourceRoot = path.join(root, "docs"),
+      outDir = path.join(root, "site")
+    fs.mkdirSync(path.join(sourceRoot, "media"), { recursive: true })
+    fs.writeFileSync(path.join(sourceRoot, "media/a.png"), "a")
+    fs.writeFileSync(
+      path.join(sourceRoot, "page.md"),
+      '# Page\n\n<img src="media/a.png" srcset="media/a.png 1x," alt="">\n',
+    )
+    buildSite({ sourceRoot, outDir, libraryDir: path.join(root, "library") })
+    expect(fs.readFileSync(path.join(outDir, "page.html"), "utf8")).toContain(
+      'srcset="media/a.png 1x"',
+    )
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+})
+
+it("keeps a data URL in srcset whole, commas and all", () => {
+  // A candidate's URL runs to the next white space, so the comma inside a
+  // data URL is part of it rather than the end of a candidate.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cudoc-export-"))
+  try {
+    const sourceRoot = path.join(root, "docs"),
+      outDir = path.join(root, "site")
+    fs.mkdirSync(path.join(sourceRoot, "guide/media"), { recursive: true })
+    fs.writeFileSync(path.join(sourceRoot, "guide/media/a.png"), "a")
+    // Only ASCII white space ends a URL; an ideographic space is part of it.
+    fs.writeFileSync(path.join(sourceRoot, "guide/media/b　c.png"), "b")
+    fs.writeFileSync(
+      path.join(sourceRoot, "guide/page.md"),
+      '# Page\n\n<img srcset="data:image/svg+xml,%3Csvg%3E%3C/svg%3E 1x, media/a.png 2x" alt="icon">\n\n<img srcset="media/b　c.png 3x" alt="wide">\n',
+    )
+    buildSite({ sourceRoot, outDir, libraryDir: path.join(root, "library") })
+    expect(
+      fs.readFileSync(path.join(outDir, "guide/page.html"), "utf8"),
+    ).toContain(
+      'srcset="data:image/svg+xml,%3Csvg%3E%3C/svg%3E 1x, media/a.png 2x"',
+    )
+    // The local candidates are still copied and re-expressed per output.
+    expect(fs.existsSync(path.join(outDir, "guide/media/a.png"))).toBe(true)
+    expect(fs.existsSync(path.join(outDir, "guide/media/b　c.png"))).toBe(true)
+    expect(
+      fs.readFileSync(path.join(outDir, "volume.print.html"), "utf8"),
+    ).toContain(
+      'srcset="data:image/svg+xml,%3Csvg%3E%3C/svg%3E 1x, guide/media/a.png 2x"',
+    )
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+})
+
+it("copies the resources an embedded section loads, from the page that embeds it", () => {
+  // Raw HTML copied into another directory's page names its resources from
+  // the directory it was written in; each attribute that loads one is moved.
+  const p = project({
+    "guide/page.md": [
+      "# Page",
+      "",
+      '<img src="media/b.png" srcset="media/a%20b.png 1x, media/b.png 2x" alt="">',
+      "",
+      '<video src="media/clip.mp4" poster="media/poster.png"></video>',
+      "",
+      '<object data="media/chart.svg" type="image/svg+xml"></object>',
+      "",
+      '<svg viewBox="0 0 1 1"><image xlink:href="media/icon.png" width="1" height="1"/></svg>',
+      "",
+    ].join("\n"),
+    "index.md": "# Home\n\n```cudoc-embed\nsources: [guide/page.md]\n```\n",
+  })
+  fs.mkdirSync(path.join(p.sourceRoot, "guide/media"), { recursive: true })
+  for (const name of [
+    "a b.png",
+    "b.png",
+    "poster.png",
+    "clip.mp4",
+    "chart.svg",
+    "icon.png",
+  ])
+    fs.writeFileSync(path.join(p.sourceRoot, "guide/media", name), name)
+  buildSite({
+    sourceRoot: p.sourceRoot,
+    outDir: p.outDir,
+    libraryDir: p.library,
+  })
+  const html = fs.readFileSync(path.join(p.outDir, "index.html"), "utf8")
+  // A file name with a space is written as a URL, or `srcset` splits it.
+  expect(html).toContain(
+    'srcset="guide/media/a%20b.png 1x, guide/media/b.png 2x"',
+  )
+  expect(html).toContain('poster="guide/media/poster.png"')
+  expect(html).toContain('data="guide/media/chart.svg"')
+  expect(html).toContain('xlink:href="guide/media/icon.png"')
+  expect(
+    fs.readFileSync(path.join(p.outDir, "guide/page.html"), "utf8"),
+  ).toContain('srcset="media/a%20b.png 1x, media/b.png 2x"')
+  expect(fs.existsSync(path.join(p.outDir, "guide/media/a b.png"))).toBe(true)
+})
+
+it("copies every resource an element loads, under every hyperlink policy", () => {
+  for (const links of ["relative", "none"] as const) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "cudoc-export-"))
+    try {
+      const sourceRoot = path.join(root, "docs"),
+        outDir = path.join(root, "site")
+      fs.mkdirSync(path.join(sourceRoot, "guide/media"), { recursive: true })
+      for (const name of [
+        "a.png",
+        "b.png",
+        "poster.png",
+        "clip.mp4",
+        "chart.svg",
+        "icon.png",
+      ])
+        fs.writeFileSync(path.join(sourceRoot, "guide/media", name), name)
+      fs.writeFileSync(
+        path.join(sourceRoot, "guide/page.md"),
+        [
+          "# Page",
+          "",
+          '<img src="media/a.png" srcset="media/a.png 1x, media/b.png 2x, https://cdn.example.com/c.png 3x" alt="">',
+          "",
+          '<video src="media/clip.mp4" poster="media/poster.png"></video>',
+          "",
+          '<object data="media/chart.svg" type="image/svg+xml"></object>',
+          "",
+          '<svg viewBox="0 0 1 1"><image href="media/icon.png" width="1" height="1"/></svg>',
+          "",
+        ].join("\n"),
+      )
+      buildSite({
+        sourceRoot,
+        outDir,
+        links,
+        libraryDir: path.join(root, "library"),
+      })
+      for (const name of [
+        "a.png",
+        "b.png",
+        "poster.png",
+        "clip.mp4",
+        "chart.svg",
+        "icon.png",
+      ])
+        expect(
+          fs.existsSync(path.join(outDir, "guide/media", name)),
+          name,
+        ).toBe(true)
+      const html = fs.readFileSync(path.join(outDir, "guide/page.html"), "utf8")
+      // A candidate on another host is left as written, in every output.
+      expect(html).toContain(
+        'srcset="media/a.png 1x, media/b.png 2x, https://cdn.example.com/c.png 3x"',
+      )
+      expect(html).toContain('poster="media/poster.png"')
+      expect(html).toContain('data="media/chart.svg"')
+      expect(html).toContain('href="media/icon.png"')
+      // The volume sits at the root, so its paths are the root-relative ones.
+      const volume = fs.readFileSync(
+        path.join(outDir, "volume.print.html"),
+        "utf8",
+      )
+      expect(volume).toContain(
+        'srcset="guide/media/a.png 1x, guide/media/b.png 2x, https://cdn.example.com/c.png 3x"',
+      )
+      expect(
+        fs.readFileSync(path.join(outDir, "guide/page.print.html"), "utf8"),
+      ).toContain(
+        'srcset="media/a.png 1x, media/b.png 2x, https://cdn.example.com/c.png 3x"',
+      )
+      expect(volume).toContain('poster="guide/media/poster.png"')
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  }
 })

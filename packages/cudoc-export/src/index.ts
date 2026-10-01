@@ -11,12 +11,14 @@ import {
   buildDocuments,
   loadLibrary,
   resolveRoots,
+  sourceFileOf,
   type SourceRoot,
   type StoredDocument,
 } from "@cudoment/cudoc/node/library"
 import { resolveDocumentEmbeds } from "@cudoment/cudoc/node/resolve-embed"
 import {
   isExternalPath,
+  parseSrcSet,
   resolveLocalTarget,
 } from "@cudoment/cudoc/node/local-target"
 import { renderDocument, type RenderOptions } from "@cudoment/cudoc/render"
@@ -29,10 +31,12 @@ import {
 } from "@cudoment/cudoc/node/storage"
 import {
   createTargets,
+  decodeComponent,
   deploymentUrl,
   hostedRoute,
   rewritePageLinks,
   externalUrl,
+  type RewrittenLink,
   type SiteLinkMode,
 } from "./links.js"
 import { preparedDocument } from "./library.js"
@@ -49,6 +53,8 @@ import {
 import {
   PRINT_STYLESHEET,
   localizeAssets,
+  srcSetCandidate,
+  urlPath,
   printFileName,
   resolveVolumeOptions,
   volumeId,
@@ -109,12 +115,28 @@ export {
   resolvePageGeometry,
   resolvePageOptions,
   type PageGeometry,
+  type PageLength,
   type PageOptions,
   type ResolvedGeometry,
   type ResolvedPageOptions,
   type RunningText,
 } from "./design/page.js"
 export type { SiteLinkMode } from "./links.js"
+
+/**
+ * The attributes that load a rendering resource, by element: an image, a
+ * video's poster, an embedded object, a stylesheet, an SVG image. Hyperlinks
+ * are not among them; the link policy owns those.
+ */
+const assetAttributes = (tagName: string): string[] => [
+  "src",
+  ...(tagName === "video" ? ["poster"] : []),
+  ...(tagName === "object" ? ["data"] : []),
+  ...(tagName === "link" ? ["href"] : []),
+  ...(["image", "use", "feImage"].includes(tagName)
+    ? ["href", "xLinkHref"]
+    : []),
+]
 
 export type SiteOptions = DocumentOptions & {
   /** One directory at the top of the library; the shorthand for `roots: [{ dir }]`. */
@@ -303,6 +325,32 @@ export function buildSite({
   // Private documents stay in the library, so an embed can still copy from
   // one, and are absent from everything the site is made of.
   const exported = library.documents.filter((doc) => !doc.private)
+  // A private document's file, by what the file system says it is, so a
+  // resource reaching it through an `assetDirs` directory, a symbolic link or
+  // another spelling of its name still names it.
+  const fileIdentity = (file: string) => {
+    const { dev, ino } = fs.statSync(file, { bigint: true })
+    // A file system that numbers no inodes, as some network mounts do, is
+    // compared by real path instead.
+    return ino === 0n ? `path:${fs.realpathSync.native(file)}` : `${dev}:${ino}`
+  }
+  // The collected library holds every document's source, private ones
+  // included, so nothing is copied out of it.
+  const libraryPath = (() => {
+    try {
+      return fs.realpathSync.native(libraryDir)
+    } catch {
+      return path.resolve(libraryDir)
+    }
+  })()
+  const privateFiles = new Map(
+    library.documents.flatMap((doc) => {
+      const file = doc.private ? sourceFileOf(roots, doc.sourcePath) : undefined
+      return file && fs.existsSync(file)
+        ? [[fileIdentity(file), doc.sourcePath] as const]
+        : []
+    }),
+  )
   const targets = createTargets(library, deployment)
   const localRoots = {
     roots,
@@ -412,6 +460,21 @@ export function buildSite({
             `cudoc-export: missing local target ${url} in ${doc.id}; check the collection roots and assetDirs`,
           )
         const asset = target.relative
+        // A resource is copied under every policy, so one naming a private
+        // document would publish the source the output leaves out.
+        const privateSource = privateFiles.get(fileIdentity(target.source))
+        if (privateSource)
+          throw new Error(
+            `cudoc-export: ${doc.id} loads the private document ${privateSource} as a resource (${url}), which would publish its source`,
+          )
+        const real = fs.realpathSync.native(target.source)
+        if (
+          real === libraryPath ||
+          real.startsWith(`${libraryPath}${path.sep}`)
+        )
+          throw new Error(
+            `cudoc-export: ${doc.id} loads ${url} from the collected library, which holds the source of every document, private ones included`,
+          )
         if (reservedOutputs.has(asset.toLowerCase()))
           throw new Error(
             `cudoc-export: asset collides with generated output: ${asset}`,
@@ -421,6 +484,8 @@ export function buildSite({
           throw new Error(
             `cudoc-export: different assets share output path: ${asset}`,
           )
+        // The site, both prints and both Word files each name the same file.
+        if (previous) return { asset, suffix: target.suffix }
         const destination = safePath(staging, asset)
         fs.mkdirSync(path.dirname(destination), { recursive: true })
         fs.copyFileSync(target.source, destination)
@@ -492,40 +557,55 @@ export function buildSite({
             return (
               target.hosted ??
               (target.asset
-                ? `${relativeLink(doc.id, target.asset)}${target.suffix}`
+                ? `${urlPath(relativeLink(doc.id, target.asset))}${target.suffix}`
                 : url)
             )
         }
       }
       /**
-       * The print HTML's spelling. Inside the volume every collected document is
+       * The print HTML's spelling. Inside the volume every exported document is
        * present, so a link to one becomes a fragment; in a per-document file it
        * names the sibling PDF, without a fragment, as the Word file names the
-       * sibling `.docx`. A fragment stays in the file under every policy: the
-       * target is on a later page, not on a website.
+       * sibling `.docx`. A private document is in neither, so both name it on
+       * the host, the only policy that lets a link reach one. A fragment stays
+       * in the file under every policy: the target is on a later page, not on
+       * a website.
        */
       const printLink = (
         url: string,
         doc: StoredDocument,
         bound: boolean,
-      ): string => {
+      ): RewrittenLink => {
         const target = linkTarget(url, doc)
         switch (target.kind) {
           case "external":
             return target.url
+          // An element's id in the volume is its prefix and its own id as
+          // written, so the anchor joins it decoded: `#%EA%B0%9C%EC%9A%94`
+          // names the heading `개요`.
           case "fragment":
             return bound
-              ? `#${volumePrefix(doc.id)}${target.anchor}`
+              ? `#${volumePrefix(doc.id)}${decodeComponent(target.anchor)}`
               : `#${target.anchor}`
-          case "document":
-            if (bound)
-              return `#${volumeId(target.id)}${target.anchor ? `-${target.anchor}` : ""}`
-            return target.hosted ?? relativeLink(doc.id, `${target.id}.pdf`)
+          case "document": {
+            // A private target always has `hosted`: under the other
+            // policies a link to one fails before it gets here.
+            if (!bound || !documentMap.has(target.id))
+              return target.hosted ?? relativeLink(doc.id, `${target.id}.pdf`)
+            const href = `#${volumeId(target.id)}${target.anchor ? `-${decodeComponent(target.anchor)}` : ""}`
+            // The document's own print names the page on the host, and with
+            // `page.linkUrls` prints that address beside the link. The volume
+            // carries the same address for the same text, so a document is as
+            // long in the volume as alone and the contents' numbers hold.
+            return target.hosted
+              ? { href, attributes: { dataCudocUrl: target.hosted } }
+              : href
+          }
           case "local":
             return (
               target.hosted ??
               (target.asset
-                ? `${bound ? target.asset : relativeLink(doc.id, target.asset)}${target.suffix}`
+                ? `${urlPath(bound ? target.asset : relativeLink(doc.id, target.asset))}${target.suffix}`
                 : url)
             )
         }
@@ -578,18 +658,40 @@ export function buildSite({
             // Hyperlinks are handled on the complete page; keep rendering
             // resources local. The path is recorded root-relative and marked,
             // so each output re-expresses it from its own location.
-            for (const key of [
-              "src",
-              ...(node.tagName === "link" ? ["href"] : []),
-            ]) {
+            const marks: AssetMark[] = []
+            for (const key of assetAttributes(node.tagName)) {
               const url = node.properties[key]
               if (typeof url !== "string" || externalUrl(url)) continue
               const copied = copyAsset(url, doc)
               if (!copied) continue
-              const mark: AssetMark = { key, ...copied }
-              node.properties[key] = `${mark.asset}${mark.suffix}`
-              node.data = { ...node.data, cudocAsset: mark } as typeof node.data
+              node.properties[key] = `${urlPath(copied.asset)}${copied.suffix}`
+              marks.push({ key, ...copied })
             }
+            // Each candidate of a responsive image is a file of its own. The
+            // parsed page carries `srcset` as the attribute's text, read here
+            // the way the browser reads it; a tree built with it as a list
+            // holds one candidate in each item.
+            const srcSet = node.properties.srcSet
+            if (typeof srcSet === "string" || Array.isArray(srcSet)) {
+              const candidates = (
+                Array.isArray(srcSet)
+                  ? srcSet.flatMap((item) => parseSrcSet(String(item)))
+                  : parseSrcSet(srcSet)
+              ).map(({ url, descriptor }) => {
+                const copied = externalUrl(url) ? null : copyAsset(url, doc)
+                // A candidate on another host stays as written in every output.
+                return copied ? { ...copied, descriptor } : { url, descriptor }
+              })
+              marks.push({ key: "srcSet", candidates })
+              node.properties.srcSet = candidates
+                .map((candidate) => srcSetCandidate(candidate, (a) => a))
+                .join(", ")
+            }
+            if (marks.length)
+              node.data = {
+                ...node.data,
+                cudocAssets: marks,
+              } as typeof node.data
           }
           if ("children" in node) node.children.forEach(rewrite)
         }

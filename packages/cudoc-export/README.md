@@ -49,7 +49,7 @@ await buildExport({
 })
 ```
 
-The CLI equivalent is `npx cudoc-export build docs --out-dir out --format html --format pdf --format docx --granularity both`. The PDF is printed from the print-ready HTML the build always writes, by a headless Chromium the package installs; set `CUDOC_SKIP_BROWSER_DOWNLOAD=1` to skip that download and `npx cudoc-export install-browser` to fetch it later.
+The CLI equivalent is `npx cudoc-export build docs --out-dir out --format html --format pdf --format docx --granularity both`. The PDF is printed from the print-ready HTML the build always writes, by a headless Chromium the package's install script fetches; set `CUDOC_SKIP_BROWSER_DOWNLOAD=1` to skip that download and `npx cudoc-export install-browser` to fetch it later. npm 12 and later run the install script only once the project approves it with `npm install-scripts approve cudoc-export` and installs again; `npx cudoc-export install-browser` works either way.
 
 `library` reads the collected AST and prepared embeds without recompiling or modifying them. Recollect after edits. Keep syntax/compiler options in the collector, and use separate host and HTML output directories. Add `assetDirs` for host asset roots such as `public` or `static`; use `renderOptions.components` for explicit HTML rendering of custom component nodes.
 

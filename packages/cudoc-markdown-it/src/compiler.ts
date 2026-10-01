@@ -8,14 +8,16 @@
 
 import type MarkdownIt from "markdown-it"
 import type { Root } from "mdast"
-import type { DocumentNode } from "@cudoment/cudoc/document"
+import type { Position } from "unist"
+import type { DocumentDiagnostic, DocumentNode } from "@cudoment/cudoc/document"
 import type { DocumentCompiler } from "@cudoment/cudoc/node/library"
 import type { MarkdownItHost } from "./host.js"
+import { markdownItText } from "./text.js"
 
 type Captured = {
   tree: Root
   source: string
-  diagnostics: []
+  diagnostics: DocumentDiagnostic[]
 }
 
 export function createHostCompiler(
@@ -41,26 +43,47 @@ export function createHostCompiler(
         `${host.adapter}: install the plugin on the supplied renderer`,
       )
     const tree = structuredClone(captured.tree)
-    const offset = source.indexOf(captured.source)
+    // The body the renderer saw is what follows the front matter, as
+    // markdown-it read it. Searching for it instead would find an earlier
+    // copy of the same text, such as a front-matter field that repeats the
+    // first paragraph.
+    const read = markdownItText(source)
+    const offset = read.text.endsWith(captured.source)
+      ? read.text.length - captured.source.length
+      : read.text.indexOf(captured.source)
     if (offset < 0)
       throw new Error(
         `${host.adapter}: cannot map processed Markdown back to source`,
       )
-    const lines = source.slice(0, offset).split("\n").length - 1
+    const lines = read.text.slice(0, offset).split("\n").length - 1
+    // Offsets go back to the file's own text, `\r\n` and all, which is what
+    // the source snapshot slices; lines are the same in both.
+    const shift = (position: Position) => {
+      for (const point of [position.start, position.end]) {
+        if (point.offset !== undefined)
+          point.offset = read.toSource(point.offset + offset)
+        point.line += lines
+      }
+    }
     const adjust = (node: DocumentNode) => {
-      if (node.position)
-        for (const point of [node.position.start, node.position.end]) {
-          if (point.offset !== undefined) point.offset += offset
-          point.line += lines
-        }
+      if (node.position) shift(node.position)
       node.children?.forEach(adjust)
     }
     adjust(tree as unknown as DocumentNode)
+    // A diagnostic's position was measured in the same body, so it moves the
+    // same way; without this the line printed for a document with front
+    // matter would be short by the front matter's height.
+    const diagnostics = captured.diagnostics.map((diagnostic) => {
+      if (!diagnostic.position) return diagnostic
+      const position = structuredClone(diagnostic.position)
+      shift(position)
+      return { ...diagnostic, position }
+    })
     return {
       tree,
       frontmatter:
         split?.data ?? (env.frontmatter as Record<string, unknown>) ?? {},
-      diagnostics: captured.diagnostics,
+      diagnostics,
     }
   }
 }

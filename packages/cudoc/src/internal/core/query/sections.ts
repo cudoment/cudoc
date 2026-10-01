@@ -173,8 +173,19 @@ export const sliceSectionByAnchorId = (
   options: SliceSectionOptions = {},
 ): Root | undefined => {
   const location = findHeadingByAnchorId(tree, anchorId, options)
-  if (!location) return undefined
+  return location ? sliceSectionAt(tree, location, options) : undefined
+}
 
+/**
+ * The section the heading at `location` introduces. A caller already walking
+ * the headings slices each where it stands, so a document that repeats an id
+ * still yields every section's own content rather than the first one's.
+ */
+export const sliceSectionAt = (
+  tree: Root,
+  location: HeadingLocation,
+  options: SliceSectionOptions = {},
+): Root => {
   const { heading, index, parent } = location
   const { contextHeadingFromDepth } = options
 

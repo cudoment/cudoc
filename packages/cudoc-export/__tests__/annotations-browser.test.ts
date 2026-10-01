@@ -41,8 +41,7 @@ const runtimeBuilt = (() => {
     return false
   }
 })()
-const available =
-  !process.env.CUDOC_SKIP_BROWSER_DOWNLOAD && (await browserAvailable())
+const available = await browserAvailable()
 if (!runtimeBuilt)
   console.log(
     "annotations-browser: runtime not built; run npm run build --workspace packages/cudoc-export",
@@ -592,6 +591,70 @@ suite("review notes in the browser", () => {
     expect(shown.anchors).toEqual({ "urn:uuid:orphan": "orphan" })
     expect(shown.badges).toMatch(/Not found|위치를 찾지 못함/)
     expect(shown.stale).toBe(1)
+  }, 60_000)
+
+  it("reports a malformed address, embedded block or oversized file instead of failing", async () => {
+    const message = async () => {
+      await page.waitForFunction(
+        () =>
+          !document.querySelector(".cudoc-ann-message")!.hasAttribute("hidden"),
+      )
+      return page.evaluate(
+        () => document.querySelector(".cudoc-ann-message")!.textContent,
+      )
+    }
+    // A `%` that is not an escape used to throw from the hash handler.
+    await openFresh("#cudoc-notes=%zz")
+    expect(await message()).toMatch(
+      /^(Could not read|주소의 메모를 읽지 못했습니다)/,
+    )
+
+    // A saved copy whose block was cut short still opens, with no notes.
+    const html = fs.readFileSync(path.join(root, "site", "index.html"), "utf8")
+    fs.writeFileSync(
+      path.join(root, "site", "index.broken.html"),
+      html.replace(
+        "</body>",
+        '<script type="application/json" id="cudoc-annotations-data">{"items": [</script></body>',
+      ),
+    )
+    await page.goto("about:blank")
+    await page.goto(
+      pathToFileURL(path.join(root, "site", "index.broken.html")).href,
+    )
+    await page.waitForFunction(
+      () => typeof window.cudocAnnotations === "object",
+    )
+    expect(await message()).toMatch(/^(Could not load|불러오지 못했습니다)/)
+    expect(await page.evaluate(() => window.cudocAnnotations.list())).toEqual(
+      [],
+    )
+
+    // Under the limit in characters, over it in bytes: refused unread.
+    await openFresh()
+    const note = await page.evaluate(() =>
+      window.cudocAnnotations.create("First paragraph", "kept out"),
+    )
+    await page.evaluate(() => localStorage.clear())
+    await openFresh()
+    const padded = JSON.stringify({
+      "@context": "http://www.w3.org/ns/anno.jsonld",
+      type: "AnnotationCollection",
+      generator: "test",
+      total: 1,
+      padding: "가".repeat(800_000),
+      items: [note],
+    })
+    expect(padded.length).toBeLessThan(2 * 1024 * 1024)
+    await page.setInputFiles(".cudoc-ann-file", {
+      name: "notes.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(padded),
+    })
+    expect(await message()).toMatch(/at most 2097152 bytes/)
+    expect(await page.evaluate(() => window.cudocAnnotations.list())).toEqual(
+      [],
+    )
   }, 60_000)
 
   it("logged no errors along the way", () => {

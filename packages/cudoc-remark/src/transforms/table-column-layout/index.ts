@@ -1,2 +1,3 @@
-// Compatibility entrypoint. The implementation is shared by all hosts.
-export * from "@cudoment/cudoc/transforms/table-column-layout/index"
+// The `cudoc-remark/table-column-layout` entry. The transform lives in the core, where
+// every host shares it.
+export * from "@cudoment/cudoc/transforms/table-column-layout"

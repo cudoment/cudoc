@@ -41,21 +41,14 @@ npx cudoc dataset --config dataset.config.mjs
 | `stripProperties: ["position"]`       | 지정한 속성을 재귀적으로 제거                      |
 | `projectionId: "search-v1"`           | 소비자가 사용하는 필터링 정책 식별                 |
 
+AST는 수집한 문서 그대로이며 임베드를 펼치지 않습니다. 임베드는 `lang: "cudoc-embed"`인 `code` 노드로 남고 그 값이 원본을 가리키므로, 임베드로 공유한 사실은 그 사실을 가진 문서에 한 번만 들어 있습니다. 독자가 보는 페이지 모습이 필요한 소비자는 블록의 `sources`를 따라가 해당 절을 읽습니다. `excludeNodeTypes: ["code"]`를 쓰면 다른 코드 블록과 함께 이 블록도 제거됩니다.
+
 기본값은 아무 콘텐츠도 제외하지 않습니다. `documents`와 `scopes`를 함께 지정하면 모두 일치해야 합니다. 문서의 scope는 첫 경로 조각이며, `library`를 주면 그 루트의 기준 경로 다음 첫 조각이 되므로 기준 경로 `docs`, `terms`로 수집한 `docs/ko/guide`와 `terms/ko/token`은 모두 `ko`에 속합니다. `library`를 주면 `private` 패턴으로 수집한 문서는 제외되며, 그 문서를 `documents`로 지정하면 오류입니다. `type`, `children`은 제거할 수 없습니다. 이미 Markdown 노드로 정규화된 컴포넌트는 원래 JSX 이름으로 선택되지 않습니다.
 
 기본적으로 버전 정보가 있는 AST를 요구합니다. 버전 없는 AST 모음을 의도적으로 읽을 때만 `requireVersion: false`를 사용하세요. 구조 검증은 유지됩니다.
 
-Docs 전용 제외 정책이 필요하면 `@cudoment/cudoc/dataset`의 `docsDatasetProjection`을 설정에 명시적으로 펼쳐 넣습니다. 이 프리셋은 Docs의 지정된 표 컴포넌트와 `DocDataEmbed`를 제외하며 일반 Markdown 표를 제거하지 않습니다. 프리셋 적용이 Docs 프로젝트의 마이그레이션을 수행하지는 않습니다.
+`docs` 호스트 프로필의 표 컴포넌트로 쓴 문서라면 `@cudoment/cudoc/dataset`의 `docsDatasetProjection`을 설정에 펼쳐 넣습니다. 이 프리셋은 `Table`, `TableHeader`, `TableBody`, `TableRow`, `TableHead`, `TableCell` 컴포넌트와 `DocDataEmbed`를 제외하며 일반 Markdown 표는 제거하지 않습니다.
 
-## Docs 데이터셋 도구와의 관계
-
-컴파일된 AST의 후처리, 컴포넌트 하위 트리의 재귀 제외, Markdown 표 유지, 상대 문서 경로 보존은 공통입니다. 다만 `src/tools/docs-ast-dataset`을 그대로 대체하는 도구는 아닙니다.
-
-- Docs는 `data.docsAstVersion: 2`를 검증하고 `meta.json`을 게시합니다. cudoc 수집은 `data.cudocAstVersion: 1`, 데이터셋 출력은 `manifest.json`을 사용합니다. 버전 검사를 끄는 방식으로 계약 차이를 우회하지 않습니다.
-- Docs에는 원본 경로 커버리지 검사와 commit/ref 메타데이터 주입이 있습니다. cudoc의 범용 생성기는 해당 릴리스 검증이나 공개 가능한 스코프의 판단을 수행하지 않습니다.
-- Docs는 제외 대상 없는 payload의 입력 바이트를 보존하고 실패 시 이전 출력을 제거합니다. cudoc은 투영 AST를 직렬화하며 staging 실패 시 이전 성공 출력을 유지합니다. 소비자는 과거 manifest의 존재만으로 성공을 판단하지 말고 명령의 성공 여부를 확인해야 합니다.
-- 이름 기준 제외는 해당 JSX 이름이 남아 있는 단계에서 실행해야 합니다. 이미 HTML·Markdown으로 정규화한 뒤에는 Docs 컴포넌트 이름 프리셋으로 원래 요소를 식별할 수 없습니다.
-
-Docs 명령을 대체하기 전에 소비자 계약, 허용 스코프, 빌드 출처 검증, 실패 시 동작을 결정해야 합니다. Docs 고유 후처리는 기존 `buildDocumentPayload` 진입점에 유지하며, 그 안에서 `projectAst`를 재사용하는 것은 별도 연동 작업입니다. Markdown을 다시 파싱하는 경로를 추가할 이유는 아닙니다.
+출력 디렉터리는 한 번에 출력하므로, 실패한 실행은 이전에 출력한 데이터셋을 그대로 남깁니다. manifest가 있는지가 아니라 명령이 성공했는지를 확인합니다.
 
 코드 호출과 manifest는 [데이터셋 API](./api-reference/node.ko.md#데이터셋), 메모리에서의 변환은 [projectAst](./api-reference/document.ko.md#필터링)를 참고하세요.

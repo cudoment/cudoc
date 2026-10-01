@@ -4,7 +4,7 @@
  * unchanged, and the watcher runs both on every change under a root.
  */
 
-import { describe, it, expect, afterEach } from "vitest"
+import { describe, it, expect, afterEach, vi } from "vitest"
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
@@ -47,8 +47,10 @@ const workspace = (files = FILES) => {
   temporary.push(root)
   const docs = path.join(root, "docs")
   fs.mkdirSync(docs)
-  for (const [name, text] of Object.entries(files))
+  for (const [name, text] of Object.entries(files)) {
+    fs.mkdirSync(path.dirname(path.join(docs, name)), { recursive: true })
     fs.writeFileSync(path.join(docs, name), text)
+  }
   return { root, docs, outDir: path.join(root, "library") }
 }
 
@@ -68,6 +70,135 @@ const counting = () => {
 
 const extractors = {
   ref: { version: "v1", extract: () => "ref" },
+}
+
+/** What the watcher under test produced: a pass, or the error of one. */
+type Outcome = { pass: CollectionPass; start: number } | { error: unknown }
+
+/**
+ * A watch test's handlers for the watcher under test, and the record it fails
+ * with. `ready` only says the first pass ended. On macOS the FSEvents stream
+ * behind a recursive `fs.watch` starts on another thread a moment after the
+ * call, so a change made before then may go unreported: these tests timed out
+ * that way when a first pass took a few milliseconds. The same stream may
+ * also report the files the workspace wrote just before the watch, and the
+ * pass those reports start would satisfy a test whose own change the watcher
+ * never heard. `settle` therefore writes a probe that collection ignores until
+ * a second watcher on the root reports it (Node serves a thread's watchers
+ * from one stream there, so the watcher under test hears the next change
+ * too), and then waits for a pass that started after the last other report.
+ * A wait fails once `budget`, kept below the test's own timeout, is spent,
+ * with the record: what the second watcher reported and every pass and error,
+ * in milliseconds from the start.
+ */
+const watchRecord = (root: string, budget = 13_000) => {
+  const started = Date.now()
+  const lines: string[] = []
+  const passes: CollectionPass[] = []
+  const starts: number[] = []
+  let reported: number | undefined
+  let waiter: ((outcome: Outcome) => void) | undefined
+  let heard: (() => void) | undefined
+  const at = () => Date.now() - started
+  const note = (line: string) => {
+    lines.push(`${String(at()).padStart(6)} ms  ${line}`)
+  }
+  const recorder = fs
+    .watch(root, { recursive: true }, (event, filename) => {
+      note(`event ${event} ${String(filename)}`)
+      if (String(filename) === ".probe") heard?.()
+      else reported = at()
+    })
+    .on("error", (error) => note(`recorder error: ${String(error)}`))
+  const text = () =>
+    [
+      `load average ${os
+        .loadavg()
+        .map((load) => load.toFixed(1))
+        .join(" ")}`,
+      ...lines,
+    ].join("\n")
+  const within = async <T>(promise: Promise<T>, what: string) => {
+    let timer: NodeJS.Timeout | undefined
+    const expired = new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () =>
+          reject(
+            new Error(`${what} did not come within ${budget} ms\n${text()}`),
+          ),
+        Math.max(0, started + budget - Date.now()),
+      )
+    })
+    try {
+      return await Promise.race([promise, expired])
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+  /** The first outcome from now on that `match` accepts. */
+  const next = async (what: string, match: (outcome: Outcome) => boolean) => {
+    let mine: ((outcome: Outcome) => void) | undefined
+    try {
+      return await within(
+        new Promise<Outcome>((resolve) => {
+          mine = waiter = (outcome) => {
+            if (match(outcome)) resolve(outcome)
+          }
+        }),
+        what,
+      )
+    } finally {
+      if (waiter === mine) waiter = undefined
+    }
+  }
+  return {
+    passes,
+    note,
+    text,
+    within,
+    next,
+    onPass(pass: CollectionPass) {
+      const start = at() - pass.elapsed
+      note(
+        `pass from ${start} ms: compiled [${pass.compiled.join(", ")}] of ${pass.documentCount}`,
+      )
+      passes.push(pass)
+      starts.push(start)
+      waiter?.({ pass, start })
+    },
+    onError(error: unknown) {
+      note(`pass failed: ${String(error)}`)
+      waiter?.({ error })
+    },
+    async settle() {
+      let timer: NodeJS.Timeout | undefined
+      const probed = new Promise<void>((resolve) => {
+        heard = resolve
+      })
+      const write = () => {
+        fs.writeFileSync(path.join(root, ".probe"), String(at()))
+        timer = setTimeout(write, 25)
+      }
+      write()
+      try {
+        await within(probed, "a report of the probe")
+      } finally {
+        clearTimeout(timer)
+        heard = undefined
+      }
+      note("probe reported")
+      // Everything written before the probe has been reported by now.
+      const last = reported
+      if (last !== undefined && !starts.some((start) => start >= last))
+        await next(
+          "the pass after the reports before the probe",
+          (outcome) => "start" in outcome && outcome.start >= last,
+        )
+    },
+    close() {
+      recorder.close()
+    },
+  }
 }
 
 describe("buildDocuments with a previous library", () => {
@@ -169,6 +300,38 @@ describe("buildDocuments with a previous library", () => {
     expect(next.incremental?.reused).toEqual(["a", "b", "c", "d"])
     expect(next.asyncCompiler).toBeDefined()
   })
+
+  it("reuses nothing a different cudoc release collected", async () => {
+    // Another release may normalize the same text into another tree, so the
+    // version is part of the configuration even though no option changed.
+    const { docs, outDir } = workspace()
+    const options = { sourceRoot: docs, outDir, extractors }
+    const library = buildDocuments(options)
+    vi.resetModules()
+    vi.doMock("node:module", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("node:module")>()
+      const createRequire = (url: string | URL) => {
+        const require = actual.createRequire(url)
+        return Object.assign(
+          (id: string) =>
+            id === "../../package.json"
+              ? { version: "0.0.0-other" }
+              : require(id),
+          require,
+        )
+      }
+      return { ...actual, createRequire, default: { ...actual, createRequire } }
+    })
+    try {
+      const other = await import("../src/node/library.js")
+      const next = other.buildDocuments({ ...options, previous: library })
+      expect(next.configuration).not.toBe(library.configuration)
+      expect(next.incremental?.reused).toEqual([])
+    } finally {
+      vi.doUnmock("node:module")
+      vi.resetModules()
+    }
+  })
 })
 
 describe("prepareEmbeds with a previous preparation", () => {
@@ -259,6 +422,23 @@ describe("prepareEmbeds with a previous preparation", () => {
   })
 })
 
+describe("readPreparedEmbeds", () => {
+  it("parses the files once while they are unchanged and again after a collection", async () => {
+    const { docs, outDir } = workspace()
+    const config = { sourceRoot: docs, outDir, extractors }
+    await collectDocuments(config)
+    const source = FILES["a.md"]!
+    const first = readPreparedEmbeds(outDir, "a", source)
+    expect(readPreparedEmbeds(outDir, "a", source)).toBe(first)
+
+    fs.writeFileSync(path.join(docs, "e.md"), "# E (#e)\n\nedited\n")
+    await collectDocuments(config, previousCollection(outDir))
+    const second = readPreparedEmbeds(outDir, "a", source)
+    expect(second).not.toBe(first)
+    expect(second.sourceHashes.e).not.toBe(first.sourceHashes.e)
+  })
+})
+
 describe("collectDocuments and watchDocuments", () => {
   it("starts from the output directory and reports what each pass did", async () => {
     const { docs, outDir } = workspace()
@@ -285,63 +465,149 @@ describe("collectDocuments and watchDocuments", () => {
 
   it("collects again after a source under the root changes", async () => {
     const { docs, outDir } = workspace()
-    const passes: CollectionPass[] = []
-    const errors: unknown[] = []
-    // Resolves at the end of the next pass, successful or not.
-    let resolveNext: ((pass: CollectionPass | undefined) => void) | undefined
-    const nextPass = () =>
-      new Promise<CollectionPass | undefined>((resolve) => {
-        resolveNext = resolve
-      })
-    const settle = (pass?: CollectionPass) => {
-      resolveNext?.(pass)
-      resolveNext = undefined
-    }
-    const watcher = watchDocuments(
-      { sourceRoot: docs, outDir, extractors },
-      {
-        debounce: 50,
-        onPass: (pass) => {
-          passes.push(pass)
-          settle(pass)
-        },
-        onError: (error) => {
-          errors.push(error)
-          settle()
-        },
-      },
-    )
+    const record = watchRecord(docs)
+    let watcher: ReturnType<typeof watchDocuments> | undefined
     try {
-      await watcher.ready
-      expect(passes).toHaveLength(1)
-      expect(passes[0]!.compiled).toHaveLength(5)
+      watcher = watchDocuments(
+        { sourceRoot: docs, outDir, extractors },
+        { debounce: 50, onPass: record.onPass, onError: record.onError },
+      )
+      await record.within(watcher.ready, "the first pass")
+      expect(record.passes[0]?.compiled, record.text()).toHaveLength(5)
+      await record.settle()
 
-      let waiting = nextPass()
+      record.note("write b.md")
       fs.writeFileSync(
         path.join(docs, "b.md"),
         "# B (#b)\n\n## X (#x)\n\nwatched\n",
       )
-      const second = (await waiting)!
-      expect(second.compiled).toEqual(["b"])
-      expect(second.reused).toBe(4)
+      // The watcher is idle, so the next pass is the one this change starts.
+      const outcome = await record.next(
+        "the pass after b.md",
+        (outcome) => "pass" in outcome,
+      )
+      const second = "pass" in outcome ? outcome.pass : undefined
+      expect(second?.compiled, record.text()).toEqual(["b"])
+      expect(second?.reused).toBe(4)
       expect(
         JSON.parse(fs.readFileSync(path.join(outDir, "embeds.json"), "utf8"))
           .sourceHashes.b,
-      ).toBe(second.library.documents.find((d) => d.id === "b")!.source.hash)
+      ).toBe(second?.library.documents.find((d) => d.id === "b")!.source.hash)
 
       // A document that no longer parses as a spec is an error, not a broken library.
-      waiting = nextPass()
-      const errorsBefore = errors.length
+      record.note("write a.md")
       fs.writeFileSync(
         path.join(docs, "a.md"),
         "# A (#a)\n\n```cudoc-embed\nsources: [missing.md]\n```\n",
       )
-      expect(await waiting).toBe(undefined)
-      expect(errors.length).toBeGreaterThan(errorsBefore)
-      expect(String(errors.at(-1))).toMatch(/missing document/)
-      expect(fs.existsSync(path.join(outDir, "manifest.json"))).toBe(true)
+      const failure = await record.next(
+        "a failed pass",
+        (outcome) => "error" in outcome,
+      )
+      expect(
+        String("error" in failure && failure.error),
+        record.text(),
+      ).toMatch(/missing document/)
+      // The last good pass is still what the host reads, embeds included.
+      expect(
+        readPreparedEmbeds(
+          outDir,
+          "b",
+          fs.readFileSync(path.join(docs, "b.md"), "utf8"),
+        ).sourceHashes.b,
+      ).toBe(second?.library.documents.find((d) => d.id === "b")!.source.hash)
     } finally {
-      watcher.close()
+      watcher?.close()
+      record.close()
     }
   }, 15000)
+
+  it("publishes nothing from a pass whose embeds fail, so the previous library and its embeds still match", async () => {
+    const { docs, outDir } = workspace()
+    const config = { sourceRoot: docs, outDir, extractors }
+    await collectDocuments(config)
+    const manifest = fs.readFileSync(path.join(outDir, "manifest.json"), "utf8")
+    const embeds = fs.readFileSync(path.join(outDir, "embeds.json"), "utf8")
+
+    fs.writeFileSync(path.join(docs, "e.md"), "# E (#e)\n\nedited\n")
+    fs.writeFileSync(
+      path.join(docs, "a.md"),
+      "# A (#a)\n\n```cudoc-embed\nsources: [missing.md]\n```\n",
+    )
+    await expect(
+      collectDocuments(config, previousCollection(outDir)),
+    ).rejects.toThrow(/missing document/)
+
+    expect(fs.readFileSync(path.join(outDir, "manifest.json"), "utf8")).toBe(
+      manifest,
+    )
+    expect(fs.readFileSync(path.join(outDir, "embeds.json"), "utf8")).toBe(
+      embeds,
+    )
+    // A page that has nothing to do with the typo still builds.
+    expect(() => readPreparedEmbeds(outDir, "c", FILES["c.md"]!)).not.toThrow()
+    expect(
+      fs.readdirSync(path.dirname(outDir)).filter((name) => name !== "docs"),
+    ).toEqual(["library"])
+  })
+
+  for (const [from, to] of [
+    ["guide", "moved"],
+    // A name alone reads as a file with the extension `.5`, and a rename is
+    // reported by the directory's names, so this case fails a watcher that
+    // judges an entry by its name.
+    ["v1.5", "v1.6"],
+  ] as const)
+    it(`collects again when the directory ${from} is renamed`, async () => {
+      const { docs, outDir } = workspace({
+        ...FILES,
+        [`${from}/intro.md`]: "# Intro (#intro)\n",
+      })
+      const record = watchRecord(docs)
+      let watcher: ReturnType<typeof watchDocuments> | undefined
+      try {
+        watcher = watchDocuments(
+          { sourceRoot: docs, outDir, extractors },
+          { debounce: 50, onPass: record.onPass, onError: record.onError },
+        )
+        await record.within(watcher.ready, "the first pass")
+        expect(
+          record.passes[0]?.library.documents.map((d) => d.id),
+          record.text(),
+        ).toContain(`${from}/intro`)
+        await record.settle()
+        record.note(`rename ${from} to ${to}`)
+        fs.renameSync(path.join(docs, from), path.join(docs, to))
+        const outcome = await record.next(
+          `the pass after renaming ${from}`,
+          (outcome) => "pass" in outcome,
+        )
+        const ids =
+          "pass" in outcome
+            ? outcome.pass.library.documents.map((d) => d.id)
+            : []
+        expect(ids, record.text()).toContain(`${to}/intro`)
+        expect(ids, record.text()).not.toContain(`${from}/intro`)
+      } finally {
+        watcher?.close()
+        record.close()
+      }
+    }, 15000)
+
+  it("prints a failed pass when no error handler is given", async () => {
+    const { docs, outDir } = workspace({
+      "a.md": "# A\n\n```cudoc-embed\nsources: [missing.md]\n```\n",
+    })
+    const printed: unknown[] = []
+    const original = console.error
+    console.error = (value: unknown) => printed.push(value)
+    const watcher = watchDocuments({ sourceRoot: docs, outDir })
+    try {
+      await watcher.ready
+    } finally {
+      watcher.close()
+      console.error = original
+    }
+    expect(String(printed[0])).toMatch(/missing document/)
+  })
 })

@@ -39,6 +39,7 @@ import {
   readAnnotatedHtml,
   readEmbedded,
   readLocal,
+  readNotesFile,
   storageAvailable,
   storageKey,
   tokenFromLocation,
@@ -302,12 +303,7 @@ function start(): void {
     },
     onImport: async (file) => {
       try {
-        const text = await file.text()
-        const loaded =
-          file.name.toLowerCase().endsWith(".html") ||
-          text.trimStart().startsWith("<")
-            ? readAnnotatedHtml(text)
-            : parseText(text)
+        const loaded = await readNotesFile(file)
         items = mergeAnnotations(items, loaded.items)
         refresh()
         ui.notify(t.imported(loaded.items.length))
@@ -543,7 +539,14 @@ function start(): void {
   window.addEventListener("afterprint", paint)
 
   // Notes travel in: the embedded block first, then this browser's copy.
-  items = mergeAnnotations(readEmbedded(), readLocal(key))
+  items = mergeAnnotations(
+    readEmbedded(document, (error) =>
+      ui.notify(
+        t.importFailed(error instanceof Error ? error.message : String(error)),
+      ),
+    ),
+    readLocal(key),
+  )
   refresh()
 
   // A token in the address is offered, never applied on its own. A token

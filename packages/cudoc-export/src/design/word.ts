@@ -26,6 +26,7 @@ import {
   type IStylesOptions,
 } from "docx"
 import {
+  CALLOUT_SEVERITY,
   hex,
   remToHalfPoints,
   remToPt,
@@ -60,16 +61,16 @@ export const CALLOUT_STYLE = (type: string) =>
 export const CALLOUT_TITLE_STYLE = (type: string) =>
   `${CALLOUT_STYLE(type)}Title`
 
-/** Callout accents, mirroring the stylesheet's per-severity rules. */
+/** Callout accents, from the severity table the stylesheet reads too. */
 export const calloutColors = (
   tokens: DesignTokens,
   type: string,
 ): { border: string; wash: string } => {
   const light = tokens.colors.light
-  switch (type) {
-    case "warning":
+  switch (CALLOUT_SEVERITY[type]) {
+    case "warn":
       return { border: light.warn, wash: light.warnWash }
-    case "caution":
+    case "danger":
       return { border: light.danger, wash: light.dangerWash }
     default:
       return { border: light.accent, wash: light.wash }
@@ -537,13 +538,25 @@ export function wordStyles(
   }
 }
 
-/** Two numbering sets: normal flow, and the tighter indent used inside a cell. */
-export function wordNumbering(tokens: DesignTokens) {
+/**
+ * Two numbering sets: normal flow, and the tighter indent used inside a cell.
+ * An ordered list that starts elsewhere than 1 has a definition of its own
+ * for each start number the file uses, `cudoc-ordered-from-<n>`.
+ */
+export function wordNumbering(
+  tokens: DesignTokens,
+  starts: Iterable<number> = [],
+) {
   const step = wordRhythm(tokens).listIndent
   const cellStep = Math.round((step * 2) / 3)
-  const levels = (ordered: boolean, indent: number): ILevelsOptions[] =>
+  const levels = (
+    ordered: boolean,
+    indent: number,
+    start = 1,
+  ): ILevelsOptions[] =>
     Array.from({ length: 9 }, (_, level) => ({
       level,
+      ...(level === 0 && start !== 1 ? { start } : {}),
       format: ordered ? LevelFormat.DECIMAL : LevelFormat.BULLET,
       text: ordered ? `%${level + 1}.` : level % 2 ? "◦" : "•",
       alignment: AlignmentType.LEFT,
@@ -563,6 +576,16 @@ export function wordNumbering(tokens: DesignTokens) {
       { reference: "cudoc-ordered", levels: levels(true, step) },
       { reference: "cudoc-bullet-cell", levels: levels(false, cellStep) },
       { reference: "cudoc-ordered-cell", levels: levels(true, cellStep) },
+      ...[...starts].flatMap((start) => [
+        {
+          reference: `cudoc-ordered-from-${start}`,
+          levels: levels(true, step, start),
+        },
+        {
+          reference: `cudoc-ordered-from-${start}-cell`,
+          levels: levels(true, cellStep, start),
+        },
+      ]),
     ],
   }
 }

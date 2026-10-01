@@ -39,7 +39,7 @@ const options = {
 [요청 제한 확인](#rate-limits)
 ```
 
-`(#rate-limits)`는 제목 ID를 지정합니다. `(@New)`는 제목 텍스트에 포함되지 않는 배지를 표시합니다. 한 문서의 앵커는 고유해야 하며 명시 ID가 충돌하면 오류입니다. 명시 앵커가 없으면 호스트가 평소대로 ID를 생성하고, 단독 컴파일에서는 배지를 제외한 제목으로 생성합니다. cudoc이 읽기 전에 제목을 슬러그로 만드는 호스트는 배지 표기를 그 자동 ID에 포함시킬 수 있으므로, 배지가 붙은 제목의 앵커가 호스트마다 같아야 한다면 `(#id)`를 명시하세요.
+`(#rate-limits)`는 제목 ID를 지정합니다. `(@New)`는 제목 텍스트에 포함되지 않는 배지를 표시합니다. 한 문서의 앵커는 고유해야 합니다. 반복된 ID는 수집할 때 진단으로, [`cudoc check`](./check.ko.md)에서는 `duplicate-anchor`로 보고합니다. 한 제목에 서로 다른 명시 ID가 둘 있으면 오류입니다. 명시 앵커가 없으면 호스트가 평소대로 ID를 생성하고, 단독 컴파일에서는 배지를 제외한 제목으로 생성합니다. cudoc이 읽기 전에 제목을 슬러그로 만드는 호스트는 배지 표기를 그 자동 ID에 포함시킬 수 있으므로, 배지가 붙은 제목의 앵커가 호스트마다 같아야 한다면 `(#id)`를 명시하세요.
 
 링크와 코드 안의 배지 표기는 텍스트로 유지됩니다. 문법 자체를 보여주려면 인라인 코드나 코드 블록을 사용합니다.
 
@@ -54,6 +54,8 @@ const options = {
 | Eleventy            | `markdown-it-attrs`를 통한 `## 제목 {#id}` |
 
 `headingAnchor: "both"`를 선택하면 `(#id)`와 함께 사용할 수 있습니다. cudoc의 `(#id)`는 Markdown과 MDX 모두에서 표현식 이스케이프 없이 사용할 수 있습니다.
+
+cudoc이 정한 ID는 한 호스트를 빼고는 쓴 그대로 페이지에 실립니다. Docusaurus도 이 ID를 유지합니다. Docusaurus의 slugger가 바꿀 ID는 제목 글자 끝의 `{#id}`로 넘겨 문장 부호까지 그대로 유지하고, 그 밖의 ID는 slugger를 거쳐도 바뀌지 않습니다. 페이지의 `#` 제목만은 항상 slugger를 거치므로 slug 형태의 ID를 쓰십시오. Nextra는 자체 `[#id]`를 포함한 모든 제목 ID를 슬러거에 통과시키므로 `(#v1.2)`가 `v12`가 되고, `#v1.2`로 가는 링크는 대상을 찾지 못합니다. `v1-2`처럼 영문 소문자, 숫자, 하이픈으로만 된 ID는 어느 호스트에서나 같습니다.
 
 ## 알림
 
@@ -73,19 +75,19 @@ const options = {
 
 `callout: "host"` 또는 `"both"`에서는 다음 고유 문법도 인식합니다.
 
-| 호스트          | 표기                                                                              |
-| --------------- | --------------------------------------------------------------------------------- |
-| Docusaurus      | `:::warning[제목]` 다음에 본문을 쓰고 `:::`로 닫기                                |
-| VitePress       | `::: warning 제목` 다음에 본문을 쓰고 `:::`로 닫기; GitHub식 알림                 |
-| Eleventy        | `markdown-it-container`를 통한 `::: warning 제목` 다음에 본문을 쓰고 `:::`로 닫기 |
-| Nextra MDX      | `<Callout type="warning">본문</Callout>`                                          |
-| Docs MDX 프로필 | `<Infobox type="warning" title="제목">본문</Infobox>`                             |
+| 호스트        | 표기                                                                              |
+| ------------- | --------------------------------------------------------------------------------- |
+| Docusaurus    | `:::warning[제목]` 다음에 본문을 쓰고 `:::`로 닫기                                |
+| VitePress     | `::: warning 제목` 다음에 본문을 쓰고 `:::`로 닫기; GitHub식 알림                 |
+| Eleventy      | `markdown-it-container`를 통한 `::: warning 제목` 다음에 본문을 쓰고 `:::`로 닫기 |
+| Nextra MDX    | `<Callout type="warning">본문</Callout>`                                          |
+| `docs` 프로필 | `<Infobox type="warning" title="제목">본문</Infobox>`                             |
 
 호스트 타입 `info`/`default`, `danger`/`error`, `warn`은 각각 `note`, `caution`, `warning`으로 정규화합니다. `details` 컨테이너는 두 markdown-it 호스트 모두에서 펼칠 수 있는 콘텐츠로 유지됩니다. Eleventy에는 기본 제공되는 네이티브 표기가 없으므로, `host` 모드는 사이트가 직접 등록한 markdown-it 플러그인이 만든 토큰만 정규화합니다. 파서 설정은 [Docusaurus](./docusaurus.ko.md), [Nextra](./nextra.ko.md), [VitePress](./vitepress.ko.md), [Eleventy](./eleventy.ko.md) 가이드를 참고하세요.
 
-### Docs에서 Infobox 대체
+### `Infobox` 컴포넌트 대체
 
-`Infobox`를 import하는 대신 위 인용문 예제를 사용합니다. 전환 중에는 실제 Docs 렌더링·수집 파이프라인에 `host: "docs"`, `syntax: { callout: "both", headingAnchor: "both", link: "both" }`를 같은 설정으로 적용하면 정적 `Infobox`·`Link`·`IconLink`와 Markdown을 함께 인식합니다. 이 프로필은 정규화 프리셋이지 Docs에 이미 설치된 연동이 아닙니다. Docs 프로젝트의 컴파일러 연결과 스타일 반영은 별도로 필요합니다. 기존 타입·제목, 동적 속성, 사용자 컴포넌트 매핑을 대표 Docs 페이지에서 확인한 뒤 해당 import를 제거하세요.
+`Infobox`를 import하는 대신 위 인용문 예제를 사용합니다. 문서에 아직 컴포넌트가 남아 있는 동안에는 사이트의 렌더링·수집 파이프라인 양쪽에 `host: "docs"`, `syntax: { callout: "both", headingAnchor: "both", link: "both" }`를 같은 설정으로 적용하면 정적 `Infobox`·`Link`·`IconLink`와 Markdown을 함께 인식합니다. 이 프로필은 정규화 프리셋이지 연동이 아닙니다. 사이트 자체의 컴파일러 연결과 스타일시트는 별도로 필요합니다. 기존 타입·제목, 동적 속성, 사용자 컴포넌트 매핑을 대표 페이지에서 확인한 뒤 해당 import를 제거하세요.
 
 ## 표 셀 내부 목록
 

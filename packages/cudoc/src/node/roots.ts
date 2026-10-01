@@ -12,7 +12,7 @@
 
 import fs from "node:fs"
 import path from "node:path"
-import { posix, safePath } from "./storage.js"
+import { posix, realPath, safePath } from "./storage.js"
 
 /** A directory to collect and the path segment(s) its documents sit under. */
 export type SourceRoot = {
@@ -66,11 +66,14 @@ export function resolveRoots(options: {
     if (!root.dir) throw new Error("cudoc: a root dir must not be empty")
     return { dir: path.resolve(root.dir), base: normalizeBase(root.base) }
   })
+  // A directory named once as it is and once through a symlink is still one
+  // directory, and its files would otherwise have two ids.
   const dirs = new Set<string>()
   for (const root of roots) {
-    if (dirs.has(root.dir))
+    const real = realPath(root.dir)
+    if (dirs.has(root.dir) || dirs.has(real))
       throw new Error(`cudoc: root directory listed twice: ${root.dir}`)
-    dirs.add(root.dir)
+    dirs.add(root.dir).add(real)
   }
   return roots
 }
@@ -97,21 +100,50 @@ export const libraryPath = (root: ResolvedRoot, relative: string): string =>
  *
  * Nested root directories are allowed — a project may collect `docs/` and
  * give `docs/api/` its own base — and the deeper one owns the file.
+ *
+ * Containment and depth are both measured on real paths. A host may hand over
+ * the real path of a file whose root was configured through a symlink — a
+ * linked workspace, or macOS's `/tmp` for `/private/tmp` — or the other way
+ * round, and a root reached through a symlink may sit inside another root's
+ * real directory. Comparing the spellings as given would let the outer root
+ * claim a file its nested root owns whenever the host spells it the other way.
  */
 export function libraryPathOf(
   roots: readonly ResolvedRoot[],
   file: string,
 ): string | undefined {
-  const absolute = path.resolve(file)
-  let best: { depth: number; value: string } | undefined
+  const owner = ownerOf(roots, file)
+  return owner && libraryPath(owner.root, owner.relative)
+}
+
+/**
+ * A root's real directory. It is remembered once the directory exists, so
+ * looking up a link or an asset costs one resolution of the file alone.
+ */
+const realDirs = new WeakMap<ResolvedRoot, string>()
+const realDirOf = (root: ResolvedRoot): string => {
+  const cached = realDirs.get(root)
+  if (cached !== undefined) return cached
+  const real = realPath(root.dir)
+  if (fs.existsSync(root.dir)) realDirs.set(root, real)
+  return real
+}
+
+/** The innermost root holding a file, and the file's path under it. */
+const ownerOf = (
+  roots: readonly ResolvedRoot[],
+  file: string,
+): { root: ResolvedRoot; relative: string } | undefined => {
+  const target = realPath(file)
+  let best: { depth: number; root: ResolvedRoot; relative: string } | undefined
   for (const root of roots) {
-    const relative = under(root.dir, absolute)
+    const dir = realDirOf(root)
+    const relative = under(dir, target)
     if (relative === undefined) continue
-    const depth = root.dir.split(path.sep).length
-    if (!best || depth > best.depth)
-      best = { depth, value: libraryPath(root, relative) }
+    const depth = dir.split(path.sep).length
+    if (!best || depth > best.depth) best = { depth, root, relative }
   }
-  return best?.value
+  return best
 }
 
 /** The document id a file collects as: its library path without the extension. */
@@ -135,7 +167,11 @@ const inBase = (root: ResolvedRoot, target: string): string | undefined => {
  * Two roots may share a base, and one base may extend another, so the answer
  * is a list: the caller that wants the file that exists checks each, and the
  * caller that wants to know whether the path could exist at all takes the
- * first. A path that would escape a root's directory is left out.
+ * first. A path that would escape a root's directory is left out, and so is a
+ * file another root owns: under a nested root with a base of its own, the
+ * outer root's spelling of a file names nothing. A file the root reaches
+ * through a symlink of its own, an asset under a dot directory say, stays
+ * that root's.
  */
 export function candidateFiles(
   roots: readonly ResolvedRoot[],
@@ -149,11 +185,13 @@ export function candidateFiles(
     .flatMap(({ root }) => {
       const relative = inBase(root, target)
       if (relative === undefined) return []
+      let file: string
       try {
-        return [safePath(root.dir, relative)]
+        file = safePath(root.dir, relative)
       } catch {
         return []
       }
+      return ownerOf(roots, file)?.root === root ? [file] : []
     })
 }
 

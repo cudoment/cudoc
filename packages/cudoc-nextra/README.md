@@ -20,7 +20,7 @@ const mdxOptions = {
 }
 ```
 
-Keep the existing Nextra theme mappings and import `@cudoment/cudoc/styles.css` once. The explicit `syntax` setup needs no cudoc components. Nextra owns its TOC. For embedding, collect through the actual Nextra compiler, prepare embeds, and add `cudoc-remark/embed` to rendering.
+Keep the existing Nextra theme mappings and import `@cudoment/cudoc/styles.css` once. The explicit `syntax` setup needs no cudoc components. Nextra owns its TOC. Nextra slugs every heading ID, so write anchors in lowercase letters, digits and hyphens to keep them as written. For embedding, collect through the actual Nextra compiler, prepare embeds, and add `cudoc-remark/embed` to rendering.
 
 Choose `host`, `cudoc` or `both` independently for `headingAnchor`, `badge`, `tableCellList`, `callout` and `link`. The representative callout is `> [!NOTE] Title`. Authors do not register cudoc React components in the recommended setup. Syntax-only rendering needs no stored JSON; cross-document embedding requires document collection.
 

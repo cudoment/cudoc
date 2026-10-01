@@ -3,7 +3,7 @@ import type { Root as HastRoot, ElementContent } from "hast"
 import { toHast } from "mdast-util-to-hast"
 import { toHtml } from "hast-util-to-html"
 import { fromHtml } from "hast-util-from-html"
-import type { DocumentNode } from "./document.js"
+import { capturedImage, type DocumentNode } from "./document.js"
 
 export type RenderOptions = {
   highlight?: (code: string, language?: string) => string
@@ -46,6 +46,19 @@ export function documentToHast(
       const node = value as unknown as DocumentNode
       if (node.type === "mdxjsEsm" || node.type === "yaml")
         return { type: "text", value: "" }
+      // A host's own component for a Markdown image renders as that image.
+      const image = capturedImage(node)
+      if (image)
+        return {
+          type: "element",
+          tagName: "img",
+          properties: {
+            src: image.url,
+            alt: image.alt ?? "",
+            ...(image.title ? { title: image.title } : {}),
+          },
+          children: [],
+        }
       const renderer = node.name && options.components?.[node.name]
       if (renderer)
         return fromHtml(renderer(node), { fragment: true })

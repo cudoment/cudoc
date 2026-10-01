@@ -99,6 +99,52 @@ for (const host of HOST_CASES) {
         expect(visibleHeadingText(heading as never)).not.toMatch(/\(#|\(@/)
     })
 
+    it("keeps an explicit anchor exactly as written, punctuation included", async () => {
+      // A host slugger that runs over an id it was handed turns `v1.2` into
+      // `v12`, and every link written against the anchor then misses. Nextra
+      // slugs every heading id, its own `[#id]` included, so there an id
+      // keeps its spelling only when it is slug-shaped already.
+      const compile = await host.compiler!()
+      const result = await compile(
+        "# Guide\n\n## Version one (#v1.2)\n\n## Slug shaped (#release-2)\n\nBody.\n",
+        {
+          id: "dotted",
+          filePath: "dotted.md",
+          options: { ...OPTIONS, format: "md" },
+        },
+      )
+      const ids = walk(result.tree as unknown as DocumentNode)
+        .filter((n) => n.type === "heading")
+        .map((h) => getHeadingAnchorId(h as never))
+      const dotted = host.name === "nextra" ? "v12" : "v1.2"
+      expect(ids).toContain(dotted)
+      expect(ids).toContain("release-2")
+      expect(renderDocument(result.tree)).toContain(`id="${dotted}"`)
+    })
+
+    it("numbers a heading past an explicit id its own text slugs to", async () => {
+      // A host that takes an explicit id without recording it would hand
+      // `## Setup` the same `setup` and leave the second heading without an
+      // anchor of its own.
+      const compile = await host.compiler!()
+      const result = await compile(
+        "# Guide (#guide)\n\n## Intro (#setup)\n\n## Setup\n\nBody.\n",
+        {
+          id: "numbered",
+          filePath: "numbered.md",
+          options: { ...OPTIONS, format: "md" },
+        },
+      )
+      const ids = walk(result.tree as unknown as DocumentNode)
+        .filter((n) => n.type === "heading")
+        .map((h) => getHeadingAnchorId(h as never))
+      expect(ids).toEqual(["guide", "setup", "setup-1"])
+      // Docusaurus reads the page title from the `#` heading before it takes
+      // an id marker out of the text, so none may be there.
+      const title = (result as { contentTitle?: string }).contentTitle
+      if (host.name === "docusaurus") expect(title).toBe("Guide")
+    })
+
     it("keeps a badge out of the heading title but renders it", () => {
       const nested = walk(tree as unknown as DocumentNode).find(
         (n) =>

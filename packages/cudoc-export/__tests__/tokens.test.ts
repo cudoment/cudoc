@@ -18,7 +18,9 @@ import {
   lineSpacing,
   wordLeading,
   hex,
+  CALLOUT_SEVERITY,
 } from "../src/design/tokens.js"
+import { calloutColors } from "../src/design/word.js"
 import {
   rootVariables,
   darkVariables,
@@ -170,6 +172,51 @@ describe("generating CSS from the tokens", () => {
     )
     expect(styles).toContain("--ink: #010203;")
     expect(styles).not.toContain(`--ink: ${designTokens.colors.light.ink};`)
+  })
+})
+
+describe("one callout colour in every format", () => {
+  // The rule that names a class, read out of the generated stylesheet.
+  const ruleFor = (css: string, type: string) =>
+    css
+      .split("}")
+      .find((rule) =>
+        new RegExp(`\\.cudoc-callout-${type}(?![\\w-])[^{]*\\{`).test(rule),
+      )
+
+  it("draws caution in the danger colour, as GitHub does", () => {
+    const light = designTokens.colors.light
+    expect(calloutColors(designTokens, "caution")).toEqual({
+      border: light.danger,
+      wash: light.dangerWash,
+    })
+    expect(ruleFor(buildStyles(), "caution")).toContain("var(--danger)")
+  })
+
+  it("gives the stylesheet and Word the same pair for every listed type", () => {
+    const css = buildStyles()
+    const light = designTokens.colors.light
+    for (const [type, severity] of Object.entries(CALLOUT_SEVERITY)) {
+      const rule = ruleFor(css, type)
+      expect(rule, type).toContain(`border-left-color: var(--${severity});`)
+      expect(rule, type).toContain(`background: var(--${severity}-wash);`)
+      expect(calloutColors(designTokens, type), type).toEqual({
+        border: light[severity],
+        wash: light[severity === "warn" ? "warnWash" : "dangerWash"],
+      })
+    }
+  })
+
+  it("leaves every other type on the accent", () => {
+    const css = buildStyles()
+    const light = designTokens.colors.light
+    for (const type of ["note", "tip", "important", "success"]) {
+      expect(ruleFor(css, type), type).toBeUndefined()
+      expect(calloutColors(designTokens, type), type).toEqual({
+        border: light.accent,
+        wash: light.wash,
+      })
+    }
   })
 })
 

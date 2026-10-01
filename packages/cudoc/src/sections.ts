@@ -1,8 +1,8 @@
-import type { Heading, Root } from "mdast"
+import type { Heading, Parent, Root } from "mdast"
 import { visit } from "unist-util-visit"
 import {
   getHeadingAnchorId,
-  sliceSectionByAnchorId,
+  sliceSectionAt,
 } from "./internal/core/query/sections.js"
 import { getNodeText } from "./internal/core/query/nodes.js"
 import type { DocumentNode } from "./document.js"
@@ -33,7 +33,7 @@ export function collectSections(
         : [select.depth]
   if (depths?.some((d) => !Number.isInteger(d) || d < 1 || d > 6))
     throw new TypeError("cudoc: section depth must be 1-6")
-  visit(tree, "heading", (heading) => {
+  visit(tree, "heading", (heading, index, parent) => {
     const anchorId = getHeadingAnchorId(heading)
     const title = getNodeText(
       (heading.children as unknown as DocumentNode[]).filter(
@@ -42,13 +42,19 @@ export function collectSections(
     ).trim()
     if (
       !anchorId ||
+      typeof index !== "number" ||
+      !parent ||
       (select.anchors &&
         !select.anchors.map((id) => id.replace(/^#/, "")).includes(anchorId)) ||
       (select.titles && !select.titles.includes(title)) ||
       (depths && !depths.includes(heading.depth))
     )
       return
-    const section = structuredClone(sliceSectionByAnchorId(tree, anchorId)!)
+    // Sliced where the heading stands: a repeated id still yields this
+    // heading's own section, not the first one carrying the id.
+    const section = structuredClone(
+      sliceSectionAt(tree, { heading, index, parent: parent as Parent }),
+    )
     if (select.includeChildren === false) {
       const end = section.children.findIndex(
         (n, i) => i > 0 && n.type === "heading",

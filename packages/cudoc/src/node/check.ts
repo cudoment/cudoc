@@ -10,17 +10,30 @@
  * as fine is one the build can resolve.
  */
 
-import type { Root } from "mdast"
+import type { Code, Root } from "mdast"
 import type { Position } from "unist"
-import type { DocumentNode } from "../document.js"
+import { unified } from "unified"
+import remarkParse from "remark-parse"
+import remarkGfm from "remark-gfm"
+import remarkFrontmatter from "remark-frontmatter"
+import remarkMdx from "remark-mdx"
+import { visit } from "unist-util-visit"
+import { capturedImage, type DocumentNode } from "../document.js"
 import type { Library, StoredDocument } from "./library.js"
 import {
   DEFAULT_TABLE_COLUMNS,
   buildEmbedRow,
   extractCell,
   parseEmbedSpec,
+  resolveDocumentReference,
 } from "./resolve-embed.js"
-import type { Replacement } from "./resolve-embed.js"
+import type { EmbedSpec, Replacement } from "./resolve-embed.js"
+import {
+  compileReplacedSection,
+  replacedSectionSource,
+  sectionText,
+  unreplaceableSection,
+} from "./replace.js"
 import { collectSections } from "../sections.js"
 import {
   isExternalPath,
@@ -28,6 +41,7 @@ import {
   type LocalTargetRoots,
 } from "./local-target.js"
 import { resolveRoots, type SourceRoot } from "./roots.js"
+import { EXTERNAL_URL, decodeComponent, idsInNode } from "./references.js"
 
 export type ReferenceIssueCode =
   | "missing-document"
@@ -40,9 +54,11 @@ export type ReferenceIssueCode =
   | "missing-embed-anchor"
   | "invalid-embed-spec"
   | "unmatched-embed-replacement"
+  | "unreplaceable-embed-section"
   | "empty-embed-cell"
   | "unportable-embed-component"
   | "imported-embed-component"
+  | "cyclic-embed"
 
 export type ReferenceIssue = {
   code: ReferenceIssueCode
@@ -55,8 +71,10 @@ export type ReferenceIssue = {
   reference: string
   position?: Position
   /**
-   * The anchors the target document actually has. Filled in for
-   * `missing-anchor` so the author can see the real names instead of a guess.
+   * The anchors the target document actually has, or for
+   * `missing-embed-anchor` its headings' ids, which are what a section can be
+   * embedded from. Filled in so the author can see the real names instead of
+   * a guess.
    */
   available?: string[]
 }
@@ -76,7 +94,7 @@ export type CheckOptions = Omit<LocalTargetRoots, "roots"> & {
   ignore?: ReferenceIssueCode[]
 }
 
-/** A heading id that a slugger disambiguated, such as `overview-1`. */
+/** The shape of a heading id a slugger disambiguated, such as `overview-1`. */
 const SUFFIXED = /-\d+$/
 
 type Anchor = { id: string; explicit: boolean }
@@ -91,17 +109,48 @@ const walkNodes = (node: DocumentNode, visit: (node: DocumentNode) => void) => {
  *
  * Both halves matter. The ids answer whether a link resolves; the origin
  * answers whether it will keep resolving, because a generated id depends on how
- * many same-named headings precede it.
+ * many same-named headings precede it. Besides headings, an id an element in
+ * raw HTML declares is an anchor too, and one the author wrote.
  */
 export function collectAnchors(tree: Root): Anchor[] {
   const anchors: Anchor[] = []
   walkNodes(tree as unknown as DocumentNode, (node) => {
-    if (node.type !== "heading") return
+    if (node.type !== "heading") {
+      for (const id of idsInNode(node))
+        if (id) anchors.push({ id, explicit: true })
+      return
+    }
     const id = node.data?.hProperties?.id
     if (typeof id === "string" && id)
       anchors.push({ id, explicit: node.data?.cudoc?.explicitId === true })
   })
   return anchors
+}
+
+/**
+ * The ids a section can be embedded from: headings only, since an id raw HTML
+ * declares starts no section.
+ */
+const sectionIds = (anchors: Anchor[], tree: Root): string[] => {
+  const headings = new Set<string>()
+  walkNodes(tree as unknown as DocumentNode, (node) => {
+    const id = node.type === "heading" ? node.data?.hProperties?.id : undefined
+    if (typeof id === "string" && id) headings.add(id)
+  })
+  return anchors.map((entry) => entry.id).filter((id) => headings.has(id))
+}
+
+/**
+ * The anchor a fragment names, if the document has it. Hosts percent-encode a
+ * fragment that is not ASCII, so `#개요` may arrive as `#%EA%B0%9C%EC%9A%94`;
+ * either spelling names the same heading.
+ */
+const findAnchor = (
+  anchors: Anchor[],
+  fragment: string,
+): Anchor | undefined => {
+  const decoded = decodeComponent(fragment)
+  return anchors.find((entry) => entry.id === fragment || entry.id === decoded)
 }
 
 /**
@@ -191,6 +240,8 @@ const unportableComponents = (tree: Root): string[] => {
   walkNodes(tree as unknown as DocumentNode, (node) => {
     if (node.type === "mdxjsEsm" || node.type === "yaml") return
     if (!node.type.startsWith("mdx") && !node.type.endsWith("Directive")) return
+    // A host's component for a Markdown image renders as that image.
+    if (capturedImage(node)) return
     names.add(node.name ? `<${node.name}>` : node.type)
   })
   return [...names]
@@ -206,13 +257,136 @@ const headingText = (node: DocumentNode): string => {
   return text
 }
 
-/** The line each `cudoc-embed` fence opens on, in source order. */
-const embedFenceLines = (text: string): number[] => {
-  const lines: number[] = []
-  text.split("\n").forEach((line, index) => {
-    if (/^\s*(?:`{3,}|~{3,})cudoc-embed\s*$/.test(line)) lines.push(index + 1)
+/** Where an embed fence opens, and the text of its block. */
+type Fence = { line: number; column: number; value: string }
+
+/**
+ * The `cudoc-embed` fences of a source, in order, as Markdown parses them: a
+ * fence shown inside a longer fence or an indented code block is example
+ * text, and one inside a quote or a list item is a block like any other. The
+ * source is parsed as Markdown with GFM and front matter, as MDX for an `.mdx`
+ * file.
+ */
+const parsedFences = (text: string, mdx: boolean): Fence[] | undefined => {
+  try {
+    const processor = unified()
+      .use(remarkParse)
+      .use(remarkGfm)
+      .use(remarkFrontmatter)
+    if (mdx) processor.use(remarkMdx)
+    const fences: Fence[] = []
+    visit(processor.parse(text), "code", (node: Code) => {
+      if (node.lang === "cudoc-embed" && node.position)
+        fences.push({
+          line: node.position.start.line,
+          column: node.position.start.column,
+          value: node.value,
+        })
+    })
+    return fences
+  } catch {
+    // A host's own syntax may not parse here; the line scan below answers.
+    return undefined
+  }
+}
+
+/**
+ * The same fences found line by line: a fence is closed the way Markdown
+ * closes it, by the same character, at least as long, and nothing after it,
+ * and its text is the lines between, less the opening fence's indentation.
+ */
+const scannedFences = (text: string): Fence[] => {
+  const found: { line: number; column: number; content: string[] }[] = []
+  let open:
+    | { char: string; length: number; indent: RegExp; content?: string[] }
+    | undefined
+  text.split(/\r?\n/).forEach((line, index) => {
+    const match = line.match(/^(\s*)(`{3,}|~{3,})(.*)$/)
+    if (open) {
+      const [, , marker = "", rest = ""] = match ?? []
+      if (
+        marker[0] === open.char &&
+        marker.length >= open.length &&
+        !rest.trim()
+      )
+        open = undefined
+      else open.content?.push(line.replace(open.indent, ""))
+      return
+    }
+    if (!match) return
+    const [, indent = "", marker = "", rest = ""] = match
+    open = {
+      char: marker[0]!,
+      length: marker.length,
+      indent: new RegExp(`^ {0,${indent.length}}`),
+    }
+    if (rest.trim().split(/\s+/)[0] !== "cudoc-embed") return
+    open.content = []
+    found.push({
+      line: index + 1,
+      column: indent.length + 1,
+      content: open.content,
+    })
   })
-  return lines
+  return found.map(({ content, ...fence }) => ({
+    ...fence,
+    value: content.join("\n"),
+  }))
+}
+
+/** Block text as hosts may differ in keeping it: without `\r` or trailing whitespace. */
+const comparable = (value: string) =>
+  value
+    .replace(/\r/g, "")
+    .split("\n")
+    .map((line) => line.trimEnd())
+    .join("\n")
+    .trimEnd()
+
+/**
+ * The fence of each of a document's embed blocks, given their text in order,
+ * or nothing when neither reading of the source finds those blocks in that
+ * order: a host whose syntax reads a block differently from Markdown would
+ * otherwise put a block's error on another block's fence.
+ */
+const embedFences = (
+  text: string,
+  mdx: boolean,
+  values: string[],
+): (Fence | undefined)[] => {
+  const wanted = values.map(comparable)
+  const found = (fences: Fence[] | undefined): fences is Fence[] =>
+    fences !== undefined &&
+    fences.length === wanted.length &&
+    fences.every((fence, index) => comparable(fence.value) === wanted[index])
+  const parsed = parsedFences(text, mdx)
+  if (found(parsed)) return parsed
+  const scanned = scannedFences(text)
+  return found(scanned) ? scanned : []
+}
+
+/**
+ * Where an error in an embed block sits in the file. The YAML parser counts
+ * from the block's first line and column: the file's line adds the fence's,
+ * and the file's column adds whatever stands before the block's text on that
+ * line, indentation, a quote's `>` or a list item's offset alike. An error
+ * without a coordinate sits on the fence.
+ */
+const blockPosition = (
+  lines: string[],
+  fence: Fence,
+  at?: { line: number; col: number },
+) => {
+  if (!at) return { line: fence.line, column: fence.column }
+  const line = fence.line + at.line
+  const source = (lines[line - 1] ?? "").trimEnd()
+  const text = (
+    comparable(fence.value).split("\n")[at.line - 1] ?? ""
+  ).trimEnd()
+  const before = source.endsWith(text)
+    ? source.length - text.length
+    : fence.column - 1
+  return { line, column: before + at.col }
 }
 
 /** A YAML parser error carries where it gave up; a validation error does not. */
@@ -275,6 +449,12 @@ export function checkReferences(
   const anchorsById = new Map<string, Anchor[]>(
     library.documents.map((doc) => [doc.id, collectAnchors(doc.tree)]),
   )
+  const sectionsById = new Map<string, string[]>(
+    library.documents.map((doc) => [
+      doc.id,
+      sectionIds(anchorsById.get(doc.id)!, doc.tree),
+    ]),
+  )
   const byId = new Map(library.documents.map((doc) => [doc.id, doc]))
 
   const report = (
@@ -300,7 +480,9 @@ export function checkReferences(
 
   /** Resolves `other.md#anchor` or a bare `#anchor` against the library. */
   const checkDocumentLink = (doc: StoredDocument, url: string) => {
-    const [pathname, anchor] = url.split("#")
+    const [address = "", anchor] = url.split("#")
+    // A query names no other document: `guide/?tab=1` is still `guide/`.
+    const pathname = address.replace(/\?.*$/, "")
     let target = doc
     if (pathname) {
       const found = resolveDocument(doc, pathname)
@@ -309,7 +491,7 @@ export function checkReferences(
     }
     if (!anchor) return true
     const anchors = anchorsById.get(target.id) ?? []
-    const match = anchors.find((entry) => entry.id === anchor)
+    const match = findAnchor(anchors, anchor)
     if (!match) {
       report(doc, {
         code: "missing-anchor",
@@ -320,7 +502,14 @@ export function checkReferences(
       })
       return true
     }
-    if (!match.explicit && SUFFIXED.test(match.id))
+    // Only a suffix a slugger added is fragile: `## Version 2` is `version-2`
+    // because of its own text, and stays so. A repeat shows as the bare id
+    // being there too.
+    if (
+      !match.explicit &&
+      SUFFIXED.test(match.id) &&
+      anchors.some((entry) => entry.id === match.id.replace(SUFFIXED, ""))
+    )
       report(doc, {
         code: "unstable-anchor-link",
         severity: "warning",
@@ -346,15 +535,131 @@ export function checkReferences(
     doc: StoredDocument,
     pathname: string,
   ): StoredDocument | undefined => {
-    if (/^(?:[a-z][\w+.-]*:|\/\/)/i.test(pathname)) return undefined
-    const decoded = decodeURIComponent(pathname)
-    const toId = (value: string) =>
-      normalize(value).replace(/\.(?:mdx?|html?)$/i, "")
+    if (EXTERNAL_URL.test(pathname)) return undefined
+    const decoded = decodeComponent(pathname)
+    // A directory, `./` or `guide/` as VitePress writes a link to an
+    // `index.md`, names that directory's index document; spelled with its
+    // trailing slash, it does even beside a `guide.md`.
+    const lookup = (value: string) => {
+      const normalized = normalize(value)
+      if (normalized === undefined) return undefined
+      const id = normalized.replace(/\.(?:mdx?|html?)$/i, "")
+      const index = byId.get(normalized ? `${normalized}/index` : "index")
+      if (value === "" || /(?:^|\/)(?:\.\.?)?$/.test(value))
+        return index ?? byId.get(id)
+      return byId.get(id) ?? index
+    }
     if (!decoded.startsWith("/"))
-      return byId.get(toId(posixJoin(dirname(doc.sourcePath), decoded)))
-    const direct = byId.get(toId(decoded.slice(1)))
+      return lookup(posixJoin(dirname(doc.sourcePath), decoded))
+    const direct = lookup(decoded.slice(1))
     if (direct || !options.withoutBase) return direct
-    return byId.get(toId(options.withoutBase(decoded).replace(/^\//, "")))
+    return lookup(options.withoutBase(decoded).replace(/^\//, ""))
+  }
+
+  /**
+   * What an embed copies from one selected section: the section as
+   * collected, or, under replacement rules, its rewritten Markdown compiled
+   * again, which is the copy the resolver builds and expands. Without a
+   * synchronous host compiler, which `cudoc check` never has, the standalone
+   * compiler reads the rewritten Markdown with the library's options.
+   *
+   * `undefined` when the copy cannot be built here: the resolver refuses the
+   * rules, the snapshot or a repeated section id, which fails the build on
+   * its own, or the standalone compiler cannot read what only the host's
+   * parser accepts, such as Docusaurus's `{#id}` or an HTML comment in MDX.
+   * The section as collected is not a stand-in, because the rules may have
+   * changed exactly what an inspection looks for, so the caller skips it.
+   * Each copy is compiled once however many inspections and chains read it.
+   */
+  const rewritten = new Map<string, Root | undefined>()
+  const copiedTree = (
+    document: StoredDocument,
+    section: { anchorId?: string; tree: Root },
+    spec: EmbedSpec,
+  ): Root | undefined => {
+    const rules = spec.replace ?? []
+    if (!rules.length) return section.tree
+    const includeChildren = spec.select?.includeChildren
+    const key = JSON.stringify([
+      document.id,
+      section.anchorId ?? null,
+      includeChildren ?? true,
+      rules,
+    ])
+    if (rewritten.has(key)) return rewritten.get(key)
+    let copy: Root | undefined
+    try {
+      copy = compileReplacedSection(
+        library,
+        document,
+        replacedSectionSource(
+          document,
+          section.anchorId,
+          rules,
+          includeChildren,
+        ),
+        { standalone: true },
+      )
+    } catch {
+      copy = undefined
+    }
+    rewritten.set(key, copy)
+    return copy
+  }
+
+  /**
+   * The chain of sections that brings an embed back to itself, as the
+   * resolver would report it, or `undefined`. It follows the embeds inside
+   * each copied section — only those are expanded, after the embed's own
+   * replacement rules have rewritten it — and stops at the depth the
+   * resolver gives up at.
+   */
+  const embedCycle = (
+    spec: EmbedSpec,
+    from: string,
+    active: string[],
+  ): string[] | undefined => {
+    for (const source of spec.sources ?? []) {
+      let resolved: ReturnType<typeof resolveDocumentReference>
+      try {
+        resolved = resolveDocumentReference(library, String(source), from)
+      } catch {
+        continue // reported as a missing source
+      }
+      const { document, anchor } = resolved
+      const key = `${document.id}#${anchor ?? "*"}`
+      if (active.includes(key) || active.length >= 64) return [...active, key]
+      let sections: { anchorId?: string; tree: Root }[]
+      try {
+        sections =
+          anchor || spec.select
+            ? collectSections(document.tree, {
+                ...spec.select,
+                ...(anchor ? { anchors: [anchor] } : {}),
+              })
+            : [{ tree: document.tree }]
+      } catch {
+        continue // reported as a missing section
+      }
+      for (const section of sections) {
+        let found: string[] | undefined
+        const copy = copiedTree(document, section, spec)
+        if (!copy) continue // what it would expand cannot be told here
+        walkNodes(copy as unknown as DocumentNode, (node) => {
+          if (found || node.type !== "code" || node.lang !== "cudoc-embed")
+            return
+          let nested: EmbedSpec
+          try {
+            nested = parseEmbedSpec(node.value ?? "")
+          } catch {
+            return // reported where it is written
+          }
+          found = embedCycle(nested, document.id, [...active, key])
+        })
+        if (found) return found
+      }
+    }
+    return undefined
   }
 
   for (const doc of library.documents) {
@@ -394,15 +699,17 @@ export function checkReferences(
     })
 
     walkNodes(doc.tree as unknown as DocumentNode, (node) => {
+      const captured = capturedImage(node)
+      const image = node.type === "image" || captured !== undefined
       const url =
-        node.type === "link" || node.type === "image" ? node.url : undefined
+        node.type === "link" || node.type === "image" ? node.url : captured?.url
       if (typeof url !== "string" || !url) return
       // A heading permalink is machinery the host inserted, not something an
       // author wrote. VitePress and Eleventy add one per heading, and counting
       // them would report every generated anchor as an unstable link.
       if (node.data?.cudoc?.kind === "permalink") return
       checkedReferences++
-      if (/^(?:[a-z][\w+.-]*:|\/\/)/i.test(url)) return // external
+      if (EXTERNAL_URL.test(url)) return // external
       // Another application's path on the same host: nothing here to check.
       if (isExternalPath(url, options.externalPaths)) return
       if (node.type === "link" && checkDocumentLink(doc, url)) return
@@ -414,19 +721,27 @@ export function checkReferences(
       })
       if (target.kind === "missing")
         report(doc, {
-          code: node.type === "image" ? "missing-asset" : "missing-document",
+          code: image ? "missing-asset" : "missing-document",
           severity: "error",
-          message:
-            node.type === "image"
-              ? `no file for image ${url}; check the collection roots and assetDirs`
-              : `no document or file for ${url}`,
+          message: image
+            ? `no file for image ${url}; check the collection roots and assetDirs`
+            : `no document or file for ${url}`,
           reference: url,
         })
     })
 
     // Fence lines are read from the source because collection strips positions,
     // and they are what turns a YAML error's own coordinate into a file one.
-    const fences = embedFenceLines(doc.source?.text ?? "")
+    const values: string[] = []
+    walkNodes(doc.tree as unknown as DocumentNode, (node) => {
+      if (node.type === "code" && node.lang === "cudoc-embed")
+        values.push(node.value ?? "")
+    })
+    const sourceText = doc.source?.text ?? ""
+    const fences = values.length
+      ? embedFences(sourceText, doc.source?.format === "mdx", values)
+      : []
+    const sourceLines = sourceText.split(/\r?\n/)
     let blockNumber = 0
     walkNodes(doc.tree as unknown as DocumentNode, (node) => {
       if (node.type !== "code" || node.lang !== "cudoc-embed") return
@@ -435,10 +750,9 @@ export function checkReferences(
       try {
         spec = parseEmbedSpec(node.value ?? "")
       } catch (error) {
-        // The YAML parser counts from the start of the block; an author counts
-        // from the start of the file. Add the fence so both agree.
-        const at = (error as Located).linePos?.[0]
-        const line = fence === undefined ? undefined : fence + (at?.line ?? 0)
+        const position =
+          fence &&
+          blockPosition(sourceLines, fence, (error as Located).linePos?.[0])
         report(doc, {
           code: "invalid-embed-spec",
           severity: "error",
@@ -451,83 +765,112 @@ export function checkReferences(
             .replace(/\s*at line \d+, column \d+:?\s*$/, "")
             .trim(),
           reference: `embed block ${blockNumber}`,
-          position:
-            line === undefined
-              ? undefined
-              : {
-                  start: { line, column: at?.col ?? 1 },
-                  end: { line, column: at?.col ?? 1 },
-                },
+          position: position && { start: position, end: position },
         })
         return
       }
+      const cycle = embedCycle(spec, doc.id, [])
+      if (cycle)
+        report(doc, {
+          code: "cyclic-embed",
+          severity: "error",
+          message: `embed block ${blockNumber} never finishes: ${cycle.join(" -> ")}. Each embed copies content that embeds the next, back to the first.`,
+          reference: `embed block ${blockNumber}`,
+          position: fence && {
+            start: { line: fence.line, column: fence.column },
+            end: { line: fence.line, column: fence.column },
+          },
+        })
       for (const reference of spec.sources ?? []) {
         checkedReferences++
-        const [pathname, anchor] = String(reference).split("#")
-        const target = pathname
-          ? resolveDocument(doc, pathname)
-          : byId.get(doc.id)
-        if (!target) {
+        // The resolver's own reading of the source, so an embed this passes
+        // is one the build can find.
+        let resolved: ReturnType<typeof resolveDocumentReference>
+        try {
+          resolved = resolveDocumentReference(
+            library,
+            String(reference),
+            doc.id,
+          )
+        } catch (error) {
           report(doc, {
             code: "missing-embed-source",
             severity: "error",
-            message: `embed source ${reference} does not name a collected document`,
+            message: (error as Error).message.replace(/^cudoc: /, ""),
             reference: String(reference),
           })
           continue
         }
-        const anchors = anchorsById.get(target.id) ?? []
-        if (anchor && !anchors.some((entry) => entry.id === anchor)) {
+        const { document: target, anchor } = resolved
+        const sections = sectionsById.get(target.id) ?? []
+        if (anchor && !sections.includes(anchor)) {
           report(doc, {
             code: "missing-embed-anchor",
             severity: "error",
             message: `${target.id} has no section #${anchor} to embed`,
             reference: String(reference),
-            available: anchors.map((entry) => entry.id),
+            available: sections,
           })
           continue
         }
 
         // The same selection the resolver will apply, so what is inspected is
-        // what would actually be copied. `select.anchors` can name a section
-        // that does not exist, which `collectSections` rejects; the build hits
-        // the same error, so it is reported rather than swallowed.
-        const selection = anchor ? { anchors: [anchor] } : spec.select
+        // what would actually be copied: a section named in the source is
+        // combined with `select`, as the resolver combines them. `select`
+        // can name a section that does not exist, which `collectSections`
+        // rejects; the build hits the same error, so it is reported rather
+        // than swallowed.
+        const selection =
+          anchor || spec.select
+            ? { ...spec.select, ...(anchor ? { anchors: [anchor] } : {}) }
+            : undefined
         let copied: { anchorId?: string; tree: Root }[]
         try {
           copied = selection
             ? collectSections(target.tree, selection)
             : [{ anchorId: undefined, tree: target.tree }]
+          if (!copied.length) throw new Error("no sections matched")
         } catch (error) {
           report(doc, {
             code: "missing-embed-anchor",
             severity: "error",
             message: `${target.id}: ${(error as Error).message.replace(/^cudoc: /, "")}`,
             reference: String(reference),
-            available: anchors.map((entry) => entry.id),
+            available: sections,
           })
           continue
         }
 
         // Replacement runs on the original Markdown, not the tree, so the
-        // slices are recomputed the way `transformedSection` cuts them. A rule
+        // text is read through `sectionText`, as the resolver reads it. A rule
         // that matches no slice changed nothing, and the embed silently shows
         // the source's own wording in a place written to expect otherwise.
         const rules = spec.replace ?? []
+        // The resolver refuses rules on a section inside another block whose
+        // text read on its own is not that section, and the build stops there.
+        if (rules.length)
+          for (const section of copied) {
+            const problem = unreplaceableSection(
+              target,
+              section.anchorId,
+              spec.select?.includeChildren,
+            )
+            if (problem)
+              report(doc, {
+                code: "unreplaceable-embed-section",
+                severity: "error",
+                message: problem,
+                reference: String(reference),
+              })
+          }
         if (rules.length && target.source) {
           const matched = rules.map(() => false)
           for (const section of copied) {
-            const range = section.anchorId
-              ? target.source.sections[section.anchorId]
-              : undefined
-            const slice = range
-              ? target.source.text.slice(
-                  range.start,
-                  spec.select?.includeChildren === false
-                    ? (range.ownEnd ?? range.end)
-                    : range.end,
-                )
-              : target.source.text
+            const slice = sectionText(
+              target,
+              section.anchorId,
+              spec.select?.includeChildren,
+            )
             matchedRules(slice, rules).forEach((hit, index) => {
               if (hit) matched[index] = true
             })
@@ -543,13 +886,21 @@ export function checkReferences(
           })
         }
 
+        // What the rest inspects is the copy itself, after the rules above
+        // have rewritten it, as the resolver builds it. A section whose copy
+        // cannot be built here is left out rather than guessed at.
+        const copies = copied.flatMap((section) => {
+          const tree = copiedTree(target, section, spec)
+          return tree ? [{ anchorId: section.anchorId, tree }] : []
+        })
+
         // A table carries extracted text and nothing else, so whatever else
         // the body holds never travels. What can go wrong is a column that
         // finds nothing in a row: the resolver renders an empty cell, and the
         // author would only notice by reading the page.
         if (typeof spec.render === "object" && spec.render?.type === "table") {
           const columns = spec.render.columns ?? DEFAULT_TABLE_COLUMNS
-          for (const section of copied) {
+          for (const section of copies) {
             const row = buildEmbedRow(target, section.anchorId, section.tree)
             columns.forEach((column, index) => {
               // A shorthand column is best effort: `summary` of a section
@@ -591,7 +942,7 @@ export function checkReferences(
 
         const names = [
           ...new Set(
-            copied.flatMap((section) => unportableComponents(section.tree)),
+            copies.flatMap((section) => unportableComponents(section.tree)),
           ),
         ]
         if (names.length)
@@ -627,20 +978,22 @@ export function checkReferences(
   return { issues, documentCount: library.documents.length, checkedReferences }
 }
 
-// Posix path helpers, kept local so this module stays usable without importing
-// the whole node path surface into a browser-safe boundary by accident.
+// Posix path helpers for library paths, which are always `/`-separated
+// whatever the platform, so `node:path` with its native separators would be
+// the wrong tool even on Node.
 const dirname = (value: string) => {
   const at = value.lastIndexOf("/")
   return at <= 0 ? "." : value.slice(0, at)
 }
 const posixJoin = (base: string, value: string) =>
   base === "." ? value : `${base}/${value}`
-const normalize = (value: string) => {
+/** The normalized path, or `undefined` when `..` climbs out of the library. */
+const normalize = (value: string): string | undefined => {
   const out: string[] = []
   for (const part of value.split("/")) {
     if (!part || part === ".") continue
-    if (part === "..") out.pop()
-    else out.push(part)
+    if (part !== "..") out.push(part)
+    else if (!out.pop()) return undefined
   }
   return out.join("/")
 }

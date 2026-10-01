@@ -10,11 +10,13 @@ import fs from "node:fs"
 import path from "node:path"
 import { pathToFileURL } from "node:url"
 import { createRequire } from "node:module"
+import type { Page } from "playwright-core"
 import type {
   ResolvedGeometry,
   ResolvedPageOptions,
   RunningText,
 } from "./design/page.js"
+import { designTokens, remToPt, type DesignTokens } from "./design/tokens.js"
 
 export const BROWSER_CHANNEL = "chromium-headless-shell"
 
@@ -58,22 +60,28 @@ const fill = (text: string, title: string, date: string) =>
  *
  * The template renders in its own document with no access to the page's CSS or
  * custom properties, and its default font size is effectively zero, so every
- * style is inline and absolute. An empty string would make Chrome fall back to
- * its own header, hence the empty span.
+ * style is inline and absolute: the sans stack, the `xs` step at the print
+ * base size and the light `faint` colour, read from the same tokens as the
+ * stylesheet and the Word running text. An empty string would make Chrome fall
+ * back to its own header, hence the empty span.
  */
 export function runningTemplate(
   text: RunningText | false | undefined,
   title: string,
   date: string,
   geometry: ResolvedGeometry,
+  tokens: DesignTokens = designTokens,
 ): string {
   if (!text) return "<span></span>"
   const slots = typeof text === "string" ? { center: text } : { ...text }
   const cell = (value?: string) =>
     `<span>${value ? fill(value, title, date) : ""}</span>`
+  // Font names are quoted with `"`, which would end the attribute.
+  const font = tokens.fonts.sans.join(",").replace(/"/g, "'")
+  const size = +remToPt(tokens.text.xs, tokens.print.baseSize).toFixed(2)
   return (
-    `<div style="font-family:-apple-system,'Segoe UI',system-ui,sans-serif;` +
-    `font-size:8pt;color:#5b6b7f;width:100%;box-sizing:border-box;` +
+    `<div style="font-family:${escapeText(font)};` +
+    `font-size:${size}pt;color:${tokens.colors.light.faint};width:100%;box-sizing:border-box;` +
     `padding:0 ${geometry.margin.right} 0 ${geometry.margin.left};` +
     `display:flex;justify-content:space-between;align-items:center;">` +
     `${cell(slots.left)}${cell(slots.center)}${cell(slots.right)}</div>`
@@ -151,13 +159,22 @@ export type Printer = {
 export async function openPrinter(
   page: ResolvedPageOptions,
   options: PdfOptions = {},
+  tokens: DesignTokens = designTokens,
 ): Promise<Printer> {
   const browser = await launchBrowser(options.executablePath)
-  const context = await browser.newContext({
-    colorScheme: "light",
-    reducedMotion: "reduce",
-  })
-  const tab = await context.newPage()
+  let tab: Page
+  try {
+    const context = await browser.newContext({
+      colorScheme: "light",
+      reducedMotion: "reduce",
+    })
+    tab = await context.newPage()
+  } catch (error) {
+    // A launched browser that cannot open a page would otherwise outlive
+    // the export that started it.
+    await browser.close()
+    throw error
+  }
   const { geometry } = page
   return {
     async print(job) {
@@ -174,12 +191,14 @@ export async function openPrinter(
           job.title,
           page.date,
           geometry,
+          tokens,
         ),
         footerTemplate: runningTemplate(
           page.footer,
           job.title,
           page.date,
           geometry,
+          tokens,
         ),
         scale: 1,
       })
@@ -196,10 +215,11 @@ export async function printPdfs(
   jobs: PrintJob[],
   page: ResolvedPageOptions,
   options: PdfOptions = {},
+  tokens: DesignTokens = designTokens,
 ): Promise<Map<string, number>> {
   const pages = new Map<string, number>()
   if (jobs.length === 0) return pages
-  const printer = await openPrinter(page, options)
+  const printer = await openPrinter(page, options, tokens)
   try {
     for (const job of jobs) pages.set(job.output, await printer.print(job))
   } finally {

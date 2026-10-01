@@ -7,8 +7,13 @@
  * configuration into a temporary directory and compares every text output
  * byte for byte, so a rendering or stylesheet change that reaches the sample
  * is a visible diff and a stale sample fails release checks. The PDF and Word
- * files carry creation timestamps and are compared by presence and size class
- * only; `npm run showcase` in examples/export rewrites them together.
+ * files carry creation timestamps, so a PDF is compared by its page count and
+ * size class and a Word file by its size class; `npm run showcase` in
+ * examples/export rewrites them together.
+ *
+ * Not run in CI: the sample is built on a release machine, and the page count,
+ * the contents page numbers baked into the volume's print HTML and the PDF
+ * itself follow the fonts installed there.
  */
 
 import fs from "node:fs"
@@ -27,6 +32,10 @@ const { buildExport } = await import(
 ).catch(() => {
   throw new Error("examples/export is not installed; run npm ci there first")
 })
+const { pdfPageCount } = await import(
+  pathToFileURL(path.join(EXAMPLE, "node_modules/cudoc-export/dist/pdf.js"))
+    .href
+)
 const { default: config } = await import(
   pathToFileURL(path.join(EXAMPLE, "showcase.config.mjs")).href
 )
@@ -66,6 +75,10 @@ for (const file of fresh.filter((f) => committed.includes(f))) {
     // Timestamps inside; the size should not move by more than a tenth.
     if (Math.abs(a.length - b.length) > Math.max(a.length, b.length) / 10)
       problems.push(`${file}: size ${b.length} committed, ${a.length} fresh`)
+    if (file.endsWith(".pdf") && pdfPageCount(a) !== pdfPageCount(b))
+      problems.push(
+        `${file}: ${pdfPageCount(b)} pages committed, ${pdfPageCount(a)} fresh`,
+      )
   } else if (!a.equals(b)) problems.push(`${file}: content differs`)
 }
 fs.rmSync(scratch, { recursive: true, force: true })
