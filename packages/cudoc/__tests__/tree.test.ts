@@ -471,6 +471,31 @@ describe("what a line says", () => {
       '<li class="cudoc-tree-leaf"><a href="/d">D</a></li>',
     )
   })
+
+  it("keeps a tree's links through every copy, whatever the routes", () => {
+    // A's route is B's path, so a link read again as a source path would
+    // name B and turn into B's route.
+    const fence =
+      "```cudoc-embed\nsources: [a.md]\nrender: { type: tree }\n```\n"
+    const library = build(
+      {
+        "index.md": page("Home"),
+        "a.md": page("A"),
+        "b.md": page("B"),
+        "list.md": `# List\n\n${fence}`,
+        "outer.md": "# Outer\n\n```cudoc-embed\nsources: [list.md]\n```\n",
+      },
+      undefined,
+      { a: "/b", b: "/c" },
+    )
+    const links = (source: string) =>
+      html(library, `sources: [${source}]\n`).match(/href="[^"]*"/g)
+    expect(
+      html(library, "sources: [a.md]\nrender: { type: tree }\n"),
+    ).toContain('href="/b"')
+    expect(links("list.md")).toEqual(['href="/b"'])
+    expect(links("outer.md")).toEqual(['href="/b"'])
+  })
 })
 
 describe("private documents", () => {

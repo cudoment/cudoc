@@ -11,6 +11,7 @@ What changed in each version, newest first. All eight packages share one version
 - In a tree, an extractor also receives the line it computes as `node`, with the lines below it already complete, so a column can total what the levels below hold.
 - `cudoc check` warns with `unmatched-tree-order` when a tree's `order` names nothing on its first level, and reports a tree's missing folder or document as for any embed.
 - `@cudoment/cudoc/styles.css` and the exported site draw a tree as an outline, without the box a host gives an authored `details`.
+- A copy inside a copy rebases each link once. When `routes` gives one document another document's path, a link in a nested copy, summary table or tree keeps the route it was given instead of turning into the other document's route, and a relative path that climbs out of the collection keeps naming the same file.
 
 ## 0.6.0
 
