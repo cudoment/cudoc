@@ -10,14 +10,22 @@
  * paragraph, so the two outputs cannot carry different text.
  */
 
+/** A CSS length in `mm`, `cm`, `in`, `pt` or `px`, or a number of millimetres. */
+export type PageLength = string | number
+
 export type PaperSize =
-  "A4" | "A5" | "A3" | "Letter" | "Legal" | { width: string; height: string }
+  | "A4"
+  | "A5"
+  | "A3"
+  | "Letter"
+  | "Legal"
+  | { width: PageLength; height: PageLength }
 
 export type PageMargins = {
-  top?: string
-  right?: string
-  bottom?: string
-  left?: string
+  top?: PageLength
+  right?: PageLength
+  bottom?: PageLength
+  left?: PageLength
 }
 
 export type PageGeometry = {
@@ -114,8 +122,11 @@ const DEFAULT_MARGIN: Required<PageMargins> = {
  */
 export const RUNNING_MARGIN_MM = 15
 
-export const mm = (value: string): number => {
-  const match = value.trim().match(/^(-?[\d.]+)(mm|cm|in|pt|px)?$/i)
+export const mm = (value: PageLength): number => {
+  // A configuration written in JavaScript may give a bare number.
+  const match = String(value)
+    .trim()
+    .match(/^(-?[\d.]+)(mm|cm|in|pt|px)?$/i)
   if (!match) throw new Error(`cudoc-export: unusable page length ${value}`)
   const size = Number(match[1])
   switch ((match[2] ?? "mm").toLowerCase()) {
@@ -133,36 +144,45 @@ export const mm = (value: string): number => {
 }
 
 const round = (value: number) => Math.round(value * 100) / 100
-const toTwips = (value: string) => Math.round((mm(value) * 1440) / 25.4)
+const toTwips = (value: PageLength) => Math.round((mm(value) * 1440) / 25.4)
+const isLength = (value: unknown): value is PageLength =>
+  typeof value === "string" || typeof value === "number"
 
 export function resolvePageGeometry(
   geometry: PageGeometry = {},
 ): ResolvedGeometry {
   const orientation = geometry.orientation ?? "portrait"
   const paper = geometry.paper ?? "A4"
-  let width: string, height: string
+  let width: PageLength, height: PageLength
   if (typeof paper === "string") {
     const size = PAPERS[paper]
     if (!size)
       throw new Error(
         `cudoc-export: unknown paper ${paper}; use ${Object.keys(PAPERS).join(", ")} or explicit dimensions`,
       )
-    ;[width, height] = [`${size[0]}mm`, `${size[1]}mm`]
+    ;[width, height] = [size[0], size[1]]
   } else {
-    if (
-      !paper ||
-      typeof paper.width !== "string" ||
-      typeof paper.height !== "string"
-    )
+    if (!paper || !isLength(paper.width) || !isLength(paper.height))
       throw new Error(
-        "cudoc-export: paper needs width and height as CSS lengths",
+        "cudoc-export: paper needs width and height as lengths, such as 210mm",
       )
     ;[width, height] = [paper.width, paper.height]
   }
   if (orientation === "landscape") [width, height] = [height, width]
 
-  const margin = { ...DEFAULT_MARGIN, ...geometry.margin }
-  for (const value of Object.values(margin)) mm(value)
+  // Every length leaves here in millimetres. The print stylesheet, Word and
+  // the browser's print call each read these, and the browser takes only px,
+  // in, cm and mm, reading a bare number as pixels: `54pt` or `20` would
+  // otherwise fail there or mean something else there than in Word.
+  const toMm = (value: PageLength) => `${round(mm(value))}mm`
+  ;[width, height] = [toMm(width), toMm(height)]
+  const given = { ...DEFAULT_MARGIN, ...geometry.margin }
+  const margin = {
+    top: toMm(given.top),
+    right: toMm(given.right),
+    bottom: toMm(given.bottom),
+    left: toMm(given.left),
+  }
 
   const content = {
     width: `${round(mm(width) - mm(margin.left) - mm(margin.right))}mm`,

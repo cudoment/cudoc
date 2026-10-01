@@ -1,8 +1,10 @@
 # cudoc-remark
 
+> **Most sites do not set this package up themselves.** On Docusaurus and Nextra it sits under the adapter: install it beside `cudoc-docusaurus` or `cudoc-nextra` and take only its embed plugin, library loader and compiler capture from it, as the [Docusaurus](https://github.com/cudoment/cudoc/tree/main/docs/docusaurus.md) and [Nextra](https://github.com/cudoment/cudoc/tree/main/docs/nextra.md) guides show. Configure it directly in two cases only: a Next.js site on `@next/mdx`, which has no adapter ([Next.js guide](https://github.com/cudoment/cudoc/tree/main/docs/next.md)), and a remark or MDX pipeline you assemble yourself. Otherwise start from [your site generator](https://github.com/cudoment/cudoc#pick-your-site-generator).
+
 Connect cudoc Markdown syntax and prepared document embeds to a remark/MDX pipeline.
 
-This separate package is a pipeline adapter, not a second implementation of cudoc's rules. Shared document semantics live in `@cudoment/cudoc`. Use it directly with Next.js/remark; Docusaurus and Nextra adapters already depend on it. VitePress and Eleventy share `cudoc-markdown-it`, and HTML uses its own adapter; none of them need this plugin.
+This separate package is a pipeline adapter, not a second implementation of cudoc's rules. Shared document semantics live in `@cudoment/cudoc`. VitePress and Eleventy share `cudoc-markdown-it`, and HTML uses its own adapter; none of them need this plugin.
 
 ESM · Node.js 20+
 

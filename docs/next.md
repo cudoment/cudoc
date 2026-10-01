@@ -16,6 +16,8 @@ npm install @cudoment/cudoc cudoc-remark remark-gfm @next/mdx @mdx-js/loader @md
 
 ## Step 2 — Register the remark plugins
 
+Merge this into `next.config.mjs`, keeping your site's other settings:
+
 ```js
 // next.config.mjs
 import createMDX from "@next/mdx"
@@ -43,6 +45,7 @@ export default withMDX({
 Next.js requires the file. If your project already has one, keep its mappings and add nothing:
 
 ```jsx
+// mdx-components.jsx
 export function useMDXComponents(components) {
   return { ...components }
 }
@@ -55,6 +58,7 @@ No cudoc anchor, badge or table component needs registering.
 Once, from your root layout:
 
 ```js
+// app/layout.jsx — add at the top
 import "@cudoment/cudoc/styles.css"
 ```
 
@@ -62,25 +66,34 @@ Author documents under `docs/` and render them through your existing MDX routing
 
 **Stop here if you only want the syntax extensions.** Run your app and the features in [Markdown syntax](./syntax.md) work. Continue for document embedding.
 
-## Step 5 — Add the embed plugin
+## Step 5 — Add the embed plugin and the library loader
 
-Append it after `cudoc-remark` in the same `remarkPlugins` array:
-
-```js
-;["cudoc-remark/embed", { sourceRoot: "docs", outDir: ".cudoc/documents" }]
-```
-
-If collection uses `roots`, pass the same list here instead of `sourceRoot`, so a file maps to the id it was collected under.
-
-The plugin splices each embed's prepared content into the page while it compiles, so a component in an embedded section renders through your `mdx-components.jsx` like any other. It also means the compiled page depends on `.cudoc/documents/embeds.json`, which the bundler cannot see. Register the pass-through loader on the same files, for both bundlers:
+The embed plugin goes after `cudoc-remark` in the same `remarkPlugins` array, and the pass-through loader on the same files, for both bundlers. With both, `next.config.mjs` reads as follows, your site's other settings kept:
 
 ```js
+// next.config.mjs
+import createMDX from "@next/mdx"
 import { libraryLoader } from "cudoc-remark/loader"
+
+const withMDX = createMDX({
+  extension: /\.mdx?$/,
+  options: {
+    format: "detect",
+    remarkPlugins: [
+      ["remark-gfm"],
+      ["cudoc-remark", { host: "next", syntax: {} }],
+      [
+        "cudoc-remark/embed",
+        { sourceRoot: "docs", outDir: ".cudoc/documents" },
+      ],
+    ],
+  },
+})
 
 const library = libraryLoader(".cudoc/documents")
 
 export default withMDX({
-  pageExtensions: ["js", "jsx", "md", "mdx"],
+  pageExtensions: ["js", "jsx", "ts", "tsx", "md", "mdx"],
   webpack(config) {
     config.module.rules.push({ test: /\.mdx?$/, use: [library] })
     return config
@@ -89,11 +102,26 @@ export default withMDX({
 })
 ```
 
-It leaves your files alone and adds one invisible line to what the bundler compiles, a reference definition carrying the library's hash, so the dev server and both bundlers' build caches see that a page changed when the library did and `cudoc collect` reaches pages that were already compiled. → [Prepared-embed splicing](./api-reference/adapters.md#prepared-embed-splicing)
+If collection uses `roots`, pass the same list to the embed plugin instead of `sourceRoot`, so a file maps to the id it was collected under.
+
+The plugin splices each embed's prepared content into the page while it compiles, so a component in an embedded section renders through your `mdx-components.jsx` like any other. It also means the compiled page depends on `.cudoc/documents/embeds.json`, which the bundler cannot see. The loader leaves your files alone and adds one invisible line to what the bundler compiles, a reference definition carrying the library's hash, so the dev server and both bundlers' build caches see that a page changed when the library did and `cudoc collect` reaches pages that were already compiled. → [Prepared-embed splicing](./api-reference/adapters.md#prepared-embed-splicing)
 
 ## Step 6 — Collect before every build
 
-Set up `cudoc.config.mjs` as described in [collection setup](./embedding.md#set-up-collection), with `host: "next"`, then:
+Create the collection configuration. `host: "next"` makes collection read documents the way `cudoc-remark` compiles them; keep `syntax` equal to the options in `next.config.mjs`. `check.assetDirs` tells `cudoc check` where root-relative images such as `/img/logo.png` come from:
+
+```js
+// cudoc.config.mjs
+export default {
+  sourceRoot: "docs",
+  outDir: ".cudoc/documents",
+  host: "next",
+  syntax: {},
+  check: { assetDirs: ["public"] },
+}
+```
+
+Then add the scripts to `package.json`:
 
 ```json
 {
@@ -106,7 +134,7 @@ Set up `cudoc.config.mjs` as described in [collection setup](./embedding.md#set-
 }
 ```
 
-Collection has to run before Next.js does. While you write, run `cudoc collect --watch --config cudoc.config.mjs` beside `next dev`: it collects again on every change under `docs/`, and the loader rule from the previous step brings the result into pages the dev server has already compiled. The embed plugin generates no imports and no runtime component; authors write no imports in Markdown.
+Collection has to run before Next.js does. While you write, run `cudoc collect --watch --config cudoc.config.mjs` beside `next dev`: it collects again on every change under `docs/`, and the loader rule from the previous step brings the result into pages the dev server has already compiled. The embed plugin generates no imports and no runtime component; authors write no imports in Markdown. [Collection setup](./embedding.md#set-up-collection) describes the other collection options.
 
 **Match collected routes to your App Router paths.** A `guide.md` served at `/help/guide` needs `routes: { guide: "/help/guide" }`.
 
@@ -115,7 +143,7 @@ Collection has to run before Next.js does. While you write, run `cudoc collect -
 ```sh
 npm install cudoc-export
 npx cudoc-export build docs --library .cudoc/documents --out-dir shared-html \
-  --links host --host-url https://docs.example.com/project/
+  --links host --host-url https://docs.example.com/project/ --asset-dir public
 ```
 
 Your Next.js build and its collected data are not modified. → [Standalone HTML](./export.md)
@@ -141,7 +169,7 @@ Your Next.js build and its collected data are not modified. → [Standalone HTML
 
 **`.md` versus `.mdx`.** `format: "detect"` keeps `.md` as plain Markdown, where `{value}` stays literal text, and treats `.mdx` as MDX for your own React components. → [Choosing `.md` or `.mdx`](./README.md#choosing-md-or-mdx)
 
-**Optional MDX table of contents.** Adding `toc: true` to the remark options exports a `toc` binding from a compiled `.mdx` module — a two-level outline. Plain `.md` receives no ESM export. → [TOC reference](./api-reference/adapters.md#remark)
+**Optional MDX table of contents.** Adding `toc: true` to the remark options exports a `toc` binding from a compiled `.mdx` module — a two-level outline. Plain `.md` receives no ESM export. The outline is collected before the embed plugin runs, so headings an embed brings in are anchors on the page but not entries in it. → [TOC reference](./api-reference/adapters.md#remark)
 
 **A custom remark pipeline.** The generic collector matches the standard cudoc/GFM setup above. If your pipeline differs, collection and source replacement must use that same compiler. → [Compiler capture](./api-reference/adapters.md#compiler-capture)
 

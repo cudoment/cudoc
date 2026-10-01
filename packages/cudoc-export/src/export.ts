@@ -22,6 +22,7 @@ import {
   PRINT_STYLESHEET,
   fillVolumePageNumbers,
   printFileName,
+  urlPath,
   type PrintableDocument,
 } from "./print.js"
 import {
@@ -29,7 +30,8 @@ import {
   ANNOTATION_STYLESHEET,
   THEME_SCRIPT,
 } from "./annotations/site.js"
-import { openPrinter, type PdfOptions } from "./pdf.js"
+import { openPrinter, type PdfOptions, type Printer } from "./pdf.js"
+import { decodeComponent } from "./links.js"
 import {
   bookmarkName,
   writeDocx,
@@ -77,7 +79,9 @@ const wantsVolume = (granularity: ExportGranularity) =>
  * documents are in the file. A per-document file cannot: Word's handling of
  * `file.docx#bookmark` is inconsistent across platforms, so it links to the
  * sibling file without a fragment. This is the concrete reason both
- * granularities exist rather than one being a convenience.
+ * granularities exist rather than one being a convenience. A private document
+ * is in no file, so both name it on the host, the only policy that lets a
+ * link reach one.
  */
 const docxLink =
   (context: StagingContext, doc: StoredDocument, bound: boolean) =>
@@ -86,10 +90,20 @@ const docxLink =
     switch (target.kind) {
       case "external":
         return { href: target.url }
+      // A heading is bookmarked under its id as written, so the anchor is
+      // decoded before it is hashed: `#%EA%B0%9C%EC%9A%94` names `개요`, as
+      // it does in the print volume.
       case "fragment":
-        return { anchor: bookmarkName(doc.id, target.anchor) }
+        return { anchor: bookmarkName(doc.id, decodeComponent(target.anchor)) }
       case "document":
-        if (bound) return { anchor: bookmarkName(target.id, target.anchor) }
+        // A private target always has `hosted`, as in the print HTML.
+        if (
+          bound &&
+          context.documents.some((entry) => entry.doc.id === target.id)
+        )
+          return {
+            anchor: bookmarkName(target.id, decodeComponent(target.anchor)),
+          }
         return {
           href: target.hosted ?? context.assetLink(`${target.id}.docx`, doc),
         }
@@ -97,7 +111,7 @@ const docxLink =
         if (target.hosted) return { href: target.hosted }
         if (!target.asset) return null
         return {
-          href: `${bound ? target.asset : context.assetLink(target.asset, doc)}${target.suffix}`,
+          href: `${urlPath(bound ? target.asset : context.assetLink(target.asset, doc))}${target.suffix}`,
         }
     }
   }
@@ -271,7 +285,14 @@ async function writePdfOutputs(
   const written: string[] = []
   const { staging, volume } = context
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "cudoc-pdf-"))
-  const printer = await openPrinter(context.page, options)
+  let printer: Printer
+  try {
+    printer = await openPrinter(context.page, options, context.tokens)
+  } catch (error) {
+    // The browser is missing more often than anything else goes wrong here.
+    fs.rmSync(scratch, { recursive: true, force: true })
+    throw error
+  }
   try {
     const counts = new Map<string, number>()
     for (const entry of context.documents) {
@@ -358,6 +379,7 @@ function expectVolumeLength(
     throw new Error(
       `cudoc-export: the bound volume is ${actual} pages but its parts are ${expected} ` +
         `(${measured.front} front matter + ${measured.documents} documents), so the ` +
-        `contents page numbers would be wrong. A document is not starting on a page boundary.`,
+        `contents page numbers would be wrong. A document prints at a different length ` +
+        `inside the volume than alone, or does not start on a page boundary.`,
     )
 }

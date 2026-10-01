@@ -16,6 +16,8 @@ npm install @cudoment/cudoc cudoc-remark remark-gfm @next/mdx @mdx-js/loader @md
 
 ## 2단계 — remark 플러그인 등록
 
+`next.config.mjs`에 아래를 병합하고, 사이트의 다른 설정은 그대로 두십시오.
+
 ```js
 // next.config.mjs
 import createMDX from "@next/mdx"
@@ -43,6 +45,7 @@ export default withMDX({
 Next.js가 이 파일을 요구합니다. 이미 있으시면 기존 매핑을 그대로 두고 아무것도 더하지 않으셔도 됩니다.
 
 ```jsx
+// mdx-components.jsx
 export function useMDXComponents(components) {
   return { ...components }
 }
@@ -55,6 +58,7 @@ cudoc의 앵커, 배지, 표 컴포넌트를 등록할 필요는 없습니다.
 루트 레이아웃에서 한 번만 가져옵니다.
 
 ```js
+// app/layout.jsx — add at the top
 import "@cudoment/cudoc/styles.css"
 ```
 
@@ -62,25 +66,34 @@ import "@cudoment/cudoc/styles.css"
 
 **문법 확장만 필요하시면 여기서 멈추셔도 됩니다.** 앱을 실행하면 [Markdown 문법](./syntax.ko.md)의 기능들이 동작합니다. 문서 임베딩이 필요하시면 계속 진행하십시오.
 
-## 5단계 — 임베드 플러그인 추가
+## 5단계 — 임베드 플러그인과 라이브러리 로더 추가
 
-같은 `remarkPlugins` 배열에서 `cudoc-remark` 뒤에 붙입니다.
-
-```js
-;["cudoc-remark/embed", { sourceRoot: "docs", outDir: ".cudoc/documents" }]
-```
-
-수집에 `roots`를 썼다면 여기에도 `sourceRoot` 대신 같은 목록을 넘겨야 파일이 수집 당시의 ID로 이어집니다.
-
-이 플러그인은 각 임베드의 준비된 내용을 페이지가 컴파일될 때 접합하므로, 임베드된 절 안의 컴포넌트도 다른 컴포넌트와 같이 `mdx-components.jsx`를 통해 렌더링됩니다. 그만큼 컴파일된 페이지가 `.cudoc/documents/embeds.json`에 의존하게 되는데 번들러는 그것을 볼 수 없습니다. 두 번들러 모두에 같은 파일을 대상으로 통과형 로더를 등록하십시오.
+임베드 플러그인은 같은 `remarkPlugins` 배열에서 `cudoc-remark` 뒤에 붙이고, 통과형 로더는 두 번들러 모두에 같은 파일을 대상으로 등록합니다. 둘을 모두 넣은 `next.config.mjs`는 다음과 같으며, 사이트의 다른 설정은 그대로 둡니다.
 
 ```js
+// next.config.mjs
+import createMDX from "@next/mdx"
 import { libraryLoader } from "cudoc-remark/loader"
+
+const withMDX = createMDX({
+  extension: /\.mdx?$/,
+  options: {
+    format: "detect",
+    remarkPlugins: [
+      ["remark-gfm"],
+      ["cudoc-remark", { host: "next", syntax: {} }],
+      [
+        "cudoc-remark/embed",
+        { sourceRoot: "docs", outDir: ".cudoc/documents" },
+      ],
+    ],
+  },
+})
 
 const library = libraryLoader(".cudoc/documents")
 
 export default withMDX({
-  pageExtensions: ["js", "jsx", "md", "mdx"],
+  pageExtensions: ["js", "jsx", "ts", "tsx", "md", "mdx"],
   webpack(config) {
     config.module.rules.push({ test: /\.mdx?$/, use: [library] })
     return config
@@ -89,11 +102,26 @@ export default withMDX({
 })
 ```
 
-파일은 그대로 두고, 번들러가 컴파일하는 내용에 라이브러리 해시를 담은 보이지 않는 참조 정의 한 줄을 더합니다. 그래서 라이브러리가 바뀌면 페이지가 바뀐 것으로 개발 서버와 두 번들러의 빌드 캐시가 인식하고, `cudoc collect`가 이미 컴파일된 페이지에도 닿습니다. → [준비된 임베드 접합](./api-reference/adapters.ko.md#준비된-임베드-접합)
+수집에 `roots`를 썼다면 임베드 플러그인에도 `sourceRoot` 대신 같은 목록을 넘겨야 파일이 수집 당시의 ID로 이어집니다.
+
+이 플러그인은 각 임베드의 준비된 내용을 페이지가 컴파일될 때 접합하므로, 임베드된 절 안의 컴포넌트도 다른 컴포넌트와 같이 `mdx-components.jsx`를 통해 렌더링됩니다. 그만큼 컴파일된 페이지가 `.cudoc/documents/embeds.json`에 의존하게 되는데 번들러는 그것을 볼 수 없습니다. 로더는 파일을 그대로 두고, 번들러가 컴파일하는 내용에 라이브러리 해시를 담은 보이지 않는 참조 정의 한 줄을 더합니다. 그래서 라이브러리가 바뀌면 페이지가 바뀐 것으로 개발 서버와 두 번들러의 빌드 캐시가 인식하고, `cudoc collect`가 이미 컴파일된 페이지에도 닿습니다. → [준비된 임베드 접합](./api-reference/adapters.ko.md#준비된-임베드-접합)
 
 ## 6단계 — 빌드 전마다 수집 실행
 
-[수집 설정](./embedding.ko.md#문서-수집-설정)에 따라 `cudoc.config.mjs`를 만들되 `host: "next"`로 지정한 뒤, 다음과 같이 연결합니다.
+수집 설정 파일을 만듭니다. `host: "next"`를 지정하면 수집이 `cudoc-remark`가 컴파일하는 방식 그대로 문서를 읽습니다. `syntax`는 `next.config.mjs`의 옵션과 같게 유지하십시오. `check.assetDirs`는 `/img/logo.png` 같은 루트 기준 이미지가 어디에 있는지 `cudoc check`에 알려 줍니다.
+
+```js
+// cudoc.config.mjs
+export default {
+  sourceRoot: "docs",
+  outDir: ".cudoc/documents",
+  host: "next",
+  syntax: {},
+  check: { assetDirs: ["public"] },
+}
+```
+
+그다음 `package.json`에 스크립트를 추가합니다.
 
 ```json
 {
@@ -106,7 +134,7 @@ export default withMDX({
 }
 ```
 
-수집은 Next.js보다 먼저 돌아야 합니다. 글을 쓰는 동안에는 `next dev` 옆에서 `cudoc collect --watch --config cudoc.config.mjs`를 실행하세요. `docs/` 아래가 바뀔 때마다 다시 수집하고, 앞 단계의 로더 규칙이 그 결과를 개발 서버가 이미 컴파일한 페이지에도 전달합니다. 임베드 플러그인은 import도 런타임 컴포넌트도 생성하지 않으며, 작성자가 Markdown에 import를 쓸 일은 없습니다.
+수집은 Next.js보다 먼저 돌아야 합니다. 글을 쓰는 동안에는 `next dev` 옆에서 `cudoc collect --watch --config cudoc.config.mjs`를 실행하세요. `docs/` 아래가 바뀔 때마다 다시 수집하고, 앞 단계의 로더 규칙이 그 결과를 개발 서버가 이미 컴파일한 페이지에도 전달합니다. 임베드 플러그인은 import도 런타임 컴포넌트도 생성하지 않으며, 작성자가 Markdown에 import를 쓸 일은 없습니다. 다른 수집 옵션은 [수집 설정](./embedding.ko.md#문서-수집-설정)에 설명되어 있습니다.
 
 **수집된 경로를 App Router 경로에 맞추십시오.** `/help/guide`에서 제공되는 `guide.md`라면 `routes: { guide: "/help/guide" }`가 필요합니다.
 
@@ -115,7 +143,7 @@ export default withMDX({
 ```sh
 npm install cudoc-export
 npx cudoc-export build docs --library .cudoc/documents --out-dir shared-html \
-  --links host --host-url https://docs.example.com/project/
+  --links host --host-url https://docs.example.com/project/ --asset-dir public
 ```
 
 Next.js 빌드 결과와 수집 데이터는 변경되지 않습니다. → [독립 HTML](./export.ko.md)
@@ -141,7 +169,7 @@ Next.js 빌드 결과와 수집 데이터는 변경되지 않습니다. → [독
 
 **`.md`와 `.mdx`의 차이.** `format: "detect"`는 `.md`를 평범한 Markdown으로 두어 `{value}`가 그대로 글자로 남게 하고, `.mdx`는 직접 만든 React 컴포넌트를 위한 MDX로 다룹니다. → [`.md`와 `.mdx` 선택](./README.ko.md#md와-mdx-선택)
 
-**MDX 목차 (선택).** remark 옵션에 `toc: true`를 더하면 컴파일된 `.mdx` 모듈이 `toc` 바인딩을 내보냅니다. 두 단계 개요입니다. 평범한 `.md`는 ESM export를 받지 않습니다. → [목차 레퍼런스](./api-reference/adapters.ko.md#remark)
+**MDX 목차 (선택).** remark 옵션에 `toc: true`를 더하면 컴파일된 `.mdx` 모듈이 `toc` 바인딩을 내보냅니다. 두 단계 개요입니다. 평범한 `.md`는 ESM export를 받지 않습니다. 개요는 임베드 플러그인이 실행되기 전에 수집되므로, 임베드로 들어온 제목은 페이지의 앵커가 되지만 개요 항목은 되지 않습니다. → [목차 레퍼런스](./api-reference/adapters.ko.md#remark)
 
 **직접 구성한 remark 파이프라인.** 기본 수집기는 위의 표준 cudoc/GFM 구성을 전제로 합니다. 파이프라인이 다르다면 수집과 소스 치환에 반드시 그 컴파일러를 써야 합니다. → [컴파일러 캡처](./api-reference/adapters.ko.md#컴파일러-캡처)
 

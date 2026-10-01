@@ -27,6 +27,9 @@ import remarkDirective from "remark-directive"
 import remarkFrontmatter from "remark-frontmatter"
 import { normalizeDocument } from "@cudoment/cudoc/document"
 
+/** The label of the definition `cudoc-remark/loader` appends; see `loader.ts`. */
+const LIBRARY_MARKER_LABEL = "cudoc-library"
+
 /**
  * The source text is needed to read list syntax out of table cells, which mdast
  * does not preserve. Without it that transform leaves cells untouched.
@@ -94,6 +97,13 @@ const cudocPrepare: Plugin<[CudocRemarkOptions?], Root> = function (
   const { pre, post } = buildTransforms(resolved)
 
   return function (tree: Root, file: VFile) {
+    // The line `cudoc-remark/loader` appends only has to change the compiled
+    // input; kept in the tree it would travel into every exported AST and
+    // change it with each collection.
+    tree.children = tree.children.filter(
+      (node) =>
+        node.type !== "definition" || node.identifier !== LIBRARY_MARKER_LABEL,
+    )
     const format = options.format ?? (file.extname === ".md" ? "md" : "mdx")
     if (portable || format === "md") {
       tree.children = tree.children.filter((node) => node.type !== "yaml")

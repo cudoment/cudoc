@@ -7,10 +7,10 @@
 ## 1단계 — 설치
 
 ```sh
-npm install @cudoment/cudoc cudoc-markdown-it cudoc-eleventy
+npm install @cudoment/cudoc cudoc-eleventy markdown-it-attrs markdown-it-anchor markdown-it-container
 ```
 
-Eleventy는 remark가 아니라 markdown-it을 쓰므로 `cudoc-remark`를 사용하지 않습니다.
+Eleventy는 remark가 아니라 markdown-it을 쓰므로 `cudoc-remark`를 사용하지 않습니다. 공용 markdown-it 계층인 `cudoc-markdown-it`은 `cudoc-eleventy`와 함께 설치됩니다. `markdown-it-*` 플러그인 세 개는 다음 단계에서 등록하는 네이티브 문법입니다.
 
 ## 2단계 — 공용 모듈에서 렌더러 만들기
 
@@ -37,6 +37,8 @@ export const createRenderer = (library) =>
 네이티브 문법은 **직접 등록하신** 플러그인에서 나옵니다. `markdown-it-container`를 등록하기 전까지 `callout: "host"`는 정규화할 대상이 없고, `headingAnchor: "host"`에는 `markdown-it-attrs`가 필요합니다.
 
 ## 3단계 — 설정 파일에 연결
+
+`eleventy.config.mjs`에 아래를 병합하고, 사이트의 플러그인, 필터와 다른 설정은 그대로 두십시오. `dir.input`은 수집기가 수집할 디렉터리이며, 여기서는 `docs`입니다.
 
 ```js
 // eleventy.config.mjs
@@ -68,20 +70,59 @@ Eleventy에는 기본 테마가 없으므로 스타일시트와 탐색은 레이
 
 ## 5단계 — 수집기 추가
 
-[예제 수집기](../examples/eleventy/collect.mjs)를 사이트 루트에 `collect.mjs`로 복사하십시오. 사이트가 쓰는 것과 같은 `markdown.mjs`에서 렌더러를 만들고, `createDocumentCompiler(md)`를 수집에 넘긴 뒤 임베드를 준비합니다.
+사이트 루트에 `collect.mjs`를 만드십시오. 사이트가 쓰는 것과 같은 `markdown.mjs`에서 렌더러를 만들고, `createDocumentCompiler(md)`를 [`collectDocuments`](./api-reference/node.ko.md#감시)에 넘깁니다. `collectDocuments`는 라이브러리와 준비된 임베드를 함께 쓰므로, 실행이 실패하면 이전 두 결과가 그대로 남습니다.
+
+```js
+// collect.mjs
+import { collectDocuments } from "@cudoment/cudoc/node/watch"
+import { createDocumentCompiler } from "cudoc-eleventy"
+import { createRenderer, syntax } from "./markdown.mjs"
+
+// The renderer the site builds with. It needs no library: collection
+// resolves embeds from the documents it collects.
+const md = createRenderer()
+await collectDocuments({
+  sourceRoot: "docs",
+  outDir: ".cudoc/documents",
+  host: "eleventy",
+  // Eleventy writes directory URLs, so `reference.md` is served at `/reference/`.
+  routeSuffix: "/",
+  syntax,
+  compiler: createDocumentCompiler(md),
+  // Change it whenever markdown.mjs or the Eleventy version changes.
+  compilerId: "eleventy-v1",
+})
+```
 
 ## 6단계 — 렌더러에 라이브러리 연결
+
+그러면 `eleventy.config.mjs`는 다음과 같으며, 사이트의 다른 설정은 그대로 둡니다.
 
 ```js
 // eleventy.config.mjs
 import { loadLibrary } from "@cudoment/cudoc/node/library"
+import { createRenderer } from "./markdown.mjs"
 
-eleventyConfig.setLibrary("md", createRenderer(loadLibrary(".cudoc/documents")))
+export default function (eleventyConfig) {
+  eleventyConfig.setLibrary(
+    "md",
+    createRenderer(loadLibrary(".cudoc/documents")),
+  )
+  eleventyConfig.addPassthroughCopy({
+    "node_modules/@cudoment/cudoc/styles.css": "cudoc.css",
+  })
+  return {
+    dir: { input: "docs", output: "_site" },
+    markdownTemplateEngine: false,
+  }
+}
 ```
 
-**수집과 렌더링은 모든 Markdown 옵션에서 일치해야 합니다.** 둘 다 `markdown.mjs`에서 나오므로 구조적으로 일치하게 되어 있습니다. 그 구조를 유지하십시오. 관련 설정이 바뀌면 `compilerId`를 올리십시오.
+**수집과 렌더링은 모든 Markdown 옵션에서 일치해야 합니다.** 둘 다 `markdown.mjs`에서 나오므로 구조적으로 일치하게 되어 있습니다. 그 구조를 유지하시고, 관련 설정이 바뀌면 `compilerId`를 바꾸십시오.
 
 ## 7단계 — 빌드 전마다 수집 실행
+
+`package.json`에 스크립트를 추가합니다.
 
 ```json
 {
@@ -94,7 +135,16 @@ eleventyConfig.setLibrary("md", createRenderer(loadLibrary(".cudoc/documents")))
 }
 ```
 
-원본 문서를 고치신 뒤에는 수집을 다시 실행하고(`cudoc collect --watch`나 [`watchDocuments`](./api-reference/node.ko.md#감시)가 변경마다 이를 대신합니다) **개발 서버도 재시작**하셔야 합니다. 플러그인은 설정을 평가할 때 불러온 라이브러리를 계속 들고 있어서, 다시 불러오기 전까지는 원문이 오래되었다고 보고합니다.
+`cudoc check`는 수집기가 게시한 라이브러리를 읽기만 하고 수집은 하지 않으므로 `collect` 다음에 실행하며, 설정 파일에는 그 라이브러리의 위치만 적으면 됩니다.
+
+```js
+// cudoc.config.mjs
+export default { sourceRoot: "docs", outDir: ".cudoc/documents" }
+```
+
+`/img/logo.png` 같은 루트 기준 이미지는 `docs` 아래에서 찾습니다. passthrough가 그 밖의 디렉터리에서 이미지를 복사한다면 여기서는 `check: { assetDirs: [...] }`에, 8단계에서는 `--asset-dir`로 그 디렉터리를 적으십시오.
+
+원본 문서를 고치신 뒤에는 수집을 다시 실행하고(수집기의 설정으로 호출한 [`watchDocuments`](./api-reference/node.ko.md#감시)가 변경마다 이를 대신하며, `compiler`를 포함해 수집기의 설정 전체를 담은 설정 파일을 주면 `cudoc collect --watch`도 그렇게 합니다) **개발 서버도 재시작**하셔야 합니다. 플러그인은 설정을 평가할 때 불러온 라이브러리를 계속 들고 있어서, 다시 불러오기 전까지는 원문이 오래되었다고 보고합니다. frontmatter는 비교 대상이 아닙니다. Eleventy는 frontmatter를 뺀 페이지를 렌더러에 넘기며, frontmatter 뒤의 본문이 수집한 내용과 같으면 최신 상태로 봅니다. → [참조 검사](./check.ko.md)
 
 ## 8단계 — 독립 HTML도 내보내기 (선택)
 
@@ -132,6 +182,12 @@ Eleventy 빌드 결과와 수집 데이터는 변경되지 않습니다. → [�
 **gitignore된 입력.** Eleventy는 기본적으로 gitignore된 파일을 건너뜁니다. 이 저장소 예제의 동기화된 픽스처처럼 문서가 gitignore 대상이라면 `eleventyConfig.setUseGitIgnore(false)`를 더하십시오.
 
 **Markdown만 다룹니다.** `.md`를 작성하십시오. React `.mdx`는 처리되지 않습니다. → [`.md`와 `.mdx` 선택](./README.ko.md#md와-mdx-선택)
+
+**사이트 플러그인의 렌더링은 그대로 유지됩니다.** 코드 블록은 사이트가 등록한 fence 렌더러를 거치고, 사이트 자체의 `::: demo`처럼 이름이 콜아웃 타입이 아닌 `markdown-it-container`는 그 플러그인이 렌더링하는 대로 열리고 닫히며, 그 안의 내용은 cudoc이 페이지의 나머지와 똑같이 읽으므로 안에 둔 제목 앵커와 임베드도 동작합니다. cudoc은 자신이 정규화하는 부분만 바꿉니다.
+
+**목차와 임베드된 제목.** Eleventy에는 자체 목차가 없습니다. markdown-it 플러그인으로 만드는 목차는 토큰을 읽으므로 페이지 자신의 제목만 나열하고, Eleventy transform처럼 렌더링된 HTML로 만드는 목차는 임베드로 들어온 제목도 나열합니다.
+
+**빌드 중 경고.** 등록하지 않은 콜아웃 타입이나 id가 같은 두 제목 같은 진단은 Eleventy가 페이지를 렌더링할 때 페이지와 줄을 알리는 경고로 출력됩니다. 렌더러가 수집한 라이브러리를 가지고 있으면 줄은 파일 첫 줄부터, 그렇지 않으면 frontmatter 다음 줄부터 셉니다. 직접 처리하시려면 렌더러 옵션에 `onDiagnostic(diagnostic, documentId)`를 넘기십시오. → [markdown-it 내부 동작](./api-reference/adapters.ko.md#markdown-it)
 
 **VitePress와 공유합니다.** 이 어댑터와 [VitePress 어댑터](./vitepress.ko.md)는 모두 `cudoc-markdown-it` 위에 있습니다. 두 호스트가 같은 코드로 실제 네이티브 토큰 스트림을 변환하므로 제목과 목차 연동이 동일하게 동작합니다.
 

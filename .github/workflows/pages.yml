@@ -1,0 +1,42 @@
+name: Pages
+
+# The export showcase is committed as the release machine built it, so this
+# publishes that directory as it is and builds nothing. The repository's Pages
+# source has to be set to GitHub Actions once, in its settings.
+on:
+  push:
+    branches: [main]
+    paths:
+      - examples/export/showcase-output/**
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A deployment in progress finishes; a newer one waits for it.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Publish the export showcase
+    runs-on: ubuntu-latest
+    # A job's permissions replace the workflow's, so reading the repository is
+    # named again.
+    permissions:
+      contents: read
+      pages: write # the deployment
+      id-token: write # the deployment's proof of origin
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: examples/export/showcase-output
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

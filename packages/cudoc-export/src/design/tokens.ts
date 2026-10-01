@@ -267,6 +267,19 @@ export function resolveTokens(
   }
 }
 
+/**
+ * The palette pair a callout type is drawn in; every type not listed takes the
+ * accent. The stylesheet and the Word styles both read this, so a callout is
+ * one colour in every format. `caution` is what cudoc reads `danger` and
+ * `error` as, so it shares their colour, as GitHub draws it.
+ */
+export const CALLOUT_SEVERITY: Readonly<Record<string, "warn" | "danger">> = {
+  warning: "warn",
+  caution: "danger",
+  danger: "danger",
+  error: "danger",
+}
+
 /* Unit conversion for the paginated formats.
  *
  * CSS sizes here are `rem`, relative to the reader's base size. A printed page

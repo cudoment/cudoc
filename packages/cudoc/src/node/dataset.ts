@@ -78,9 +78,15 @@ export function generateDataset({
   const facts = library
     ? readLibraryFacts(library)
     : { bases: [""], privateIds: new Set<string>() }
+  // A library's own `manifest.json`, or a `meta.json` beside the documents,
+  // sits at the top of the input; a document of that name deeper down is
+  // still a document.
   const entries = sourceFiles(inputDir, [".json"])
     .filter(
-      (file) => !["manifest.json", "meta.json"].includes(path.basename(file)),
+      (file) =>
+        !["manifest.json", "meta.json"].includes(
+          posix(path.relative(inputDir, file)),
+        ),
     )
     .map((file) => ({
       file,

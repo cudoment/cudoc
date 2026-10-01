@@ -1,0 +1,13 @@
+# The workflow actions are pinned to commits; this proposes each new release as
+# a pull request that moves the pin and its version comment together. npm
+# dependencies are left out: the examples install from lockfiles of their own
+# that `npm run lock:examples` rewrites, which a bump here would not do.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

@@ -17,6 +17,7 @@ import {
 import { projectAst, docsDatasetProjection } from "../src/dataset.js"
 import { generateDataset } from "../src/node/dataset.js"
 import { getNodeText } from "../src/query.js"
+import { loadAst } from "../src/node/load-ast.js"
 
 const workspace = (run: (root: string, sourceRoot: string) => void) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cudoc-portable-"))
@@ -419,4 +420,240 @@ describe("embed spec validation", () => {
       "cudoc: guide, embed block 1:",
     )
   })
+})
+
+describe("a document that repeats a heading id", () => {
+  const SOURCE =
+    "# Guide\n\n## One (#dup)\n\nfirst body\n\n## Two (#dup)\n\nsecond body\n"
+
+  it("gives every repeated heading its own section", () => {
+    const { tree, diagnostics } = compileDocument(SOURCE)
+    expect(diagnostics.map((d) => d.code)).toContain("duplicate-heading-id")
+    const sections = collectSections(tree, { depth: 2 })
+    expect(sections.map((s) => s.title)).toEqual(["One", "Two"])
+    expect(
+      sections.map((s) => getNodeText(s.tree.children.slice(1) as never)),
+    ).toEqual(["first body", "second body"])
+  })
+
+  it("records the first section's source range, the one a link reaches", () =>
+    workspace((root, sourceRoot) => {
+      fs.writeFileSync(path.join(sourceRoot, "guide.md"), SOURCE)
+      const library = buildDocuments({
+        sourceRoot,
+        outDir: path.join(root, "library"),
+      })
+      const range = library.documents.find((d) => d.id === "guide")!.source
+        .sections.dup!
+      expect(SOURCE.slice(range.start, range.end)).toBe(
+        "## One (#dup)\n\nfirst body\n\n",
+      )
+    }))
+
+  it("copies each section once, and refuses to rewrite one it cannot tell apart", () =>
+    workspace((root, sourceRoot) => {
+      fs.writeFileSync(path.join(sourceRoot, "guide.md"), SOURCE)
+      fs.writeFileSync(
+        path.join(sourceRoot, "copied.md"),
+        "# Copied\n\n```cudoc-embed\nsources: [guide.md#dup]\n```\n",
+      )
+      fs.writeFileSync(
+        path.join(sourceRoot, "replaced.md"),
+        '# Replaced\n\n```cudoc-embed\nsources: [guide.md#dup]\nreplace:\n  - find: "body"\n    replace: "copy"\n```\n',
+      )
+      const library = buildDocuments({
+        sourceRoot,
+        outDir: path.join(root, "library"),
+      })
+      const copied = renderDocument(resolveDocumentEmbeds(library, "copied"))
+      expect(copied.match(/first body/g)).toHaveLength(1)
+      expect(copied.match(/second body/g)).toHaveLength(1)
+      // The snapshot has one range per id, so the second heading's source is
+      // not there to rewrite; copying the first twice would be silent.
+      expect(() => resolveDocumentEmbeds(library, "replaced")).toThrow(
+        "cudoc: guide gives #dup to 2 headings, so a replace rule cannot tell which section to rewrite; give them distinct ids",
+      )
+    }))
+})
+
+describe("replacement in a section that starts inside another block", () => {
+  const embed = (source: string, find?: string) =>
+    `# Page\n\n\`\`\`cudoc-embed\nsources: [${source}]${find ? `\nreplace:\n  - find: "${find}"\n    replace: "Beta"` : ""}\n\`\`\`\n`
+  const collect = (
+    root: string,
+    sourceRoot: string,
+    files: Record<string, string>,
+  ) => {
+    for (const [name, text] of Object.entries(files))
+      fs.writeFileSync(path.join(sourceRoot, name), text)
+    return buildDocuments({ sourceRoot, outDir: path.join(root, "library") })
+  }
+
+  it("is refused in a quote, matching or not, since the quote's marks stay in its text", () =>
+    workspace((root, sourceRoot) => {
+      const library = collect(root, sourceRoot, {
+        "reference.md": "# Reference\n\n> ## Quote (#quote)\n>\n> Alpha\n",
+        "copied.md": embed("reference.md#quote"),
+        "replaced.md": embed("reference.md#quote", "Alpha"),
+        "unmatched.md": embed("reference.md#quote", "Gamma"),
+      })
+      // Without rules the section is the collected tree: its heading and its
+      // paragraph, out of the quote.
+      expect(
+        resolveDocumentEmbeds(library, "copied").children.map((n) => n.type),
+      ).toEqual(["heading", "heading", "paragraph"])
+      // Its text starts after the first line's `>` and keeps the others', so
+      // compiled again it would put the paragraph back in a quote.
+      for (const id of ["replaced", "unmatched"])
+        expect(() => resolveDocumentEmbeds(library, id), id).toThrow(
+          "cudoc: reference#quote starts inside a quote, and the `>` marks stay on the lines after its heading, so a replace rule cannot rewrite it; move the heading out of the quote, or embed the section without replace",
+        )
+    }))
+
+  it("rewrites a section in a list item with the item's marks and indentation taken off", () =>
+    workspace((root, sourceRoot) => {
+      const library = collect(root, sourceRoot, {
+        "reference.md":
+          "# Reference\n\n- ## Shallow (#shallow)\n\n  Alpha\n\n1. Step\n\n   - ## Deep (#deep)\n\n     Alpha\n\n* ## Wide (#wide)\n\n    Alpha\n\n- ## Nested (#nested)\n\n  Alpha\n\n  - Step one\n\n    Details of step one.\n\n  ```sh\n  run\n  ```\n\n- Item\n\n   ## Later (#later)\n\n  Alpha\n\n      code()\n\n## Top (#top)\n\n> Alpha\n",
+        ...Object.fromEntries(
+          ["shallow", "deep", "wide", "nested", "later", "top"].map((id) => [
+            `${id}.md`,
+            embed(`reference.md#${id}`, "Alpha"),
+          ]),
+        ),
+        ...Object.fromEntries(
+          ["shallow", "deep", "wide", "nested", "later", "top"].map((id) => [
+            `${id}-copy.md`,
+            embed(`reference.md#${id}`),
+          ]),
+        ),
+      })
+      const shape = (node: { type: string; children?: unknown[] }): unknown => [
+        node.type,
+        ...(node.children ?? []).map((child) => shape(child as typeof node)),
+      ]
+      for (const id of ["shallow", "deep", "wide", "nested", "later", "top"]) {
+        const replaced = resolveDocumentEmbeds(library, id)
+        // The same structure as the section copied without rules: four
+        // spaces two past the item's column are its paragraph, not code.
+        expect(shape(replaced), id).toEqual(
+          shape(resolveDocumentEmbeds(library, `${id}-copy`)),
+        )
+        expect(getNodeText(replaced.children), id).toContain("Beta")
+        expect(getNodeText(replaced.children), id).not.toContain("Alpha")
+      }
+    }))
+
+  it("rewrites a section inside a component, but not the last one, which runs into the closing tag", () =>
+    workspace((root, sourceRoot) => {
+      const library = collect(root, sourceRoot, {
+        "reference.mdx":
+          "# Reference\n\n<Note>\n\n## Alpha (#alpha)\n\nAlpha text.\n\n## Last (#last)\n\nAlpha text.\n\n</Note>\n",
+        "first.md": embed("reference.mdx#alpha", "Alpha"),
+        "last.md": embed("reference.mdx#last", "Alpha"),
+      })
+      const first = resolveDocumentEmbeds(library, "first")
+      expect(first.children.map((n) => n.type)).toEqual([
+        "heading",
+        "heading",
+        "paragraph",
+      ])
+      expect(getNodeText(first.children)).toContain("Beta text.")
+      expect(() => resolveDocumentEmbeds(library, "last")).toThrow(
+        "cudoc: reference#last starts inside a component, and its text runs into the line that closes that block,",
+      )
+    }))
+})
+
+describe("a relative path in an embedded copy that climbs out of the collection", () => {
+  it("names the same file from the page it lands on, however far it climbs", () =>
+    workspace((root, sourceRoot) => {
+      const climb = "../".repeat(12)
+      fs.mkdirSync(path.join(sourceRoot, "internal"))
+      fs.writeFileSync(
+        path.join(sourceRoot, "internal/notes.md"),
+        `# Notes\n\n## Keep (#keep)\n\n![o](../../outside%20file.png) ![d](${climb}deep.png) [s](../../shared/)\n`,
+      )
+      fs.writeFileSync(
+        path.join(sourceRoot, "guide.md"),
+        "# Guide\n\n```cudoc-embed\nsources: [internal/notes.md#keep]\n```\n",
+      )
+      const outDir = path.join(root, "library")
+      const urls = (library: Parameters<typeof resolveDocumentEmbeds>[0]) => {
+        const found: string[] = []
+        const walk = (node: { url?: string; children?: unknown[] }) => {
+          if (typeof node.url === "string") found.push(node.url)
+          node.children?.forEach((child) => walk(child as typeof node))
+        }
+        walk(resolveDocumentEmbeds(library, "guide") as never)
+        return found
+      }
+      // With its roots, from the files' own directories.
+      expect(urls(buildDocuments({ sourceRoot, outDir }))).toEqual([
+        "../outside%20file.png",
+        expect.stringMatching(/^(\.\.\/)+deep\.png$/),
+        // A directory keeps the slash that names its index.
+        "../shared/",
+      ])
+      // Without them, from the library paths alone, never clamped at the
+      // working directory however deep the climb.
+      expect(urls(loadLibrary(outDir))).toEqual([
+        "../outside%20file.png",
+        `${"../".repeat(11)}deep.png`,
+        "../shared/",
+      ])
+    }))
+})
+
+describe("links without a path in an embedded copy", () => {
+  it("point at the document they were copied from, not its directory", () =>
+    workspace((root, sourceRoot) => {
+      fs.mkdirSync(path.join(sourceRoot, "guide"))
+      fs.writeFileSync(
+        path.join(sourceRoot, "guide/intro.md"),
+        "# Intro\n\n## Tabs (#tabs)\n\n[query](?tab=1) and [here]() and [top](#tabs)\n",
+      )
+      fs.writeFileSync(
+        path.join(sourceRoot, "index.md"),
+        "# Index\n\n```cudoc-embed\nsources: [guide/intro.md#tabs]\n```\n",
+      )
+      const library = buildDocuments({
+        sourceRoot,
+        outDir: path.join(root, "library"),
+      })
+      const html = renderDocument(resolveDocumentEmbeds(library, "index"))
+      expect(html).toContain('href="/guide/intro?tab=1"')
+      expect(html).toContain('href="/guide/intro"')
+      expect(html).not.toContain('href="/guide?tab=1"')
+    }))
+})
+
+describe("names that only mean something at the top of a directory", () => {
+  it("keeps a document called manifest or meta below the top in the dataset", () =>
+    workspace((root, sourceRoot) => {
+      fs.mkdirSync(path.join(sourceRoot, "android"))
+      fs.writeFileSync(path.join(sourceRoot, "android/manifest.md"), "# M\n")
+      fs.writeFileSync(path.join(sourceRoot, "android/meta.md"), "# Meta\n")
+      fs.writeFileSync(path.join(sourceRoot, "index.md"), "# Index\n")
+      const library = path.join(root, "library")
+      buildDocuments({ sourceRoot, outDir: library })
+      const dataset = generateDataset({
+        inputDir: path.join(library, "documents"),
+        outDir: path.join(root, "dataset"),
+        library,
+      })
+      expect(dataset.documents.map((d) => d.id).sort()).toEqual([
+        "android/manifest",
+        "android/meta",
+        "index",
+      ])
+    }))
+
+  it("refuses a stored document path that climbs out of the output", () =>
+    workspace((root) => {
+      fs.writeFileSync(path.join(root, "outside.json"), "{}")
+      expect(() =>
+        loadAst("../../outside", { cwd: root, outDir: ".cudoc/ast" }),
+      ).toThrow(/escapes document root/)
+    }))
 })

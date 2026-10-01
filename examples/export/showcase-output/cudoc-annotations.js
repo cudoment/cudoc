@@ -48,10 +48,18 @@
       fail(`${field} must be a non-negative integer`);
     return value;
   };
+  var ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:\d{2}))?$/;
   var date = (value, field) => {
     const raw = text(value, LIMITS.date, field);
-    if (Number.isNaN(Date.parse(raw))) fail(`${field} must be an ISO 8601 date`);
-    return raw;
+    const match = ISO_DATE.exec(raw);
+    const time = match ? Date.parse(raw) : Number.NaN;
+    const day = /* @__PURE__ */ new Date(0);
+    if (match) day.setUTCFullYear(+match[1], +match[2] - 1, +match[3]);
+    if (Number.isNaN(time) || day.getUTCMonth() !== +match[2] - 1 || day.getUTCDate() !== +match[3])
+      fail(
+        `${field} must be an ISO 8601 date, with an offset when it has a time: 2026-01-02T03:04:05Z`
+      );
+    return new Date(time).toISOString();
   };
   var hasContext = (value) => value === ANNOTATION_CONTEXT || Array.isArray(value) && value.includes(ANNOTATION_CONTEXT);
   function parseSelector(input) {
@@ -546,17 +554,25 @@
   var cssEscape = (value) => typeof CSS !== "undefined" && CSS.escape ? CSS.escape(value) : value.replace(/["\\]/g, "\\$&");
 
   // src/browser/store.ts
-  function readEmbedded(doc = document) {
+  function readEmbedded(doc = document, onInvalid) {
     const block = doc.getElementById(EMBEDDED_DATA_ID);
     if (!block) return [];
-    return parseText(block.textContent ?? "").items;
+    try {
+      return parseText(block.textContent ?? "").items;
+    } catch (error) {
+      onInvalid?.(error);
+      return [];
+    }
   }
+  var TOO_LARGE = `annotations: a file holds at most ${LIMITS.fileBytes} bytes`;
   function parseText(text2) {
-    if (text2.length > LIMITS.fileBytes)
-      throw new Error(
-        `annotations: a file holds at most ${LIMITS.fileBytes} bytes`
-      );
+    if (text2.length > LIMITS.fileBytes) throw new Error(TOO_LARGE);
     return parseCollection(JSON.parse(text2));
+  }
+  async function readNotesFile(file) {
+    if (file.size > LIMITS.fileBytes) throw new Error(TOO_LARGE);
+    const text2 = await file.text();
+    return file.name.toLowerCase().endsWith(".html") || text2.trimStart().startsWith("<") ? readAnnotatedHtml(text2) : parseText(text2);
   }
   function readAnnotatedHtml(html) {
     const parsed = new DOMParser().parseFromString(html, "text/html");
@@ -642,7 +658,13 @@
     const fragment = loc.hash.startsWith("#") ? loc.hash.slice(1) : loc.hash;
     for (const part of fragment.split("&")) {
       const [key, value] = part.split("=", 2);
-      if (key === FRAGMENT_KEY && value) return decodeURIComponent(value);
+      if (key === FRAGMENT_KEY && value) {
+        try {
+          return decodeURIComponent(value);
+        } catch {
+          return value;
+        }
+      }
     }
     return void 0;
   }
@@ -1652,8 +1674,7 @@ ${root.outerHTML}`;
       },
       onImport: async (file) => {
         try {
-          const text2 = await file.text();
-          const loaded = file.name.toLowerCase().endsWith(".html") || text2.trimStart().startsWith("<") ? readAnnotatedHtml(text2) : parseText(text2);
+          const loaded = await readNotesFile(file);
           items = mergeAnnotations(items, loaded.items);
           refresh();
           ui.notify(t.imported(loaded.items.length));
@@ -1855,7 +1876,15 @@ ${root.outerHTML}`;
       if (highlightsSupported) CSS.highlights.clear();
     });
     window.addEventListener("afterprint", paint);
-    items = mergeAnnotations(readEmbedded(), readLocal(key));
+    items = mergeAnnotations(
+      readEmbedded(
+        document,
+        (error) => ui.notify(
+          t.importFailed(error instanceof Error ? error.message : String(error))
+        )
+      ),
+      readLocal(key)
+    );
     refresh();
     const offerToken = () => {
       const token = tokenFromLocation();

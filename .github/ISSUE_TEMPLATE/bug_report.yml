@@ -1,0 +1,61 @@
+name: Bug report
+description: Something cudoc does differs from what its guides or API reference say.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A problem that shows up with the smallest document and configuration is the fastest to fix. The [supported versions](https://github.com/cudoment/cudoc/blob/main/docs/README.md#supported-versions) table lists the host releases every change is tested against; a report on another release is still welcome.
+  - type: dropdown
+    id: host
+    attributes:
+      label: Host
+      options:
+        - Next.js
+        - Docusaurus
+        - Nextra
+        - VitePress
+        - Eleventy
+        - Standalone export (cudoc-export)
+        - None (the cudoc API or CLI directly)
+    validations:
+      required: true
+  - type: input
+    id: host-version
+    attributes:
+      label: Host version
+      description: The version of the host package, for example `@docusaurus/core` 3.10.2. Leave it empty for the standalone export or the API.
+  - type: input
+    id: cudoc-version
+    attributes:
+      label: cudoc version
+      description: All cudoc packages share one version; `npm ls @cudoment/cudoc` prints it.
+    validations:
+      required: true
+  - type: input
+    id: node-version
+    attributes:
+      label: Node.js version
+      description: "`node --version`"
+    validations:
+      required: true
+  - type: textarea
+    id: document
+    attributes:
+      label: The smallest document that shows it
+      description: The Markdown, and any document it embeds, cut down until the problem only just remains. Put each file in a fence of four backticks, so the embed fences inside it stay part of it.
+    validations:
+      required: true
+  - type: textarea
+    id: configuration
+    attributes:
+      label: Configuration
+      description: The cudoc options and the part of the host configuration that sets them up.
+      render: js
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected, and what happened
+      description: Include the full error message or the output that is wrong.
+    validations:
+      required: true

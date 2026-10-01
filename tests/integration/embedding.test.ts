@@ -45,7 +45,7 @@ type Shape = {
 }
 
 /**
- * The nine shapes the showcase document uses, stated independently of it so a
+ * The ten shapes the showcase document uses, stated independently of it so a
  * failure names the shape rather than a line of fixture.
  */
 const SHAPES: Shape[] = [
@@ -164,90 +164,268 @@ const SHAPES: Shape[] = [
   },
 ]
 
-for (const host of HOST_CASES) {
-  const suite = host.compiler ? describe : describe.skip
-  suite(`${host.name}: embed shapes`, () => {
-    let workspace: string
-    let library: Library
+/**
+ * The fixtures as written, and as an editor on Windows saves them. markdown-it
+ * reads `\r\n` as one character and remark as two, so each host's offsets
+ * are tried against a file where the two counts differ.
+ */
+const ENDINGS = [
+  { label: "", ending: "\n" },
+  { label: " with \\r\\n line endings", ending: "\r\n" },
+]
 
-    beforeAll(async () => {
-      workspace = fs.mkdtempSync(path.join(os.tmpdir(), "cudoc-embed-"))
-      const source = path.join(workspace, "docs")
-      fs.mkdirSync(source)
-      for (const name of ["showcase.md", "reference.md"])
-        fs.copyFileSync(path.join(FIXTURES, name), path.join(source, name))
-      const compile = await host.compiler!()
-      library = await buildDocumentsAsync({
-        ...OPTIONS,
-        sourceRoot: source,
-        outDir: path.join(workspace, "library"),
-        host: host.host,
-        compilerId: `${host.name}-embedding`,
-        async compiler(text, context) {
-          return compile(text, {
-            ...context,
-            options: { ...context.options, format: "md" },
-          })
-        },
-      })
-    }, 60_000)
+for (const host of HOST_CASES)
+  for (const { label, ending } of ENDINGS) {
+    const suite = host.compiler ? describe : describe.skip
+    suite(`${host.name}: embed shapes${label}`, () => {
+      let workspace: string
+      let library: Library
 
-    afterAll(() => fs.rmSync(workspace, { recursive: true, force: true }))
+      beforeAll(async () => {
+        workspace = fs.mkdtempSync(path.join(os.tmpdir(), "cudoc-embed-"))
+        const source = path.join(workspace, "docs")
+        fs.mkdirSync(source)
+        for (const name of ["showcase.md", "reference.md"])
+          fs.writeFileSync(
+            path.join(source, name),
+            fs
+              .readFileSync(path.join(FIXTURES, name), "utf8")
+              .replace(/\n/g, ending),
+          )
+        const compile = await host.compiler!()
+        library = await buildDocumentsAsync({
+          ...OPTIONS,
+          sourceRoot: source,
+          outDir: path.join(workspace, "library"),
+          host: host.host,
+          compilerId: `${host.name}-embedding`,
+          async compiler(text, context) {
+            return compile(text, {
+              ...context,
+              options: { ...context.options, format: "md" },
+            })
+          },
+        })
+      }, 60_000)
 
-    for (const shape of SHAPES)
-      it(`resolves ${shape.name}`, async () => {
-        // Replacement recompiles a slice of Markdown through the host's own
-        // compiler, which may be async, so this is the same entry point
-        // `prepareEmbeds` uses rather than the synchronous one.
-        const resolved = await resolveEmbedAsync(
+      afterAll(() => fs.rmSync(workspace, { recursive: true, force: true }))
+
+      for (const shape of SHAPES)
+        it(`resolves ${shape.name}`, async () => {
+          // Replacement recompiles a slice of Markdown through the host's own
+          // compiler, which may be async, so this is the same entry point
+          // `prepareEmbeds` uses rather than the synchronous one.
+          const resolved = await resolveEmbedAsync(
+            library,
+            parseEmbedSpec(shape.spec),
+            { documentId: "showcase", prefix: "case-" },
+          )
+          const nodes = walk(resolved as unknown as DocumentNode)
+          shape.expect(nodes, nodes.map((n) => nodeText(n)).join(" "))
+        })
+
+      it("leaves the source document untouched", async () => {
+        const before = JSON.stringify(
+          library.documents.find((d) => d.id === "reference")!.tree,
+        )
+        await resolveEmbedAsync(
           library,
-          parseEmbedSpec(shape.spec),
+          parseEmbedSpec(
+            'sources: [reference.md#limits]\nreplace:\n  - find: "**original**"\n    replace: "_adapted_"\n',
+          ),
           { documentId: "showcase", prefix: "case-" },
         )
-        const nodes = walk(resolved as unknown as DocumentNode)
-        shape.expect(nodes, nodes.map((n) => nodeText(n)).join(" "))
+        const after = JSON.stringify(
+          library.documents.find((d) => d.id === "reference")!.tree,
+        )
+
+        expect(after).toBe(before)
       })
 
-    it("leaves the source document untouched", async () => {
-      const before = JSON.stringify(
-        library.documents.find((d) => d.id === "reference")!.tree,
-      )
-      await resolveEmbedAsync(
-        library,
-        parseEmbedSpec(
-          'sources: [reference.md#limits]\nreplace:\n  - find: "**original**"\n    replace: "_adapted_"\n',
-        ),
-        { documentId: "showcase", prefix: "case-" },
-      )
-      const after = JSON.stringify(
-        library.documents.find((d) => d.id === "reference")!.tree,
-      )
+      it("reports a source range for every anchor an embed can target", () => {
+        // Replacement recompiles a slice of the original Markdown, so a host
+        // whose compiler loses offsets fails here rather than silently embedding
+        // the wrong span.
+        const reference = library.documents.find((d) => d.id === "reference")!
+        const anchors = walk(reference.tree as unknown as DocumentNode)
+          .filter((n) => n.type === "heading")
+          .map((n) => n.data?.hProperties?.id)
+          .filter((id): id is string => typeof id === "string")
 
-      expect(after).toBe(before)
+        expect(anchors.length).toBeGreaterThan(0)
+        for (const anchor of anchors) {
+          const range = reference.source.sections[anchor]
+          expect(range, `no source range for #${anchor}`).toBeDefined()
+          expect(range!.end).toBeGreaterThan(range!.start)
+          expect(
+            reference.source.text.slice(range!.start, range!.end),
+          ).not.toBe("")
+        }
+      })
+
+      it("starts every section's range at its heading's line", () => {
+        // A range measured in other text than the file's starts mid-line, and
+        // a replace rule then rewrites a span that is not the section.
+        const reference = library.documents.find((d) => d.id === "reference")!
+        const text = reference.source.text
+        for (const [anchor, range] of Object.entries(
+          reference.source.sections,
+        )) {
+          expect(text.slice(range.start), `#${anchor}`).toMatch(/^#{1,6} /)
+          expect([undefined, "\n"], `#${anchor}`).toContain(
+            text[range.start - 1],
+          )
+        }
+      })
     })
+  }
 
-    it("reports a source range for every anchor an embed can target", () => {
-      // Replacement recompiles a slice of the original Markdown, so a host
-      // whose compiler loses offsets fails here rather than silently embedding
-      // the wrong span.
-      const reference = library.documents.find((d) => d.id === "reference")!
-      const anchors = walk(reference.tree as unknown as DocumentNode)
-        .filter((n) => n.type === "heading")
-        .map((n) => n.data?.hProperties?.id)
-        .filter((id): id is string => typeof id === "string")
+/**
+ * Sections whose heading sits inside another block. The remark hosts record
+ * such a heading after the block's marks, the markdown-it hosts from the
+ * start of its line, so what a rule rewrites is cut differently per host and
+ * has to come out as the section that was collected on each.
+ */
+const NESTED = [
+  "# Nested",
+  "",
+  "- ## Shallow (#shallow)",
+  "",
+  "  Alpha",
+  "",
+  "1. Step",
+  "",
+  "   - ## Deep (#deep)",
+  "",
+  "     Alpha",
+  "",
+  "* ## Wide (#wide)",
+  "",
+  "    Alpha",
+  "",
+  "- ## Listed (#listed)",
+  "",
+  "  Alpha",
+  "",
+  "  - Step one",
+  "",
+  "    Details of step one.",
+  "",
+  // A heading on a later line of the item, indented past its content: the
+  // code below is four past the item's column, not the heading's.
+  "- Item",
+  "",
+  "   ## Later (#later)",
+  "",
+  "  Alpha",
+  "",
+  "      code()",
+  "",
+  // An item that starts with a blank line: its content starts one column
+  // past the marker, so the paragraph indented three past that is the
+  // item's, not code.
+  "-",
+  "  ## Bare (#bare)",
+  "",
+  "  Alpha",
+  "",
+  "     Indented three.",
+  "",
+  // The same inside an item of an ordered list: the marker alone is the
+  // last mark on its line, so its column is read past the number's.
+  "1. -",
+  "     ## Bare nested (#barenested)",
+  "",
+  "     Alpha",
+  "",
+  "        Indented three.",
+  "",
+  "> ## Quote (#quote)",
+  ">",
+  "> Alpha",
+  ">",
+  "> ## Next (#next)",
+  "",
+].join("\n")
 
-      expect(anchors.length).toBeGreaterThan(0)
-      for (const anchor of anchors) {
-        const range = reference.source.sections[anchor]
-        expect(range, `no source range for #${anchor}`).toBeDefined()
-        expect(range!.end).toBeGreaterThan(range!.start)
-        expect(reference.source.text.slice(range!.start, range!.end)).not.toBe(
-          "",
+const shapeOf = (node: DocumentNode): unknown => [
+  node.type,
+  ...(node.children ?? []).map(shapeOf),
+]
+
+for (const host of HOST_CASES)
+  for (const { label, ending } of ENDINGS) {
+    const suite = host.compiler ? describe : describe.skip
+    suite(`${host.name}: replacement inside other blocks${label}`, () => {
+      let workspace: string
+      let library: Library
+
+      beforeAll(async () => {
+        workspace = fs.mkdtempSync(path.join(os.tmpdir(), "cudoc-nested-"))
+        const source = path.join(workspace, "docs")
+        fs.mkdirSync(source)
+        fs.writeFileSync(
+          path.join(source, "nested.md"),
+          NESTED.replace(/\n/g, ending),
         )
-      }
+        fs.writeFileSync(path.join(source, "page.md"), "# Page\n")
+        const compile = await host.compiler!()
+        library = await buildDocumentsAsync({
+          ...OPTIONS,
+          sourceRoot: source,
+          outDir: path.join(workspace, "library"),
+          host: host.host,
+          compilerId: `${host.name}-nested`,
+          async compiler(text, context) {
+            return compile(text, {
+              ...context,
+              options: { ...context.options, format: "md" },
+            })
+          },
+        })
+      }, 60_000)
+
+      afterAll(() => fs.rmSync(workspace, { recursive: true, force: true }))
+
+      const resolve = (id: string, rules = "") =>
+        resolveEmbedAsync(
+          library,
+          parseEmbedSpec(`sources: [nested.md#${id}]\n${rules}`),
+          { documentId: "page", prefix: "case-" },
+        )
+
+      it.each([
+        "shallow",
+        "deep",
+        "wide",
+        "listed",
+        "later",
+        "bare",
+        "barenested",
+      ])(
+        "rewrites the list item section #%s into the section it copies without rules",
+        async (id) => {
+          const plain = await resolve(id)
+          const replaced = await resolve(
+            id,
+            "replace:\n  - find: Alpha\n    replace: Beta\n",
+          )
+          expect(shapeOf(replaced as unknown as DocumentNode)).toEqual(
+            shapeOf(plain as unknown as DocumentNode),
+          )
+          expect(nodeText(replaced as unknown as DocumentNode)).toContain(
+            "Beta",
+          )
+        },
+      )
+
+      it("refuses the quoted section, whose `>` stays in its text", async () => {
+        await expect(
+          resolve("quote", "replace:\n  - find: Alpha\n    replace: Beta\n"),
+        ).rejects.toThrow("nested#quote starts inside a quote")
+      })
     })
-  })
-}
+  }
 
 describe("embed shape coverage", () => {
   it("exercises every shape the showcase document uses", () => {

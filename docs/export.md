@@ -2,7 +2,7 @@
 
 **English** | [한국어](./export.ko.md) · [All guides](./README.md)
 
-`cudoc-export` turns a collected document set into a standalone deliverable. The format it produces today is a static HTML site, an optional additional output for cudoc's Markdown extensions and document embedding. Keep Next.js, Docusaurus, Nextra, VitePress or Eleventy as your primary documentation host and use `cudoc-export` alongside it, reusing the same collected documents and prepared embeds. You do not need to switch hosts or maintain a second document set. It can also be used on its own. The output can be deployed to a static server or opened directly from disk. No application scaffold is required.
+`cudoc-export` turns a collected document set into standalone deliverables: a static HTML site, PDF and Word, all from one collection and one set of design tokens. It is an optional additional output for cudoc's Markdown extensions and document embedding. Keep Next.js, Docusaurus, Nextra, VitePress or Eleventy as your primary documentation host and use `cudoc-export` alongside it, reusing the same collected documents and prepared embeds. You do not need to switch hosts or maintain a second document set. It can also be used on its own. The output can be deployed to a static server or opened directly from disk. No application scaffold is required.
 
 ## Your first site, from an empty directory
 
@@ -124,7 +124,9 @@ file instead.
 
 Every format reads one set of design tokens, so a PDF is the site's stylesheet
 printed rather than a second design, and Word takes the same palette, type scale
-and spacing translated into Word styles. See
+and spacing translated into Word styles. A callout is the same colour in all
+three: `WARNING` in the warning colour, `CAUTION` and a registered `danger` or
+`error` type in the danger colour, and every other type in the accent. See
 [Configure the site](#configure-the-site) for `tokens`.
 
 ### The bound volume
@@ -159,8 +161,8 @@ both.
 
 ### The page
 
-Paper defaults to A4 portrait with 20mm margins, and every paginated format
-reads the same `page` options:
+Paper defaults to A4 portrait with 20mm margins, 22mm at the bottom, and every
+paginated format reads the same `page` options:
 
 ```js
 await buildExport({
@@ -178,6 +180,10 @@ await buildExport({
   },
 })
 ```
+
+Lengths take `mm`, `cm`, `in`, `pt` or `px`, and a bare number means
+millimetres; each is converted to millimetres once, so the PDF and Word lay out
+the same page.
 
 `header` and `footer` are the running lines the PDF prints in the margins and
 the Word file carries in its header and footer; they accept `{page}`, `{pages}`,
@@ -199,7 +205,10 @@ placed for another paper size. `wideTables: { minColumns: 6 }` puts every table
 with at least that many columns on a landscape page of its own, in the PDF and
 in Word alike; without it a wide table shrinks to the portrait column. A table
 that is a document's very first block, or one inside another table's cell,
-stays on the portrait page.
+stays on the portrait page. A `cudoc-pagebreak` fence directly before or after
+a table that gets its own landscape page is dropped, since that page already
+starts and ends there, and so is a fence that opens a document, since the
+document starts on a page already; a break anywhere else stays.
 
 ### How the PDF is made
 
@@ -210,10 +219,15 @@ browser is installed. You can open and print those yourself. When you ask for
 
 That browser is installed with the package, and only the 187MB headless shell
 rather than a full browser suite. To keep an install from fetching it, set
-`CUDOC_SKIP_BROWSER_DOWNLOAD=1`; to install it later, run
-`npx cudoc-export install-browser`. If you ask for a PDF without it, cudoc says
-so and names that command, and the print-ready HTML is already on disk. To use
-a browser you already have, pass its path as `pdf.executablePath`.
+`CUDOC_SKIP_BROWSER_DOWNLOAD=1` (any value other than an empty one, `0` or
+`false`, spelled exactly so, skips it, as `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD` does); to install it later, run
+`npx cudoc-export install-browser`. npm 12 and later run a dependency's install
+script only once the project approves it, so there run
+`npm install-scripts approve cudoc-export` and install again, or use
+`npx cudoc-export install-browser`, which works either way. If you ask for a
+PDF without it, cudoc says so and names that command, and the print-ready HTML
+is already on disk. To use a browser you already have, pass its path as
+`pdf.executablePath`.
 
 ### Links in the paginated outputs
 
@@ -221,16 +235,20 @@ The link policy from [Choose hyperlink behavior](#choose-hyperlink-behavior)
 applies to the print HTML, the PDF and the Word file exactly as to the site, and
 each spells the same target its own way:
 
-| Link                        | Bound volume                | Per-document file, `relative`                      | `host`                | `none`  |
-| --------------------------- | --------------------------- | -------------------------------------------------- | --------------------- | ------- |
-| Another collected document  | Jumps to it inside the file | The sibling `<id>.pdf` or `<id>.docx`, no fragment | The deployed page URL | Removed |
-| A fragment of the same page | Jumps inside the file       | Jumps inside the file                              | Jumps inside the file | Removed |
-| An external URL             | Kept                        | Kept                                               | Kept                  | Removed |
+| Link                        | Bound volume                        | Per-document file, `relative`                      | `host`                | `none`  |
+| --------------------------- | ----------------------------------- | -------------------------------------------------- | --------------------- | ------- |
+| Another exported document   | Jumps to it inside the file         | The sibling `<id>.pdf` or `<id>.docx`, no fragment | The deployed page URL | Removed |
+| A fragment of the same page | Jumps inside the file               | Jumps inside the file                              | Jumps inside the file | Removed |
+| A `private` document        | The deployed page URL, under `host` | Refused: the page is in no output                  | The deployed page URL | Removed |
+| An external URL             | Kept                                | Kept                                               | Kept                  | Removed |
 
 A per-document file drops the fragment because neither a PDF viewer nor Word
 addresses a heading inside another file reliably. A fragment stays inside the
 file under every policy, including `host`: on paper the target is a later page,
-not a website.
+not a website. With `host` and `linkUrls: true`, a link from one document of the
+volume to another still prints the deployed address after its text in the PDF,
+as that document's own PDF does, so each document fills the same pages in the
+volume as alone and the contents numbers hold.
 
 ### What Word carries, and what it does not
 
@@ -242,6 +260,10 @@ restyle the whole document from Word's styles pane, and that a document handed t
 someone can be reshaped to their own template. Headings become Word's own
 heading styles, so the navigation pane and the contents field work; footnotes
 become Word footnotes; reference-style links resolve through their definitions.
+A top-level ordered list keeps its start number, a task item leads with ☑ or ☐,
+a table written in HTML in an MDX document keeps its row and column spans, and
+a `<br>` in a cell is a line break. In a `.md` document an HTML table is raw
+HTML, which Word drops and reports like any other.
 The one exception is the table cell, where OOXML keeps rules and tints: a table
 follows the site, with a rule under the header, a soft rule between rows, every
 other body row tinted, no vertical grid, and a grid that states the real column
@@ -266,7 +288,10 @@ An SVG image becomes its alt text, because `docx` needs a raster fallback and
 cudoc ships no rasterizer, and the substitution is reported as
 `image-as-text`. `<details>` ships expanded. Raw HTML in a Markdown
 document is dropped, and every drop is reported in the result's `diagnostics`
-and on the CLI's standard error, naming the document. A component that survived
+and on the CLI's standard error, naming the document. A table inside a footnote
+is dropped too, because a Word footnote holds paragraphs only, and reported as
+`dropped-footnote-table`. A `javascript:`, `vbscript:` or `data:` link keeps
+its text but not the link, reported as `unsafe-link`. A component that survived
 normalization is refused, as the HTML output refuses one without a renderer,
 unless `docx.components` names a Word renderer for it.
 
@@ -309,7 +334,7 @@ returned inline is an error. It is the Word counterpart of
 | `host`               | Point local hyperlinks to the primary deployment; keep external URLs such as HTTPS and `mailto:`. Requires `hostUrl` / `--host-url`. |
 | `none`               | Remove all hyperlinks, including external URLs, while preserving their labels, nested formatting and images.                         |
 
-A local link that reaches outside every collection root and every `assetDirs` root cannot be resolved in any policy; the build fails and names both the link and the document that carries it. A path another application serves on the same domain, such as `/sdk/js/start`, is listed in `externalPaths` (or repeated `--external-path`) and then kept as written under every policy. A link into a document collected as `private` is an error under `relative` and `none`, since that page is not in the output; under `host` it points at the deployment. The policy applies to authored links, raw HTML, embedded sections and tables, generated navigation, TOC and footnotes. Local images and styles remain available in every mode. `none` removes clickable anchors, not rendering resources such as the stylesheet's `<link>` element. It also avoids copying files referenced only by removed hyperlinks.
+A local image, stylesheet or other rendering resource that reaches outside every collection root and every `assetDirs` root has nothing to be copied from, so it stops the build under every policy, naming the resource and the document that carries it. A hyperlink there stops it only under `relative`, which would copy the file; under `host` it resolves against the deployment like any other local path, and `none` removes it. A path another application serves on the same domain, such as `/sdk/js/start`, is listed in `externalPaths` (or repeated `--external-path`) and then kept as written under every policy. A link into a document collected as `private` is an error under `relative`, since that page is not in the output; under `host` it points at the deployment in every output, the bound volume included, and `none` removes it like any other link. A resource such as an image or an `<iframe src>` that reaches a private document's file, whether through its root, an `assetDirs` directory or a symbolic link, stops the build under every policy, since a resource is copied under all three. The policy applies to authored links, raw HTML, embedded sections and tables, generated navigation, TOC and footnotes. Local images and styles remain available in every mode. `none` removes clickable anchors, not rendering resources such as the stylesheet's `<link>` element. It also avoids copying files referenced only by removed hyperlinks.
 
 In `host` mode, set `hostUrl` to the full deployment URL including its base path. For example, with `https://docs.example.com/project/` and a collected route `/docs/start`, both `start.md#setup` and `/docs/start#setup` become `https://docs.example.com/project/docs/start#setup`. Already-prefixed routes do not get a duplicate `/project/`. Query strings and fragments are preserved; a fragment-only link targets the current document on the deployed site. Other local paths resolve against the deployment and the current document's route.
 
@@ -365,7 +390,7 @@ This configuration collects Markdown directly. Add `library` and remove the coll
 
 ## Assets and custom components
 
-Source-relative images are resolved under the collection roots — `sourceRoot`, or the same `roots` list collection used. Use `assetDirs: ["public", "static"]` or repeat `--asset-dir` for additional URL-root asset directories. For example, `/img/logo.svg` can be copied from `public/img/logo.svg`. With `hostUrl` configured, the resolver also accepts its base prefix, such as `/project/img/logo.svg`. Referenced local images and styles are copied and linked relatively even when hyperlinks use `host` or `none`; authored external resources remain external.
+Source-relative images are resolved under the collection roots — `sourceRoot`, or the same `roots` list collection used. Use `assetDirs: ["public", "static"]` or repeat `--asset-dir` for additional URL-root asset directories. For example, `/img/logo.svg` can be copied from `public/img/logo.svg`. With `hostUrl` configured, the resolver also accepts its base prefix, such as `/project/img/logo.svg`. Referenced local images and styles are copied and linked relatively even when hyperlinks use `host` or `none`, and so are each `srcset` candidate, a video's `poster`, an `<object>`'s `data` and the files an inline SVG's `<image>` or `<use>` points at; each file is copied once however many pages and formats use it. Authored external resources remain external.
 
 Normalized native callouts, headings, links and tables render from the collected AST. React and Vue component code is not executed. If a custom component remains in the AST, provide an explicit HTML callback in ESM config or the `buildSite` API:
 
@@ -393,7 +418,7 @@ export default {
 
 **For the reader.** Select text and press the note button, or hover a paragraph, list item, table row or code block and press the `+` that appears beside it, then type. The speech-bubble button at the bottom right shows how many notes the page has and opens the panel, which lists them with their quotes; a note can be edited, answered, resolved or deleted. The name field at the top is optional. When done, **copy a share token** for a short list, or open _More_ to **download the notes** (`<page>.annotations.json`) or **save a copy with notes** (`<page>.annotated.html`, which opens with the notes in place when kept in the same folder as the original). The panel is in English unless you pick another language in its header, and by default it narrows the page rather than covering the sidebar; both settings are remembered by the browser. Notes stay in the browser between visits where the browser allows it; Firefox does not for local files, so download before closing.
 
-**For the author.** Load the returned `.json` (or `.annotated.html`) into your own copy of the site through the load button under _More_, or append a returned token to your copy's address, and the notes appear where they were made, or marked as position uncertain or not found when the document has changed since. To work through them in the source, run
+**For the author.** Load the returned `.json` (or `.annotated.html`) into your own copy of the site through the load button under _More_, or append a returned token to your copy's address, and the notes appear where they were made, or marked as position uncertain or not found when the document has changed since. A returned copy whose notes were damaged on the way still opens, says it could not load them, and shows none of them. To work through them in the source, run
 
 ```sh
 npx cudoc-export annotations review.annotations.json --library .cudoc/documents --out review.md
@@ -405,7 +430,7 @@ which writes a Markdown report: for each note the document, the heading, the sou
 
 ## Share or deploy
 
-Open `site/index.html`, copy the whole `site/` directory to another machine, or upload that directory to a static host. Use `relative` for navigation within the shared directory, `host` to direct readers to the primary site, or `none` for reading without clickable links. CSS and copied local assets use relative paths. The generated shell needs no client-side fetch, JavaScript or CDN; `annotations: true` adds one local script and still no network access. This is a directory export, not a single HTML file containing all assets.
+Open `site/index.html`, copy the whole `site/` directory to another machine, or upload that directory to a static host. Use `relative` for navigation within the shared directory, `host` to direct readers to the primary site, or `none` for reading without clickable links. CSS and copied local assets use relative paths. The generated shell needs no client-side fetch, JavaScript or CDN; `annotations: true` and `themeSwitch: true` each add one local script and still no network access. This is a directory export, not a single HTML file containing all assets.
 
 Run the build again to update the site. Keep `outDir` separate from source, library and asset directories, and use an output directory owned by cudoc. A failed staged site write preserves the previous site. Without `library`, the generated document library is a separate output; its default is `.cudoc/documents` under the site directory's parent (`site` → `.cudoc/documents`). With `library`, that input stays unchanged.
 
@@ -413,7 +438,7 @@ Run the build again to update the site. Keep `outDir` separate from source, libr
 
 - Confirm collected routes, custom slugs, base paths and `hostUrl` against the primary site's deployed URLs. The exporter rewrites links but does not check remote availability.
 - Copy the whole output directory to a different location and open it with `file://` in the browsers your readers use. Check navigation, images, styles, embedded tables and printing; this is not a single-file bundle.
-- Inspect host-specific widgets and assets. Dynamic React/Vue code needs an explicit HTML renderer, and CSS imports, CSS `url()` dependencies and responsive `srcset` resources are not recursively bundled.
+- Inspect host-specific widgets and assets. Dynamic React/Vue code needs an explicit HTML renderer, and CSS imports and CSS `url()` dependencies are not recursively bundled.
 - Keep the primary build and HTML output separate. Recollect and prepare before exporting changed documents. Review the documents/scopes included before sharing; HTML export is not a publication-permission filter.
 
 The repository's [host-library export check](../tests/built/html-export.test.ts) verifies all three link policies against five real host libraries and hashes all source, library and primary output files to verify they remain unchanged.

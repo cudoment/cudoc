@@ -20,6 +20,7 @@ import matter from "gray-matter"
 import {
   installHostPlugin,
   createHostCompiler,
+  markdownItText,
   type HostPluginOptions,
   type MarkdownItHost,
 } from "cudoc-markdown-it"
@@ -66,16 +67,26 @@ const eleventy: MarkdownItHost = {
  * Install on the markdown-it instance handed to `eleventyConfig.setLibrary`.
  *
  * Register the site's own markdown-it plugins first so their tokens already
- * exist when cudoc reads the stream.
+ * exist when cudoc reads the stream. Handed to `eleventyConfig.addPlugin`
+ * instead, it receives the Eleventy configuration and says so.
  */
 export default function cudocEleventy(
   md: MarkdownIt,
   options: EleventyOptions = {},
 ): void {
+  if (
+    !md?.core &&
+    typeof (md as { setLibrary?: unknown })?.setLibrary === "function"
+  )
+    throw new Error(
+      'cudoc-eleventy: this is a markdown-it plugin, not an Eleventy plugin; pass createMarkdownRenderer(options) to eleventyConfig.setLibrary("md", …) instead of eleventyConfig.addPlugin',
+    )
   installHostPlugin(md, options, eleventy)
   md.core.ruler.before("cudoc", "cudoc-eleventy-source", (state) => {
+    // Eleventy hands over the file's text as saved; markdown-it has already
+    // read its `\r\n` as `\n` by the time this rule runs.
     const raw = (state.env as { page?: EleventyPage }).page?.rawInput
-    if (typeof raw === "string" && raw !== state.src)
+    if (typeof raw === "string" && markdownItText(raw).text !== state.src)
       throw new Error(
         "cudoc-eleventy: another template engine rewrote this Markdown before markdown-it; set markdownTemplateEngine: false",
       )

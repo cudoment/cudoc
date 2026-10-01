@@ -42,7 +42,7 @@ export default {
 }
 ```
 
-Docusaurus, Nextra, VitePress and Eleventy collection must use the actual configured host compiler. Their guides link to runnable collectors. A generic second parse cannot reproduce every native transform. If your Next.js setup adds custom plugins, use a matching compiler there too. Custom compilers require a `compilerId`, updated when compiler versions or relevant settings change.
+Docusaurus, Nextra, VitePress and Eleventy collection must use the actual configured host compiler. Each guide gives the collector for its host. A generic second parse cannot reproduce every native transform. If your Next.js setup adds custom plugins, use a matching compiler there too. Custom compilers require a `compilerId`, updated when compiler versions or relevant settings change.
 
 ## Reuse a section
 
@@ -169,7 +169,11 @@ Replacement happens on the source slice, before anything is selected out of the 
 
 Two things it does not reach. A `cudoc-embed` block inside the section you are copying is resolved separately — nested embeds are expanded, with their own rules — so your rules do not apply to what that nested block pulls in. And a rule list is applied to every selected section, so a rule aimed at one section of a `depth: 2` selection simply finds nothing in the others. That is expected, not an error.
 
+A section whose heading sits inside another block is rewritten from its text as it reads on its own. In a list item, however deep, the item's marker and indentation are taken off that text, as the parser took them off the item's content, so the section is rewritten as usual. Where something of the block would stay in the text, a rule is refused, matching or not: when the heading's line has a quote's or a callout's `>` before it, when the heading is in a footnote, or when the section is the last one in a component or a `:::` container and its text runs into the block's closing line. The build fails with ``cudoc: <document>#<id> starts inside a quote, and the `>` marks stay on the lines after its heading, so a replace rule cannot rewrite it; …``, and `cudoc check` reports it as `unreplaceable-embed-section`. Move the heading out of that block, end the section with another heading before the block closes, or embed it without `replace`, which copies it as collected. One refused section stops a `select` embed that picks it too. A top-level section that holds a quote or a list is rewritten as usual.
+
 ### Writing `find` safely
+
+In a section inside a list item, `find` sees the section as it reads on its own, with the item's marker and indentation taken off, so write a rule against the line without them: `Alpha` rather than `  Alpha`.
 
 `find` is a YAML scalar, and YAML has opinions about unquoted text. **Quote it.** The failures below are silent or confusing otherwise:
 
@@ -229,13 +233,13 @@ node.type === "code" && node.lang === "cudoc-embed"
 ## Build and refresh
 
 1. Collect all source documents.
-2. Prepare embeds; `cudoc collect` includes this step.
+2. Prepare embeds; `cudoc collect` includes this step and publishes the library and its embeds together, so a collection that fails leaves the previous output as it was.
 3. Run the host build or start development.
 4. Repeat collection and preparation after changing source documents, syntax, routes or compiler settings. Restart a running host if it retains a loaded library.
 
-On an MDX host the embed plugin splices the prepared content into the page as it compiles, so the compiled page holds the library's content and a bundler will keep serving it until the page's own file changes. Register `cudoc-remark/loader` on the same files — the [Next.js](./next.md#step-5--add-the-embed-plugin), [Nextra](./nextra.md#step-4--add-the-embed-plugin) and [Docusaurus](./docusaurus.md#step-4--add-the-embed-plugin) guides show where — and a recollection reaches pages the dev server and the persistent build cache have already compiled. It leaves your files alone; what it adds to the compiled input is one reference definition that renders nothing.
+On an MDX host the embed plugin splices the prepared content into the page as it compiles, so the compiled page holds the library's content and a bundler will keep serving it until the page's own file changes. Register `cudoc-remark/loader` on the same files — the [Next.js](./next.md#step-5--add-the-embed-plugin-and-the-library-loader), [Nextra](./nextra.md#step-4--add-the-embed-plugin-and-the-library-loader) and [Docusaurus](./docusaurus.md#step-4--add-the-embed-plugin-and-the-library-loader) guides show where — and a recollection reaches pages the dev server and the persistent build cache have already compiled. It leaves your files alone; what it adds to the compiled input is one reference definition that renders nothing.
 
-Add collection before both `dev` and `build` in your package scripts, so a build never runs against a stale library. While you write, `cudoc collect --watch --config cudoc.config.mjs` beside the dev server collects again whenever a document under a root changes: only the documents whose text changed are compiled and only the embeds that read a changed document are resolved again, and a document that does not compile is a message rather than a broken library. Host-native collectors use `node collect.mjs` instead of the generic command; the same loop is available to them through [`watchDocuments`](./api-reference/node.md#watching). Keep generated `.cudoc/` output out of source control and regenerate it in CI.
+Add collection before both `dev` and `build` in your package scripts, so a build never runs against a stale library. While you write, `cudoc collect --watch --config cudoc.config.mjs` beside the dev server collects again whenever a document under a root changes: only the documents whose text changed are compiled and only the embeds that read a changed document are resolved again, and a document that does not compile, or an embed that does not resolve, is a message while the last good library and its embeds stay in place. Host-native collectors use `node collect.mjs` instead of the generic command; the same loop is available to them through [`watchDocuments`](./api-reference/node.md#watching). Keep generated `.cudoc/` output out of source control and regenerate it in CI.
 
 Set `routeBase` to the host's document prefix, such as `/docs`. VitePress with `cleanUrls: false` needs `routeSuffix: ".html"`, and Eleventy's default directory URLs need `routeSuffix: "/"`. Supply `routes: { "guide/start": "/custom/start" }` for custom host routes or frontmatter slugs; those are not inferred automatically. This makes summary links and embedded document links target actual pages.
 
@@ -246,8 +250,8 @@ Set `routeBase` to the host's document prefix, such as `/docs`. VitePress with `
 | Prepared embeds missing or stale     | Collect and prepare again before running the host; check both output paths agree                  |
 | Missing document or section          | Check relative paths, source-root coverage and explicit anchor IDs                                |
 | Conflicting or duplicate IDs         | Give headings unique IDs; manual API consumers must use distinct prefixes for separate embeds     |
-| Circular embed                       | Remove the document or section dependency cycle                                                   |
+| Circular embed                       | Remove the cycle the message names (`cudoc: cyclic embed: a#* -> b#limits -> a#*`)                |
 | No portable renderer for a component | Use Markdown, configure a static semantic mapping, or supply a renderer through the rendering API |
 | Correct content but wrong links      | Match `routeBase`, `routeSuffix` and `routes` to the host's actual routing                        |
 
-Embedding adjusts IDs and references to avoid collisions and rebases document links and images. See the [Node API reference](./api-reference/node.md) for programmatic collection, async compilers, storage and manual rendering.
+Embedding adjusts IDs and references to avoid collisions and rebases document links and images. A link inside the copied section that names only a fragment or a query, such as `#setup` or `?tab=2`, keeps meaning the document it was written in: it points into the copy when the copy carries that anchor, and at the source document otherwise. See the [Node API reference](./api-reference/node.md) for programmatic collection, async compilers, storage and manual rendering.

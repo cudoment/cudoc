@@ -28,11 +28,7 @@ import {
   resolveRoots,
   type SourceRoot,
 } from "@cudoment/cudoc/node/roots"
-import {
-  readPreparedEmbeds,
-  embedKey,
-  type PreparedEmbeds,
-} from "@cudoment/cudoc/node/prepare-embeds"
+import { expandPreparedEmbeds } from "@cudoment/cudoc/node/prepare-embeds"
 import { stripLibraryMarker } from "./loader.js"
 
 export type EmbedPluginOptions = {
@@ -121,50 +117,31 @@ export function restoreExpressions(
 const embed: Plugin<[EmbedPluginOptions?], Root> =
   (options = {}) =>
   (tree, file) => {
-    let prepared: PreparedEmbeds | undefined
-    let index = 0
-    // Resolved only when a fence is met: a file outside every root is fine as
-    // long as it embeds nothing.
-    let documentId: string | undefined
-    const idOf = (): string => {
-      if (documentId !== undefined) return documentId
-      const roots = resolveRoots(
-        options.roots === undefined && options.sourceRoot === undefined
-          ? { sourceRoot: "docs" }
-          : options,
-      )
-      documentId = documentIdOf(roots, file.path)
-      if (documentId === undefined)
-        throw new Error(
-          `cudoc: ${file.path} is outside every collection root, so its embeds have no prepared data`,
+    expandPreparedEmbeds(
+      tree,
+      // Resolved only when a fence is met: a file outside every root is fine
+      // as long as it embeds nothing.
+      () => {
+        const roots = resolveRoots(
+          options.roots === undefined && options.sourceRoot === undefined
+            ? { sourceRoot: "docs" }
+            : options,
         )
-      return documentId
-    }
-    const expand = (node: DocumentNode) => {
-      if (!node.children) return
-      node.children = node.children.flatMap((child) => {
-        if (child.type === "code" && child.lang === "cudoc-embed") {
-          const id = idOf()
+        const documentId = documentIdOf(roots, file.path)
+        if (documentId === undefined)
+          throw new Error(
+            `cudoc: ${file.path} is outside every collection root, so its embeds have no prepared data`,
+          )
+        return {
+          outDir: options.outDir ?? ".cudoc/documents",
+          documentId,
           // The loader may have appended its marker line; the snapshot was
           // taken from the file itself.
-          prepared ??= readPreparedEmbeds(
-            options.outDir ?? ".cudoc/documents",
-            id,
-            stripLibraryMarker(String(file.value)),
-          )
-          const result = prepared.blocks[embedKey(id, child.value!, ++index)]
-          if (!result)
-            throw new Error(
-              `cudoc: prepared embed missing in ${id}; recollect documents`,
-            )
-          const block = structuredClone(result) as unknown as DocumentNode
-          restoreExpressions(block, id)
-          return (block.children ?? []) as DocumentNode[]
+          source: stripLibraryMarker(String(file.value)),
         }
-        expand(child)
-        return [child]
-      })
-    }
-    expand(tree as unknown as DocumentNode)
+      },
+      (block, documentId) =>
+        restoreExpressions(block as unknown as DocumentNode, documentId),
+    )
   }
 export default embed

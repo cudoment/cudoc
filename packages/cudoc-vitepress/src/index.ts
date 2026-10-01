@@ -49,13 +49,32 @@ const badgeToken: MarkdownItHost["token"] = (token, { options }) => {
   }
 }
 
+/**
+ * The collected id of the page being rendered.
+ *
+ * `relativePath` is where the page is served. With `rewrites` or a dynamic
+ * route that is not the file it was read from, which is what collection
+ * named; VitePress passes that file as `realPath`, and the source directory
+ * is `path` without `relativePath`, so the id is the real file under it.
+ */
+const documentId = (env: Record<string, unknown>): string => {
+  const slash = (value: string) => value.replace(/\\/g, "/")
+  const relative = slash(String(env.relativePath ?? env.path ?? "index.md"))
+  const served = typeof env.path === "string" ? slash(env.path) : undefined
+  const real =
+    typeof env.realPath === "string" ? slash(env.realPath) : undefined
+  let id = relative.replace(/^\//, "")
+  if (real && served && real !== served && served.endsWith(relative)) {
+    const sourceDir = served.slice(0, served.length - relative.length)
+    if (real.startsWith(sourceDir)) id = real.slice(sourceDir.length)
+  }
+  return id.replace(/^\//, "").replace(/\.md$/, "")
+}
+
 const vitePress: MarkdownItHost = {
   adapter: "cudoc-vitepress",
   host: "vitepress",
-  documentId: (env) =>
-    String(env.relativePath ?? env.path ?? "index.md")
-      .replace(/^\//, "")
-      .replace(/\.md$/, ""),
+  documentId,
   token: badgeToken,
   // VitePress resolves links in renderer rules, after its core token passes.
   resolveInlineAttributes: true,

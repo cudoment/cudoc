@@ -1,6 +1,6 @@
 {
   "name": "cudoc-vitepress",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "VitePress Markdown integration for cudoc",
   "license": "MIT",
   "repository": {
@@ -26,7 +26,8 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist",
@@ -41,13 +42,14 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "@cudoment/cudoc": "0.5.0",
-    "cudoc-markdown-it": "0.5.0",
+    "@cudoment/cudoc": "0.6.0",
+    "cudoc-markdown-it": "0.6.0",
     "hast-util-from-html": "^2.0.3"
   },
   "peerDependencies": {
     "markdown-it": "^14.1.0",
-    "vitepress": "^1.6.4"
+    "vitepress": "^1.6.4",
+    "@types/markdown-it": "^14.1.0"
   },
   "devDependencies": {
     "@types/markdown-it": "^14.2.0"
@@ -55,5 +57,10 @@
   "author": "cudoment",
   "engines": {
     "node": ">=20"
+  },
+  "peerDependenciesMeta": {
+    "@types/markdown-it": {
+      "optional": true
+    }
   }
 }

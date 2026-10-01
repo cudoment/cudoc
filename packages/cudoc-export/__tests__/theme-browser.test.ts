@@ -28,8 +28,7 @@ const scriptBuilt = (() => {
     return false
   }
 })()
-const available =
-  !process.env.CUDOC_SKIP_BROWSER_DOWNLOAD && (await browserAvailable())
+const available = await browserAvailable()
 if (!scriptBuilt)
   console.log(
     "theme-browser: script not built; run npm run build --workspace packages/cudoc-export",
