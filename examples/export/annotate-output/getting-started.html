@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;; connect-src &#x27;none&#x27;"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Getting started · Northlight Weather API</title><style>
+<!doctype html><html lang="en" data-cudoc-ui="{&#x22;theme&#x22;:&#x22;Theme&#x22;,&#x22;light&#x22;:&#x22;Light&#x22;,&#x22;dark&#x22;:&#x22;Dark&#x22;}"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;; connect-src &#x27;none&#x27;"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Getting started · Northlight Weather API</title><style>
 :root {
   color-scheme: light dark;
 
@@ -928,11 +928,17 @@ footer {
 /* Linked after the built-in stylesheet on the site, and carried inside the
    page on a standalone one. Everything that should reach the PDF and Word
    as well goes in the configuration's tokens instead. */
-header {
-  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIzIiB2aWV3Qm94PSIwIDAgMTIgMyI+PHJlY3Qgd2lkdGg9IjYiIGhlaWdodD0iMyIgZmlsbD0iIzE1NWU3NSIvPjxyZWN0IHg9IjYiIHdpZHRoPSI2IiBoZWlnaHQ9IjMiIGZpbGw9IiM2N2U4ZjkiLz48L3N2Zz4K");
-  background-repeat: repeat-x;
-  background-position: bottom;
-  background-size: auto 3px;
+
+/* The handbook's mark before the site title: a picture the stylesheet
+   loads, copied beside it on the site and written into a standalone page. */
+header > :first-child::before {
+  content: "";
+  display: inline-block;
+  width: 1.375rem;
+  height: 1.375rem;
+  margin-right: var(--space-2);
+  vertical-align: -0.3em;
+  background: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48cmVjdCB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHJ4PSI2IiBmaWxsPSIjMTU1ZTc1Ii8+PGNpcmNsZSBjeD0iMTUuNSIgY3k9IjguNSIgcj0iMy41IiBmaWxsPSIjNjdlOGY5Ii8+PHBhdGggZD0iTTcgMTguNWEzLjUgMy41IDAgMCAxLS4zLTcgNC42IDQuNiAwIDAgMSA4LjguOSAzIDMgMCAxIDEgLjUgNi4xeiIgZmlsbD0iI2Y4ZmFmYyIvPjwvc3ZnPgo=") center / contain no-repeat;
 }
 </style><style>/* src/browser/cudoc-annotations.css */
 ::highlight(cudoc-note) {
@@ -1423,7 +1429,123 @@ html.cudoc-ann-push body {
     outline: none !important;
   }
 }
-</style></head><body><header><span>Northlight Weather API</span></header><div class="layout single"><main id="main-content" data-cudoc-document="getting-started" data-cudoc-ast-hash="00692da818cbb0f12580a53c66d77e36cafb0950701b9430fb2dff12d331026f" data-cudoc-source-hash="ad416fddcaeda82086fce8a5c9bcda0ed3d27d91209d162e06296561c60bf52f" data-cudoc-site="northlight-getting-started" data-cudoc-generator="cudoc-export 0.8.0"><h1 id="getting-started" data-cudoc-block="getting-started:831d0f72">Getting started</h1>
+</style><script>"use strict";
+(() => {
+  // src/browser/cudoc-theme.ts
+  var KEY = "cudoc-theme";
+  var root = document.documentElement;
+  function stored() {
+    try {
+      const value = localStorage.getItem(KEY);
+      return value === "light" || value === "dark" ? value : void 0;
+    } catch {
+      return void 0;
+    }
+  }
+  function remember(choice) {
+    try {
+      if (choice) localStorage.setItem(KEY, choice);
+      else localStorage.removeItem(KEY);
+    } catch {
+    }
+  }
+  function apply(choice) {
+    if (choice) root.setAttribute("data-theme", choice);
+    else root.removeAttribute("data-theme");
+  }
+  apply(stored());
+  var STRINGS = (() => {
+    const fallback = root.lang.toLowerCase().startsWith("ko") ? { theme: "\uD14C\uB9C8", light: "\uB77C\uC774\uD2B8", dark: "\uB2E4\uD06C" } : { theme: "Theme", light: "Light", dark: "Dark" };
+    try {
+      const given = JSON.parse(root.dataset.cudocUi ?? "{}");
+      const strings = { ...fallback };
+      for (const key of Object.keys(fallback))
+        if (typeof given[key] === "string" && given[key])
+          strings[key] = given[key];
+      return strings;
+    } catch {
+      return fallback;
+    }
+  })();
+  var ICONS = {
+    light: [
+      "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z",
+      "M12 2v2",
+      "M12 20v2",
+      "M4.9 4.9l1.4 1.4",
+      "M17.7 17.7l1.4 1.4",
+      "M2 12h2",
+      "M20 12h2",
+      "M4.9 19.1l1.4-1.4",
+      "M17.7 6.3l1.4-1.4"
+    ],
+    dark: ["M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"]
+  };
+  function icon(mode) {
+    const NS = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("stroke", "currentColor");
+    svg.setAttribute("stroke-width", "2");
+    svg.setAttribute("stroke-linecap", "round");
+    svg.setAttribute("stroke-linejoin", "round");
+    for (const d of ICONS[mode]) {
+      const path = document.createElementNS(NS, "path");
+      path.setAttribute("d", d);
+      svg.append(path);
+    }
+    return svg;
+  }
+  var CHOICES = ["light", "dark"];
+  var dark = window.matchMedia?.("(prefers-color-scheme: dark)");
+  var current = () => stored() ?? (dark?.matches ? "dark" : "light");
+  function mount() {
+    const header = document.querySelector("body > header");
+    if (!header || header.querySelector(".theme-switch")) return;
+    const control = document.createElement("label");
+    control.className = "theme-switch";
+    const select = document.createElement("select");
+    select.setAttribute("aria-label", STRINGS.theme);
+    for (const mode of CHOICES) {
+      const option = document.createElement("option");
+      option.value = mode;
+      option.textContent = STRINGS[mode];
+      select.append(option);
+    }
+    const render = () => {
+      const mode = current();
+      select.value = mode;
+      control.querySelector("svg")?.remove();
+      control.prepend(icon(mode));
+      control.title = `${STRINGS.theme}: ${STRINGS[mode]}`;
+    };
+    select.addEventListener("change", () => {
+      const choice = select.value;
+      remember(choice);
+      apply(choice);
+      render();
+    });
+    dark?.addEventListener?.("change", () => {
+      if (!stored()) render();
+    });
+    window.addEventListener("storage", (event) => {
+      if (event.key === KEY || event.key === null) {
+        apply(stored());
+        render();
+      }
+    });
+    control.append(select);
+    render();
+    (header.querySelector(".header-end") ?? header).append(control);
+  }
+  if (document.readyState === "loading")
+    document.addEventListener("DOMContentLoaded", mount);
+  else mount();
+})();
+</script></head><body><header><span>Northlight Weather API</span></header><div class="layout single"><main id="main-content" data-cudoc-document="getting-started" data-cudoc-ast-hash="00692da818cbb0f12580a53c66d77e36cafb0950701b9430fb2dff12d331026f" data-cudoc-source-hash="ad416fddcaeda82086fce8a5c9bcda0ed3d27d91209d162e06296561c60bf52f" data-cudoc-site="northlight-getting-started" data-cudoc-generator="cudoc-export 0.8.0"><h1 id="getting-started" data-cudoc-block="getting-started:831d0f72">Getting started</h1>
 <p data-cudoc-block="getting-started:1e389f8f">Four steps take you from nothing to a first forecast in production: a key, a
 request, a look at the response, and a polling schedule that respects the
 cache. The whole flow is plain HTTPS with a key in a header; there is no SDK to
@@ -3597,7 +3719,18 @@ ${root.outerHTML}`;
       ui.hideNoteButton();
     };
     let pressInText = false;
+    let pressSelected = false;
+    let selectionAtPress = [];
     let lastPointer = "mouse";
+    const selectionPoints = () => {
+      const selection = document.getSelection();
+      return selection ? [
+        selection.anchorNode,
+        selection.anchorOffset,
+        selection.focusNode,
+        selection.focusOffset
+      ] : [];
+    };
     document.addEventListener(
       "pointerdown",
       (event) => {
@@ -3606,12 +3739,25 @@ ${root.outerHTML}`;
         if (ui.ownsFloating(target)) return;
         hideNote();
         pressInText = !!target && main.contains(target) && !target.closest(CONTROLS) && !ui.root.contains(target);
+        pressSelected = false;
+        selectionAtPress = selectionPoints();
+      },
+      true
+    );
+    document.addEventListener(
+      "selectstart",
+      () => {
+        pressSelected = true;
       },
       true
     );
     document.addEventListener("mouseup", (event) => {
       if (ui.ownsFloating(event.target) || !pressInText) return;
       pressInText = false;
+      const moved = selectionPoints().some(
+        (point, index2) => point !== selectionAtPress[index2]
+      );
+      if (!pressSelected && !moved) return;
       setTimeout(onSelection, 0);
     });
     let settle;

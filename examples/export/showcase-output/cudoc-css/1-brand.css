@@ -1,9 +1,15 @@
 /* Linked after the built-in stylesheet on the site, and carried inside the
    page on a standalone one. Everything that should reach the PDF and Word
    as well goes in the configuration's tokens instead. */
-header {
-  background-image: url("files/e127fe606805-stripe.svg");
-  background-repeat: repeat-x;
-  background-position: bottom;
-  background-size: auto 3px;
+
+/* The handbook's mark before the site title: a picture the stylesheet
+   loads, copied beside it on the site and written into a standalone page. */
+header > :first-child::before {
+  content: "";
+  display: inline-block;
+  width: 1.375rem;
+  height: 1.375rem;
+  margin-right: var(--space-2);
+  vertical-align: -0.3em;
+  background: url("files/b12e7d75a5b4-mark.svg") center / contain no-repeat;
 }

@@ -1916,7 +1916,18 @@ ${root.outerHTML}`;
       ui.hideNoteButton();
     };
     let pressInText = false;
+    let pressSelected = false;
+    let selectionAtPress = [];
     let lastPointer = "mouse";
+    const selectionPoints = () => {
+      const selection = document.getSelection();
+      return selection ? [
+        selection.anchorNode,
+        selection.anchorOffset,
+        selection.focusNode,
+        selection.focusOffset
+      ] : [];
+    };
     document.addEventListener(
       "pointerdown",
       (event) => {
@@ -1925,12 +1936,25 @@ ${root.outerHTML}`;
         if (ui.ownsFloating(target)) return;
         hideNote();
         pressInText = !!target && main.contains(target) && !target.closest(CONTROLS) && !ui.root.contains(target);
+        pressSelected = false;
+        selectionAtPress = selectionPoints();
+      },
+      true
+    );
+    document.addEventListener(
+      "selectstart",
+      () => {
+        pressSelected = true;
       },
       true
     );
     document.addEventListener("mouseup", (event) => {
       if (ui.ownsFloating(event.target) || !pressInText) return;
       pressInText = false;
+      const moved = selectionPoints().some(
+        (point, index2) => point !== selectionAtPress[index2]
+      );
+      if (!pressSelected && !moved) return;
       setTimeout(onSelection, 0);
     });
     let settle;
