@@ -759,7 +759,7 @@ function rebase(
   library: Library,
   prefix: string,
   destination: StoredDocument | undefined,
-  moved: WeakSet<object>,
+  placed: WeakSet<object>,
 ) {
   const ids = new Set<string>()
   visitNodes(tree as unknown as DocumentNode, (node) => {
@@ -817,26 +817,35 @@ function rebase(
     const target = documentIndex(library).byPath.get(absolute)
     return `${target?.route ?? absolute}${match[2]}`
   }
-  // Every candidate of a responsive image is a path of its own; the width or
-  // density after it stays as written.
-  const sourceSrcSet = (value: string): string =>
-    parseSrcSet(value)
-      .map(({ url, descriptor }) =>
-        [sourceUrl(url), descriptor].filter(Boolean).join(" "),
-      )
-      .join(", ")
+  // A node an inner copy already placed holds the page's addresses, and read
+  // as source paths again they could name another document, or climb from
+  // the wrong directory. Only a fragment naming an id this copy renames
+  // follows the new name.
+  const pageUrl = (url: string): string => {
+    if (!url.startsWith("#")) return url
+    const id = decodeComponent(url.slice(1))
+    return ids.has(id) ? `#${prefix}${id}` : url
+  }
   visitNodes(tree as unknown as DocumentNode, (node) => {
+    const url = placed.has(node) ? pageUrl : sourceUrl
+    // Every candidate of a responsive image is a path of its own; the width
+    // or density after it stays as written.
+    const srcSet = (value: string): string =>
+      parseSrcSet(value)
+        .map(({ url: candidate, descriptor }) =>
+          [url(candidate), descriptor].filter(Boolean).join(" "),
+        )
+        .join(", ")
     const id = node.data?.hProperties?.id
     if (typeof id === "string") node.data!.hProperties!.id = `${prefix}${id}`
-    if (typeof node.url === "string") node.url = sourceUrl(node.url)
+    if (typeof node.url === "string") node.url = url(node.url)
     // An image a host made a component of is still an image of the source.
     const image = node.data?.cudocImage
     if (image && typeof image.url === "string")
-      node.data!.cudocImage = { ...image, url: sourceUrl(image.url) }
+      node.data!.cudocImage = { ...image, url: url(image.url) }
     // Once per element, however deeply the copy was nested: an inner embed
     // already moved it from its own source to `destination`.
-    if (destination && Array.isArray(node.attributes) && !moved.has(node)) {
-      moved.add(node)
+    if (destination && Array.isArray(node.attributes) && !placed.has(node)) {
       directories ??= {
         from: fileDirectory(library, document),
         to: fileDirectory(library, destination),
@@ -865,18 +874,18 @@ function rebase(
                 name === "id"
                   ? `${prefix}${value}`
                   : name === "srcset"
-                    ? sourceSrcSet(value)
+                    ? srcSet(value)
                     : REBASED_ATTRIBUTES.has(name)
-                      ? sourceUrl(value)
+                      ? url(value)
                       : undefined,
               ),
       )
     const attrs = node.data?.hProperties
     for (const key of ["href", "src", "poster", "data", "xLinkHref"])
-      if (typeof attrs?.[key] === "string") attrs[key] = sourceUrl(attrs[key])
+      if (typeof attrs?.[key] === "string") attrs[key] = url(attrs[key])
     for (const key of ["srcSet", "srcset"])
-      if (typeof attrs?.[key] === "string")
-        attrs[key] = sourceSrcSet(attrs[key])
+      if (typeof attrs?.[key] === "string") attrs[key] = srcSet(attrs[key])
+    placed.add(node)
   })
 }
 
@@ -1492,8 +1501,17 @@ export function resolveEmbed(
   let occurrence = 0
   const reserved = new Set<string>()
   const destination = documentIndex(library).byId.get(context.documentId)
-  // Elements whose required modules already start from `destination`.
-  const moved = new WeakSet<object>()
+  // Nodes already on the page: those a copy rebased, whose paths and
+  // required modules now start from `destination`, and those a table or a
+  // tree wrote there. A copy around them renames their ids, and leaves the
+  // rest as it is.
+  const placed = new WeakSet<object>()
+  const place = (root: Root): Root => {
+    visitNodes(root as unknown as DocumentNode, (node) => {
+      placed.add(node)
+    })
+    return root
+  }
   if (destination)
     for (const id of declaredIds(destination.tree)) reserved.add(id)
   const active: string[] = []
@@ -1508,7 +1526,7 @@ export function resolveEmbed(
       tree.documents.forEach((id) => dependencies.add(id))
       if (usesExtractor(spec.render.columns ?? DEFAULT_TREE_COLUMNS))
         dependencies.add("*")
-      return buildEmbedTree(tree.nodes, spec.render)
+      return place(buildEmbedTree(tree.nodes, spec.render))
     }
     const children: Root["children"] = []
     const rows: EmbedRow[] = []
@@ -1578,7 +1596,7 @@ export function resolveEmbed(
           do {
             prefix = `${context.prefix ?? "embed"}-${++occurrence}-`
           } while (sectionIds.some((id) => reserved.has(`${prefix}${id}`)))
-          rebase(section, document, library, prefix, destination, moved)
+          rebase(section, document, library, prefix, destination, placed)
           sectionIds.forEach((id) => reserved.add(`${prefix}${id}`))
           children.push(...section.children)
         }
@@ -1589,7 +1607,7 @@ export function resolveEmbed(
     if (spec.render && spec.render !== "section") {
       const columns = spec.render.columns ?? DEFAULT_TABLE_COLUMNS
       if (usesExtractor(columns)) dependencies.add("*")
-      return buildEmbedTable(library, columns, rows, context)
+      return place(buildEmbedTable(library, columns, rows, context))
     }
     return { type: "root", children }
   }
