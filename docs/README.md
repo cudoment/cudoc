@@ -79,7 +79,7 @@ So the rule of thumb is narrow: keep sections that other documents embed in Mark
 | Guide                                | What it covers                                                                                      |
 | ------------------------------------ | --------------------------------------------------------------------------------------------------- |
 | [Markdown syntax](./syntax.md)       | Anchors, badges, callouts, lists inside table cells, column layouts, syntax modes                   |
-| [Document embedding](./embedding.md) | Collection, section selection, summary tables, find-and-replace, refresh rules                      |
+| [Document embedding](./embedding.md) | Collection, section selection, summary tables, document trees, find-and-replace, refresh rules      |
 | [Export](./export.md)                | Standalone HTML, PDF and Word, alongside a host or alone; hyperlink policies, assets, configuration |
 | [Reference checking](./check.md)     | Finding broken links, anchors, images and embeds across the whole document set                      |
 | [AST datasets](./dataset.md)         | Filtering compiled documents into AST JSON for indexing and other consumers                         |

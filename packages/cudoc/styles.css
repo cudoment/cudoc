@@ -91,3 +91,52 @@
 .cudoc-page-break {
   display: none;
 }
+/* A tree embed: nested lists, where an item with children folds its list in
+   a details whose summary is the item's line, and the disclosure triangle
+   stands where a leaf's bullet does. Hosts style an authored details as a
+   box, Docusaurus as an info alert and Nextra as a bordered panel; in a tree
+   it is one line of an outline, so the box is taken off. */
+.cudoc-tree,
+.cudoc-tree ul {
+  margin: 0;
+  padding-left: 1.5em;
+  list-style: disc;
+}
+.cudoc-tree {
+  margin: 1rem 0;
+}
+.cudoc-tree li {
+  margin: 0.25em 0;
+}
+.cudoc-tree li:not(.cudoc-tree-leaf) {
+  list-style: none;
+}
+.cudoc-tree details {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: inherit;
+}
+.cudoc-tree details > div,
+.cudoc-tree details > div > div {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.cudoc-tree summary {
+  margin-left: -1.1em;
+  font-weight: inherit;
+  cursor: pointer;
+}
+/* Docusaurus's alert recolours its text and redefines the link colour and
+   underline inside it; a tree keeps the page's own. */
+.cudoc-tree .alert {
+  --ifm-alert-foreground-color: inherit;
+  --ifm-link-color: inherit;
+  --ifm-link-hover-color: inherit;
+  --ifm-link-decoration: inherit;
+  --ifm-link-hover-decoration: inherit;
+}

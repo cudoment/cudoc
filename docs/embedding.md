@@ -144,6 +144,87 @@ export default {
 
 `version` is part of the library configuration, so a changed extractor invalidates prepared embeds the way a changed compiler does. A column that finds nothing renders an empty cell; `cudoc check` reports each such cell as an `empty-embed-cell` warning saying what the column asked for and what the section has, for columns written as mappings. → [Reference checking](./check.md)
 
+## Draw a tree of documents
+
+A tree lists documents the way their folders nest them, one line per document, each level folded until a reader opens it. In `docs/guides/payments/index.md`:
+
+````md
+```cudoc-embed
+sources: [/guides/payments/]
+render:
+  type: tree
+  open: 1
+  print: 2
+  order: [Overview, ...]
+```
+````
+
+A line shows the document's title, linked to it, and its summary, the first paragraph after its `#` title. A line with others below it folds them in an HTML `details` element, so the tree opens and closes without a script on every host and in standalone HTML. The print HTML, the PDF and Word have nothing to fold and write the tree out as a nested list.
+
+- **An overview page for a set of documents**: `sources: [./]` in a folder's `index.md` lists the documents beside it and below them.
+- **A collapsible outline of a long reference**: `sources: [reference.md]` with `headings: 2` lists its `##` and `###` sections under the document.
+- **A map of every document**: `sources: [/]` from any page.
+
+### Which document goes under which
+
+- A source ending in `/` is a folder, and the documents directly below it make the first level. Any other source is a document, or with `#anchor` one of its sections, and is a first-level line itself. Sources resolve as other embed sources do: relative to the embedding document, or from the top of the library with a leading `/`.
+- The documents under `X.md` are the ones in the folder `X/` beside it. This is how an outliner keeps one page per file, where no page can be called `index`.
+- Where there is no `X.md`, the folder's own `X/index.md` stands for it, as a static site generator reads it, and the folder's other documents go under that one. A folder source starts below it.
+- A folder that nothing stands for passes its documents up to the nearest folder that has such a document, so a category folder such as `projects/` adds no level.
+- With `headings`, a document's sections go under it, before the documents below it. The `#` title names the document's own line.
+
+| Key        | Meaning                                                                                                                                                       | Default             |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| `open`     | Levels that start unfolded on the web; `0` shows the first level only                                                                                         | `1`                 |
+| `print`    | Levels the print HTML, the PDF and Word show                                                                                                                  | every level         |
+| `depth`    | Levels the tree holds                                                                                                                                         | every level         |
+| `headings` | Heading levels under each document's title that become its lines: `1` takes `##`, `2` takes `##` and `###`, up to `5`                                         | `0`, documents only |
+| `order`    | Names the first level puts first, in order. `...` stands for every name not listed; without it, the rest follow the names listed                              | by title            |
+| `columns`  | What a line shows, in the vocabulary of [table columns](#define-the-columns-yourself), extractors included. The values that are not empty are joined with `·` | `[link, summary]`   |
+
+An `order` entry matches a document's file name without the extension, the folder's name for an `index.md`, or a line's title. Names are compared in Unicode NFC, so a file name that a sync tool stored in NFD, as Syncthing does on macOS, matches the composed spelling you type. The first level follows `sources` in the order written, the documents of a folder source sorted among themselves, and `order` then moves it; every level below is sorted. Documents are sorted by title, ignoring letter case and reading a number by its value, and come out the same on every machine. A section keeps its place in its document.
+
+A document's title is its `#` title, else its `title` front matter, else its file name, or its folder's name for an `index.md`. `summary` is read as in a summary table, so a document whose title has no paragraph of its own is summarized by the first paragraph after it. A line whose every column is empty shows its title. `select` and `replace` do not apply, because a tree copies no section text. On a page that is not `private`, a tree leaves out a `private` document a folder or a parent would bring in, together with the lines below it, since an export, which writes no private document, could not link to it; a private page lists them, and a source that names one lists it as a link to it would. A folder whose documents a public page would all leave out fails, and an `order` entry naming a document left out matches nothing. `exclude` keeps a file out of the library, and so out of every tree.
+
+### Totals from the levels below
+
+In a tree an extractor runs for every line, deepest first, and its context carries the line as `node`, with the lines below it complete. This counts the open tasks of a document and of everything below it:
+
+```js
+// cudoc.config.mjs
+const open = (text) => (text.match(/^- TODO /gm) ?? []).length
+
+export default {
+  sourceRoot: "notes",
+  extractors: {
+    openTasks: {
+      version: "1",
+      extract(row, { library, node }) {
+        const total = (line) =>
+          open(
+            library.documents.find((d) => d.id === line.documentId).source.text,
+          ) + line.children.reduce((sum, child) => sum + total(child), 0)
+        const count = node ? total(node) : open(row.document.source.text)
+        return count ? `${count} open` : undefined
+      },
+    },
+  },
+}
+```
+
+````md
+```cudoc-embed
+sources: [/projects/]
+render:
+  type: tree
+  columns: [link, { value: { extractor: openTasks } }, summary]
+```
+````
+
+A total stops at `depth`, since the lines below it are not in the tree. The cells of the lines below are filled in by the time a line's extractor runs, so an extractor can also add up the values its children show.
+
+`cudoc check` reports a source or an anchor that names nothing as it does for every embed, an extractor the configuration does not register as `invalid-embed-spec`, and an `order` entry that names no first-level line as an `unmatched-tree-order` warning. A prepared tree depends on every document a line was read from, so editing a document below it resolves it again on the next collection. A program that writes the tree in a form of its own, such as an outliner's blocks, reads the same lines through [`resolveTree`](./api-reference/node.md#tree-data).
+
 ## Find and replace
 
 ````md

@@ -18,16 +18,21 @@ import remarkGfm from "remark-gfm"
 import remarkFrontmatter from "remark-frontmatter"
 import remarkMdx from "remark-mdx"
 import { visit } from "unist-util-visit"
+import { isScalar, parseDocument } from "yaml"
 import { capturedImage, type DocumentNode } from "../document.js"
 import type { Library, StoredDocument } from "./library.js"
 import {
   DEFAULT_TABLE_COLUMNS,
+  DEFAULT_TREE_COLUMNS,
   buildEmbedRow,
   extractCell,
+  namesTreeNode,
   parseEmbedSpec,
   resolveDocumentReference,
+  resolveTree,
+  resolveTreeSource,
 } from "./resolve-embed.js"
-import type { EmbedSpec, Replacement } from "./resolve-embed.js"
+import type { EmbedSpec, Replacement, TreeRender } from "./resolve-embed.js"
 import {
   compileReplacedSection,
   replacedSectionSource,
@@ -59,6 +64,7 @@ export type ReferenceIssueCode =
   | "unportable-embed-component"
   | "imported-embed-component"
   | "cyclic-embed"
+  | "unmatched-tree-order"
 
 export type ReferenceIssue = {
   code: ReferenceIssueCode
@@ -73,8 +79,9 @@ export type ReferenceIssue = {
   /**
    * The anchors the target document actually has, or for
    * `missing-embed-anchor` its headings' ids, which are what a section can be
-   * embedded from. Filled in so the author can see the real names instead of
-   * a guess.
+   * embedded from, or for `unmatched-tree-order` the names on the tree's
+   * first level. Filled in so the author can see the real names instead of a
+   * guess.
    */
   available?: string[]
 }
@@ -619,6 +626,9 @@ export function checkReferences(
     from: string,
     active: string[],
   ): string[] | undefined => {
+    // A tree copies no section, so nothing it names is expanded into it.
+    if (typeof spec.render === "object" && spec.render.type === "tree")
+      return undefined
     for (const source of spec.sources ?? []) {
       let resolved: ReturnType<typeof resolveDocumentReference>
       try {
@@ -660,6 +670,114 @@ export function checkReferences(
       }
     }
     return undefined
+  }
+
+  /**
+   * A tree reads titles and summaries and copies nothing else, so neither a
+   * cycle nor a component can come of it. What can go wrong is a source that
+   * names nothing, a column naming an extractor the configuration does not
+   * register, and an `order` entry that names no line of the first level,
+   * which the build passes over in silence.
+   */
+  const checkTree = (
+    doc: StoredDocument,
+    sources: string[],
+    render: TreeRender,
+    fence: Fence | undefined,
+    sourceLines: string[],
+  ) => {
+    let resolvable = true
+    for (const reference of sources) {
+      checkedReferences++
+      let source: ReturnType<typeof resolveTreeSource>
+      try {
+        source = resolveTreeSource(library, String(reference), doc.id, doc.id)
+      } catch (error) {
+        resolvable = false
+        report(doc, {
+          code: "missing-embed-source",
+          severity: "error",
+          message: (error as Error).message.replace(/^cudoc: /, ""),
+          reference: String(reference),
+        })
+        continue
+      }
+      if ("document" in source && source.anchor !== undefined) {
+        const sections = sectionsById.get(source.document.id) ?? []
+        if (!sections.includes(source.anchor)) {
+          resolvable = false
+          report(doc, {
+            code: "missing-embed-anchor",
+            severity: "error",
+            message: `${source.document.id} has no section #${source.anchor} to embed`,
+            reference: String(reference),
+            available: sections,
+          })
+        }
+      }
+    }
+    // A value's own place in the block, as the YAML parser read it, rather
+    // than the first place its text occurs in the document.
+    const text = fence ? comparable(fence.value) : ""
+    let parsed: ReturnType<typeof parseDocument> | undefined
+    const place = (path: (string | number)[]): Position | undefined => {
+      if (!fence) return undefined
+      parsed ??= parseDocument(text)
+      const node = parsed.getIn(path, true)
+      const range = isScalar(node) ? node.range : undefined
+      if (!range) {
+        const position = blockPosition(sourceLines, fence)
+        return { start: position, end: position }
+      }
+      const before = text.slice(0, range[0])
+      const start = blockPosition(sourceLines, fence, {
+        line: before.split("\n").length,
+        col: range[0] - (before.lastIndexOf("\n") + 1) + 1,
+      })
+      return {
+        start,
+        end: { line: start.line, column: start.column + range[1] - range[0] },
+      }
+    }
+    ;(render.columns ?? DEFAULT_TREE_COLUMNS).forEach((column, index) => {
+      if (
+        typeof column !== "object" ||
+        typeof column.value !== "object" ||
+        !("extractor" in column.value) ||
+        library.extractors?.[column.value.extractor]
+      )
+        return
+      report(doc, {
+        code: "invalid-embed-spec",
+        severity: "error",
+        message: `extractor "${column.value.extractor}" is not registered; add it to extractors in the collection options`,
+        reference: column.value.extractor,
+        position: place(["render", "columns", index, "value", "extractor"]),
+      })
+    })
+    if (!resolvable || !render.order?.length) return
+    let first: ReturnType<typeof resolveTree>
+    try {
+      first = resolveTree(
+        library,
+        { sources, render: { type: "tree", depth: 1, columns: ["title"] } },
+        { documentId: doc.id },
+      )
+    } catch {
+      return // what fails here fails the build, reported as it stands
+    }
+    render.order.forEach((entry, index) => {
+      if (entry === "..." || first.some((node) => namesTreeNode(entry, node)))
+        return
+      report(doc, {
+        code: "unmatched-tree-order",
+        severity: "warning",
+        message: `order names "${entry}", which is not on the tree's first level, so it moves nothing. An entry matches a document's file name or a line's title.`,
+        reference: entry,
+        position: place(["render", "order", index]),
+        available: first.map((node) => node.title),
+      })
+    })
   }
 
   for (const doc of library.documents) {
@@ -767,6 +885,10 @@ export function checkReferences(
           reference: `embed block ${blockNumber}`,
           position: position && { start: position, end: position },
         })
+        return
+      }
+      if (typeof spec.render === "object" && spec.render.type === "tree") {
+        checkTree(doc, spec.sources, spec.render, fence, sourceLines)
         return
       }
       const cycle = embedCycle(spec, doc.id, [])

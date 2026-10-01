@@ -112,10 +112,19 @@ type CellValue =
 type TableColumn =
   | "title" | "link" | "summary"
   | { header?: string; value: CellValue; link?: "section" | "parent" | "document"; minWidth?: string }
+type TreeRender = {
+  type: "tree"
+  open?: number // default 1
+  print?: number // default: every level
+  depth?: number // default: every level
+  headings?: number // 0–5, default 0
+  order?: string[]
+  columns?: TableColumn[] // default DEFAULT_TREE_COLUMNS, ["link", "summary"]
+}
 type EmbedSpec = {
   sources: string[]
   select?: SectionSelection
-  render?: "section" | { type: "table"; columns?: TableColumn[] }
+  render?: "section" | { type: "table"; columns?: TableColumn[] } | TreeRender
   replace?: Replacement[]
 }
 type EmbedContext = { documentId: string; prefix?: string }
@@ -128,9 +137,27 @@ type EmbedRow = {
 type ExtractedCell = { text: string; url?: string }
 type TableExtractor = {
   version: string
-  extract(row: EmbedRow, context: { library: Library; documentId: string; column: TableColumn }):
-    string | ExtractedCell | undefined
+  extract(
+    row: EmbedRow,
+    context: { library: Library; documentId: string; column: TableColumn; node?: TreeNode },
+  ): string | ExtractedCell | undefined
 }
+type TreeNode = {
+  id: string // documentId, or documentId#anchorId for a heading
+  kind: "document" | "heading"
+  documentId: string
+  anchorId?: string
+  name: string
+  title: string
+  url: string
+  sourcePath: string
+  level: number
+  cells: ExtractedCell[]
+  children: TreeNode[]
+}
+type TreeSource =
+  | { folder: string; documents: StoredDocument[] }
+  | { document: StoredDocument; anchor?: string }
 
 parseEmbedSpec(value: string): EmbedSpec
 resolveDocumentReference(library: Library, reference: string, from: string): {
@@ -139,24 +166,34 @@ resolveDocumentReference(library: Library, reference: string, from: string): {
 resolveEmbed(library: Library, spec: EmbedSpec, context: EmbedContext): Root
 resolveDocumentEmbeds(library: Library, documentId: string): Root
 buildEmbedRow(document: StoredDocument, anchorId: string | undefined, tree: Root): EmbedRow
-extractCell(library: Library, column: TableColumn, row: EmbedRow, context: EmbedContext): {
+extractCell(library: Library, column: TableColumn, row: EmbedRow, context: EmbedContext, node?: TreeNode): {
   cell: ExtractedCell; problem?: string
 }
 buildEmbedTable(library: Library, columns: TableColumn[], rows: EmbedRow[], context: EmbedContext): Root
+resolveTree(library: Library, spec: EmbedSpec, context: EmbedContext): TreeNode[]
+resolveTreeSource(library: Library, reference: string, from: string, page?: string): TreeSource
+buildEmbedTree(nodes: TreeNode[], render: TreeRender): Root
+namesTreeNode(entry: string, node: Pick<TreeNode, "name" | "title">): boolean
 // Async counterparts return Promise<Root>:
 // resolveEmbedAsync(library, spec, context)
 // resolveDocumentEmbedsAsync(library, documentId)
 ```
 
-`parseEmbedSpec` parses YAML and validates supported top-level, selection and replacement keys, source lists, rendering choices and replacement rules. Unknown keys are rejected at all three levels and the message lists the known ones; `flags` without `regex: true` is an error rather than a silently ignored value. `parseEmbedBlock(value, documentId, number?)` wraps it so a failure names the document, the block and, for a parser error, its line and column. `sources` must be nonempty. The default render is `section`; default table columns are `DEFAULT_TABLE_COLUMNS`, title/link/summary. A table column is a shorthand name or a mapping validated key by key: `value` is required and is one of the three names, a cell coordinate mapping (`row` and `column` non-negative integers, optional `table` index and `skipTablesWithHeaders` strings) or `{ extractor }` alone; `link` is one of `section`, `parent`, `document`; `minWidth` is a CSS length matching a number and one of `px`, `rem`, `em`, `ch`, `%`. `render` accepts no key beyond `type` and `columns`. Selection behavior is defined in [document queries](./document.md#sections-and-queries).
+`parseEmbedSpec` parses YAML and validates supported top-level, selection and replacement keys, source lists, rendering choices and replacement rules. Unknown keys are rejected at all three levels and the message lists the known ones; `flags` without `regex: true` is an error rather than a silently ignored value. `parseEmbedBlock(value, documentId, number?)` wraps it so a failure names the document, the block and, for a parser error, its line and column. `sources` must be nonempty. The default render is `section`; default table columns are `DEFAULT_TABLE_COLUMNS`, title/link/summary. A table column is a shorthand name or a mapping validated key by key: `value` is required and is one of the three names, a cell coordinate mapping (`row` and `column` non-negative integers, optional `table` index and `skipTablesWithHeaders` strings) or `{ extractor }` alone; `link` is one of `section`, `parent`, `document`; `minWidth` is a CSS length matching a number and one of `px`, `rem`, `em`, `ch`, `%`. `render` is `section` or a mapping whose `type` is `table` or `tree`, anything else failing with `cudoc: render must be "section" or a mapping with type: table or type: tree`; a table accepts no key beyond `type` and `columns`, and a tree none beyond `type`, `open`, `print`, `depth`, `headings`, `order` and `columns`. A tree's `open` is an integer of at least 0, `print` and `depth` integers of at least 1, `headings` an integer from 0 to 5, `order` a list of non-empty strings naming nothing twice in NFC and holding `...` at most once, and its columns are validated as a table's; a tree with `select` or `replace` fails, since it copies no section text. Selection behavior is defined in [document queries](./document.md#sections-and-queries).
 
 A table render produces one `EmbedRow` per selected section through `buildEmbedRow`, read before ids are rebased so a cell's link points into the source document: `section.title` is the heading's visible text (or the document title for a whole document), `parent` is the nearest shallower heading above the section in the source tree, and `url` is the document route plus the anchor. `extractCell` turns one column into text and an optional link: `title`, `summary` (first paragraph among the section's direct children, plain text), `parent`, a table cell (tables inside the section in document order, minus those whose header row contains a `skipTablesWithHeaders` name; `row` 0 is the header row; text via `nodeText`) or an extractor's return value. A column's `link` resolves to the section's `url`, the parent heading's address (its anchor when it has one, else the document route) or the document route; an extractor's own `url` wins over none. When the value is missing — no paragraph, no heading above, too few tables, rows or cells, an extractor returning `undefined` or `""` — `cell.text` is `""` and `problem` says what was expected and what the section has. `buildEmbedTable` writes the header row with `data.hProperties.style` of `min-width: <minWidth>` on any column that sets it, then one row per `EmbedRow`. An `{ extractor }` column naming an extractor the library does not carry throws.
 
 Extractors come from `BuildDocumentsOptions.extractors`, a name-to-`{ version, extract }` map: `version` must be a non-empty string and enters the configuration hash as `{ name: version }` sorted by name, so a changed extractor recollects like a changed compiler; the functions live on `Library.extractors` at runtime and are not serialized, and a loaded library has none, which is fine for prepared embeds and an error only when resolving a `{ extractor }` column anew. Checking resolves table embeds anew, so `cudoc check` puts the `extractors` of its configuration on the library it loads; a program that checks a loaded library sets `library.extractors` itself.
 
+A tree render resolves each source with `resolveTreeSource`. A path ending in `/` names a folder, relative to `from` or from the top of the library with a leading `/`; it fails with `cudoc: a folder source takes no anchor: <reference>`, `cudoc: embed source escapes root: <reference>` or, when no document is below the folder, `cudoc: no documents in folder <reference> referenced from <from>`; given `page`, the document the tree lands on, a folder whose documents are all `private` also fails, with `cudoc: folder <reference> referenced from <from> holds only private documents, which a tree on <page> leaves out`, unless that page is private. Any other path names a document as `resolveDocumentReference` reads it, the id also matched in NFC, and a missing document whose path is a folder holding documents adds `; a folder source ends with /, as in <path>/` to the missing-document message. The documents nest as [tree.ts](../../packages/cudoc/src/node/tree.ts) works it out once per document list, comparing ids in NFC: walking up from a document's own folder, its parent is the first document that stands for a folder and is not the document itself, `<folder>.md` before `<folder>/index.md`, with the library's top standing as `index`. So `X.md` takes the documents of `X/`, `X/index.md` takes the rest of `X/` when there is no `X.md` and goes under `X.md` when there is, and a folder nothing stands for is passed through. A folder source's first level is the documents inside it whose parent is not inside it as well, the document standing for the folder left out; a document source is one line, and a source with an anchor is one line for each heading `collectSections` finds with that anchor, carrying its own deeper headings within `headings`. Under a document line come, while the level is within `depth`, its headings of depths 2 to `headings + 1` in document order, nested by depth (one past `depth` takes the ones under it out with it), and then the documents whose parent it is. Unless the page the tree lands on, `context.documentId`, is `private`, an id that names no collected document counting as a page that is not, a `private` document is left out where a folder source or a parent brings it in, with the lines below it, since the export writes no private document to link to; a document source names its document whatever it is. The first level follows `sources` in the order written. The documents a folder source brings in, and the documents under any line, are sorted by `title`, then `name`, then `id`, ignoring letter case, reading a run of digits by its value and comparing code points otherwise, so the order does not follow the locale. `order` then moves the first level, keeping the order of equal ranks: a line takes the position of the first entry that `namesTreeNode` matches, its `name` or its `title` equal to the entry in NFC, and any other line the position of `...`, or the end without one.
+
+A document line's row has no anchor, and its `url` is the document route. Its title is the visible text of the document's `#` title, the first depth-1 heading among the top-level blocks or inside a top-level `header` element, where Docusaurus puts the heading it reads the page title from; else a non-empty string `title` in the front matter; else `name`, the file name without its extension, or the folder's for an index document, in NFC. Its `section.tree` runs from the block holding that title to the next one, or is the whole document without one, so `summary` is the first paragraph after the title. A heading line's row is `buildEmbedRow` of its section, and its `name` is its title in NFC. Cells are filled after the tree is built, deepest line first, so an extractor's `context.node` has every line below it complete; `extractCell` passes its `node` argument on as that `node`. A tree's `data.cudocDependencies` are the documents its lines were read from, with `"*"` when a column is an `{ extractor }`. A tree copies no section text, so nothing in it is expanded or namespaced; a tree inside a copied section is resolved from the document the copy came from, and its links are then rebased with the rest of the copy.
+
+`buildEmbedTree` writes an unordered `list` with `spread: false`, `data.cudoc.kind: "tree"` and `hProperties` of `className: ["cudoc-tree"]`, plus `data-cudoc-print` when `print` is set. A line with lines below it is a `listItem` holding a `blockquote` with `hName: "details"`, and `hProperties.open: true` when its level is at most `open`, whose children are the line as a `paragraph` with `hName: "summary"` and the nested `list`; a line without is a `listItem` with `className: ["cudoc-tree-leaf"]` holding the line as a `paragraph`. A line is its non-empty cells joined by `·`, a cell with a `url` as a `link`, or the title alone when every cell is empty. `@cudoment/cudoc/paged` exports what the paginated writers read it by: `TREE_KIND`, `TREE_CLASS`, `TREE_PRINT_ATTRIBUTE`, `isTree(node)` and `treePrintDepth(value)`, the print depth or `Infinity`.
+
 References resolve relative to `context.documentId`, or from the document root when beginning with `/`. `.md`/`.mdx` and `#anchor` are supported; the anchor is percent-decoded, and a `%` that is not an escape fails with `cudoc: embed source has a malformed percent-escape: <reference>`. URLs, backslash paths, root escapes and missing documents fail. Documents are looked up through an index built once per document list, so resolving every block of a large library does not scan the list for each reference. An anchorless source without a selector uses its whole document.
 
-Resolution clones source ASTs. When replacement is requested, it reads the original selected source range, applies rules in order and recompiles with the original compiler/options. Literal replacement uses split/join (all occurrences); regex uses JavaScript `RegExp`, default flags `g`. Dependencies outside the selected range are appended unchanged. The original source and AST are not mutated. Async APIs retain an async compiler through a per-resolution compile cache. The returned root carries `data.cudocEmbedPrefix`, `cudoc-<document id>-<prefix or embed>-` with the id spelled by [`idToken`](./document.md#document-options), which the renderer uses to namespace footnote labels, and `data.cudocDependencies`: the sorted ids of every document the resolution read, the fence's sources and those of every embed nested in them, plus `"*"` when a `{ extractor }` column ran, since an extractor may read any document.
+Resolution clones source ASTs. When replacement is requested, it reads the original selected source range, applies rules in order and recompiles with the original compiler/options. Literal replacement uses split/join (all occurrences); regex uses JavaScript `RegExp`, default flags `g`. Dependencies outside the selected range are appended unchanged. The original source and AST are not mutated. Async APIs retain an async compiler through a per-resolution compile cache. The returned root carries `data.cudocEmbedPrefix`, `cudoc-<document id>-<prefix or embed>-` with the id spelled by [`idToken`](./document.md#document-options), which the renderer uses to namespace footnote labels, and `data.cudocDependencies`: the sorted ids of every document the resolution read, the fence's sources and those of every embed nested in them, plus `"*"` when a `{ extractor }` column ran, since an extractor may read any document; for a tree, the documents its lines were read from.
 
 IDs, footnotes and definitions are namespaced; links/images and supported raw HTML attributes are rebased. The raw HTML attributes are `href`, `src`, `poster`, `data`, `xlink:href` and each candidate of `srcset`, which keeps its width or density, the same resources the exporter copies, and the matching `hProperties` of a lowered element (`srcSet` among them) are rebased alike. A fragment link keeps pointing into the copy when the copy carries that id and otherwise names the source document's route with the fragment. A link with no path — `?tab=2`, or an empty `href` — names the source document it was copied from, not that document's directory. A relative path resolves against the source document's library path; a path naming a collected document by its library path or id (`/guide/setup.md`, `/guide/setup`, `/guide/setup/`), or naming the directory of an index document (`/guide/` for `guide/index`), takes that document's route, and any other path stays as the normalized root-relative path. A relative path that climbs out of the library root, `../../outside.png` from `internal/notes.md`, names no library path and would name another file clamped at the root, so it is spelled from the embedding document instead (`../outside.png` in `guide.md`): from the two files' own directories when the library has its roots, which reaches the same file, and from the library paths otherwise, worked out on the paths alone rather than against the working directory. A directory keeps its trailing slash, which names its index. It is left as written when the embedding document is not known. A directory spelled with its trailing slash names its index document even beside a document of the directory's own name, which the spelling without one names. A `.` or `..` path names a directory the same way. A JSX element whose attributes `require()` a relative module, `./` or `../` after any webpack loaders, as Docusaurus writes a Markdown image ([`data.cudocImage`](./document.md#semantic-ast)) or a link to a local file, has that path re-expressed from the directory of the file the copy lands in, read as the JavaScript string it is and written back as one escaped for its own quotes, once however deeply the copy was nested, so a page in another directory can still resolve it. The directories are the files' when the library has its roots, and the library paths' otherwise, which match only where every root's base mirrors its directory; when the embedding document's id names no collected document, the path is left as collected. Missing sections, circular dependencies, incompatible replacements and depth beyond 64 fail with context. Use different `prefix` values when combining independent `resolveEmbed` results. The whole-document and preparation APIs number their own embed blocks.
 
@@ -177,6 +214,30 @@ const tree = resolveEmbed(
 )
 const html = renderDocument(tree)
 ```
+
+### Tree data
+
+`resolveTree(library, spec, context)` returns the lines a tree embed draws, for a program that writes the tree in a form of its own, such as an outliner that keeps it as blocks in a page it generates. `spec` is an embed whose `render` is a tree, validated as `parseEmbedSpec` validates one; any other render throws `cudoc: resolveTree needs an embed whose render is a tree`, and a source that names nothing throws what the resolver throws. `context.documentId` is where relative sources resolve from and what extractors receive, and `prefix` is not used. Every level down to `depth` is there, whatever `open` and `print` say. The result is plain data, so the same library and spec give the same `JSON.stringify` output, which a program that hashes what it wrote can rely on. `buildEmbedTree(nodes, render)` turns the lines into the mdast `resolveEmbed` produces, so a program that edits the lines first still renders them as an embed would.
+
+```js
+import { loadLibrary } from "@cudoment/cudoc/node/library"
+import { resolveTree } from "@cudoment/cudoc/node/resolve-embed"
+
+const library = loadLibrary(".cudoc/documents")
+const lines = resolveTree(
+  library,
+  { sources: ["/projects/"], render: { type: "tree", columns: ["summary"] } },
+  { documentId: "index" },
+)
+const outline = (nodes, indent = "") =>
+  nodes.flatMap((node) => [
+    `${indent}- [[${node.name}]] · ${node.cells[0].text}`,
+    ...outline(node.children, `${indent}\t`),
+  ])
+console.log(outline(lines).join("\n"))
+```
+
+A loaded library carries no extractors, so a program sets `library.extractors` before resolving a tree whose columns name one, as for a table. A total across levels comes either from an extractor that reads `context.node`, as [Totals from the levels below](../embedding.md#totals-from-the-levels-below) shows, or from walking the returned lines and adding their values up.
 
 ## Prepared embeds
 
@@ -236,15 +297,17 @@ Source/import: [node/check.ts](../../packages/cudoc/src/node/check.ts), `@cudome
 
 `checkReferences(library: Library, options?: CheckOptions): CheckResult` walks every document and returns `{ issues, documentCount, checkedReferences }`. It reads only; nothing is written and the library is not modified.
 
-`ReferenceIssue` carries `code`, `severity` (`"error"` or `"warning"`), `documentId`, `sourcePath`, `message`, `reference` (the author's own text), an optional `position`, and for `missing-anchor` and `missing-embed-anchor` an `available` array naming the anchors the target document really has; for `missing-embed-anchor` these are its heading ids only, since an id raw HTML declares can be linked to but starts no section to embed. Codes are `missing-document`, `missing-anchor`, `missing-asset`, `missing-embed-source`, `missing-embed-anchor`, `invalid-embed-spec`, `duplicate-anchor`, `empty-anchor`, `unstable-anchor-link`, `unmatched-embed-replacement`, `unreplaceable-embed-section`, `empty-embed-cell`, `unportable-embed-component`, `imported-embed-component` and `cyclic-embed`. `unstable-anchor-link`, `unmatched-embed-replacement`, `empty-embed-cell` and `unportable-embed-component` are warnings.
+`ReferenceIssue` carries `code`, `severity` (`"error"` or `"warning"`), `documentId`, `sourcePath`, `message`, `reference` (the author's own text), an optional `position`, and for `missing-anchor` and `missing-embed-anchor` an `available` array naming the anchors the target document really has; for `missing-embed-anchor` these are its heading ids only, since an id raw HTML declares can be linked to but starts no section to embed. For `unmatched-tree-order`, `available` holds the titles on the tree's first level. Codes are `missing-document`, `missing-anchor`, `missing-asset`, `missing-embed-source`, `missing-embed-anchor`, `invalid-embed-spec`, `duplicate-anchor`, `empty-anchor`, `unstable-anchor-link`, `unmatched-embed-replacement`, `unreplaceable-embed-section`, `empty-embed-cell`, `unportable-embed-component`, `imported-embed-component`, `cyclic-embed` and `unmatched-tree-order`. `unstable-anchor-link`, `unmatched-embed-replacement`, `empty-embed-cell`, `unportable-embed-component` and `unmatched-tree-order` are warnings.
 
 `CheckOptions` accepts `ignore` (codes dropped from the result), `assetDirs`, `withoutBase`, `externalPaths`, and `sourceRoot` or `roots`, defaulting to the library's own roots; without any roots the file pass is skipped and only document links, anchors and embeds are checked. A document link resolves in library coordinates: a relative path against the document's library path, a root-relative path as a library path directly and, when `withoutBase` is given, once more with the deployment base removed, the way the exporter looks a route up. A relative path that climbs above the top of the library names no document. A path that names a directory, such as `./` or `guide/`, resolves to that directory's index document; with its trailing slash it does so even beside a document of the directory's own name, which the spelling without one names. A query names no other document, so `guide/?tab=1` is checked as `guide/`. The path is percent-decoded first; a `%` that is not an escape, as in `100%.md`, is looked up as written and reported as missing with its document instead of ending the check. A fragment matches an anchor either as written or decoded, since hosts percent-encode a fragment that is not ASCII. `externalPaths` lists root-relative prefixes another application serves on the same host, such as `/sdk`; a link whose pathname is one of them or sits beneath one is external and not checked, and `isExternalPath(url, prefixes)` is the exported test. Local links and images then resolve through [`resolveLocalTarget`](../../packages/cudoc/src/node/local-target.ts), exported with `isExternalPath`, `externalUrl` and `parseSrcSet` from `@cudoment/cudoc/node/local-target`, the same function `cudoc-export` copies assets with, so the checker and the exporter cannot disagree about whether a target exists; its `LocalTargetRoots` is `{ roots, assetDirs?, withoutBase?, externalPaths? }`, and a document-relative path reaches disk through the root that holds its library path. `parseSrcSet(value)` returns the `{ url, descriptor }` candidates of a `srcset` as the HTML standard reads them: a URL runs to the next ASCII white space, commas it ends with are separators, empty candidates are skipped, and a descriptor runs to the next comma outside parentheses; the embed resolver and the exporter both read `srcset` with it.
 
 Positions are recovered from `document.source.text` rather than the stored tree, because collection strips `position` when it persists an AST. The search prefers an occurrence terminated by a Markdown destination delimiter, so `guide.md#limit` does not report the line holding `guide.md#limits`; a duplicate anchor reports its later declaration. A reference the source no longer contains yields no position rather than a wrong one.
 
-`formatCheckResult(result: CheckResult): string` renders the result grouped by document with `line:column` prefixes, showing at most four `available` anchors before summarising the rest.
+`formatCheckResult(result: CheckResult): string` renders the result grouped by document with `line:column` prefixes, showing at most four `available` entries before summarising the rest, anchors as `#id` and the names of an `unmatched-tree-order` in double quotes.
 
 Embed sources resolve through `resolveDocumentReference`, the function the resolver itself calls, so a source the checker accepts is one the build finds; whatever it rejects — a missing document, a URL, a backslash path, a path escaping the root, a malformed percent-escape in the anchor — is `missing-embed-source` with the resolver's message. A source whose anchor the target lacks, and a selection that matches no section, are `missing-embed-anchor`, as the resolver fails on both.
+
+A tree embed's sources are read through `resolveTreeSource`, as the resolver reads them: a source it rejects, a folder with no document below it among them, is `missing-embed-source` with its message, and a document source whose anchor names none of the target's heading ids is `missing-embed-anchor` with those ids as `available`. A column naming an extractor the library does not carry is `invalid-embed-spec`, placed at the extractor's name. A folder source is read with the embedding document as `page`, so a folder whose documents a public page would all leave out is `missing-embed-source` too. When every source resolves, each `order` entry other than `...` that matches no first-level line, as `namesTreeNode` matches, a private document the page leaves out among them, is `unmatched-tree-order`, placed on the entry's own line inside the fence after `order:`. A tree is neither followed for cycles nor inspected for components or empty cells, because it copies no section text and leaves an empty column out of its line.
 
 `cyclic-embed` follows the embeds inside every section a block copies, parsing each nested block the way the resolver expands it — in the copy the block's `replace` rules leave, so a rule that turns a nested fence into ordinary code ends the chain there and one that points a nested source back starts one — and reports a chain that returns to a section already being copied, or reaches the resolver's depth limit of 64, as `a#* -> b#limits -> a#*` at the line of the fence that starts it. The build fails on the same chain.
 

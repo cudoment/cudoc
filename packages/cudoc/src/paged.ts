@@ -30,6 +30,33 @@ export const PAGE_BREAK_CLASS = "cudoc-page-break"
 export const isPageBreak = (node: DocumentNode): boolean =>
   node.data?.cudoc?.kind === PAGE_BREAK_KIND
 
+/** `data.cudoc.kind` on the outer list of a tree embed. */
+export const TREE_KIND = "tree"
+
+/** The class on a tree embed's outer list, which the print HTML finds it by. */
+export const TREE_CLASS = "cudoc-tree"
+
+/**
+ * The attribute on that list holding how many levels paginated output shows,
+ * the embed's `print`; absent when it shows every level.
+ *
+ * Paper cannot fold, so a tree prints as the nested list it is down to that
+ * level: each item's summary line becomes the item's own text, its children
+ * a list beneath it, and the disclosure widget is dropped rather than opened.
+ * The print HTML and the Word writer both read it this way.
+ */
+export const TREE_PRINT_ATTRIBUTE = "data-cudoc-print"
+
+/** Whether a node is the outer list of a tree embed. */
+export const isTree = (node: DocumentNode): boolean =>
+  node.data?.cudoc?.kind === TREE_KIND
+
+/** How many levels of a tree paginated output shows, from the attribute's value. */
+export const treePrintDepth = (value: unknown): number => {
+  const depth = Number(value)
+  return Number.isInteger(depth) && depth > 0 ? depth : Infinity
+}
+
 /**
  * The node an authored break becomes.
  *

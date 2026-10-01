@@ -107,7 +107,7 @@ not ship, rather than demanding the same diagnostic from every host.
 
 [`fixtures/showcase.md`](./fixtures/showcase.md) carries every configurable
 feature in portable form: explicit anchors, badges, six callout types, five
-table-cell-list shapes, a column layout, six link shapes and ten embed shapes.
+table-cell-list shapes, a column layout, six link shapes and eleven embed shapes.
 [`fixtures/reference.md`](./fixtures/reference.md) is the document those embeds
 draw from.
 

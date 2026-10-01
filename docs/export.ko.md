@@ -270,7 +270,7 @@ HTML과 PDF에만 닿습니다. Word는 CSS를 읽지 않으므로, 형식을
 가로질러 유지해야 하는 것은 `tokens`로 지정하세요. SVG 이미지는 대체 텍스트가 됩니다.
 `docx`가 래스터 대체본을 요구하는데 cudoc에는 래스터라이저가 없기 때문이며, 이 대체는
 `image-as-text`로 보고합니다.
-`<details>`는 펼친 상태로 나갑니다. Markdown 문서의 raw HTML은 버리며, 버릴 때마다
+`<details>`는 펼친 상태로 나가고, 트리 임베드는 `print` 단계까지의 중첩 목록으로 나갑니다. Markdown 문서의 raw HTML은 버리며, 버릴 때마다
 결과의 `diagnostics`와 CLI의 표준 오류에 문서 이름과 함께 알립니다. Word 각주는
 문단만 담으므로 각주 안의 표도 버리고 `dropped-footnote-table`로 알립니다.
 `javascript:`, `vbscript:`, `data:` 링크는 글자만 남기고 링크는 버리며

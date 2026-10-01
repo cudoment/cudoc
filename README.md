@@ -151,6 +151,7 @@ Explicit heading anchors, badges, callouts with real titles, and nested lists in
 | One section and its children           | `sources: [reference.md#limits]`                      |
 | A section without its children         | `includeChildren: false`                              |
 | A summary table of headings            | `select: { depth: 2 }` with `render: { type: table }` |
+| A folding tree of a folder's documents | `sources: [guides/]` with `render: { type: tree }`    |
 | The same content, worded for this page | `replace: [{ find: "...", replace: "..." }]`          |
 
 The source document never changes. → [Document embedding](./docs/embedding.md)

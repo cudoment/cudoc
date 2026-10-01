@@ -112,10 +112,19 @@ type CellValue =
 type TableColumn =
   | "title" | "link" | "summary"
   | { header?: string; value: CellValue; link?: "section" | "parent" | "document"; minWidth?: string }
+type TreeRender = {
+  type: "tree"
+  open?: number // 기본값 1
+  print?: number // 기본값: 모든 단계
+  depth?: number // 기본값: 모든 단계
+  headings?: number // 0–5, 기본값 0
+  order?: string[]
+  columns?: TableColumn[] // 기본값 DEFAULT_TREE_COLUMNS, ["link", "summary"]
+}
 type EmbedSpec = {
   sources: string[]
   select?: SectionSelection
-  render?: "section" | { type: "table"; columns?: TableColumn[] }
+  render?: "section" | { type: "table"; columns?: TableColumn[] } | TreeRender
   replace?: Replacement[]
 }
 type EmbedContext = { documentId: string; prefix?: string }
@@ -128,9 +137,27 @@ type EmbedRow = {
 type ExtractedCell = { text: string; url?: string }
 type TableExtractor = {
   version: string
-  extract(row: EmbedRow, context: { library: Library; documentId: string; column: TableColumn }):
-    string | ExtractedCell | undefined
+  extract(
+    row: EmbedRow,
+    context: { library: Library; documentId: string; column: TableColumn; node?: TreeNode },
+  ): string | ExtractedCell | undefined
 }
+type TreeNode = {
+  id: string // documentId, 제목이면 documentId#anchorId
+  kind: "document" | "heading"
+  documentId: string
+  anchorId?: string
+  name: string
+  title: string
+  url: string
+  sourcePath: string
+  level: number
+  cells: ExtractedCell[]
+  children: TreeNode[]
+}
+type TreeSource =
+  | { folder: string; documents: StoredDocument[] }
+  | { document: StoredDocument; anchor?: string }
 
 parseEmbedSpec(value: string): EmbedSpec
 resolveDocumentReference(library: Library, reference: string, from: string): {
@@ -139,24 +166,34 @@ resolveDocumentReference(library: Library, reference: string, from: string): {
 resolveEmbed(library: Library, spec: EmbedSpec, context: EmbedContext): Root
 resolveDocumentEmbeds(library: Library, documentId: string): Root
 buildEmbedRow(document: StoredDocument, anchorId: string | undefined, tree: Root): EmbedRow
-extractCell(library: Library, column: TableColumn, row: EmbedRow, context: EmbedContext): {
+extractCell(library: Library, column: TableColumn, row: EmbedRow, context: EmbedContext, node?: TreeNode): {
   cell: ExtractedCell; problem?: string
 }
 buildEmbedTable(library: Library, columns: TableColumn[], rows: EmbedRow[], context: EmbedContext): Root
+resolveTree(library: Library, spec: EmbedSpec, context: EmbedContext): TreeNode[]
+resolveTreeSource(library: Library, reference: string, from: string, page?: string): TreeSource
+buildEmbedTree(nodes: TreeNode[], render: TreeRender): Root
+namesTreeNode(entry: string, node: Pick<TreeNode, "name" | "title">): boolean
 // 비동기 버전은 Promise<Root>를 반환합니다.
 // resolveEmbedAsync(library, spec, context)
 // resolveDocumentEmbedsAsync(library, documentId)
 ```
 
-`parseEmbedSpec`은 YAML을 읽고 최상위 키와 선택 조건 키, 치환 규칙 키, 소스 목록, 출력 형식을 검증합니다. 모르는 키는 세 계층 모두에서 거부하며 메시지에 알려진 키 목록을 함께 보여 줍니다. `regex: true` 없이 쓴 `flags`는 조용히 무시하지 않고 오류로 처리합니다. `parseEmbedBlock(value, documentId, number?)`은 이 함수를 감싸서, 실패했을 때 문서와 블록 번호를, 파서 오류라면 줄과 열까지 함께 알려 줍니다. `sources`는 비어 있으면 안 됩니다. 기본 출력은 `section`, 표 기본 열은 `DEFAULT_TABLE_COLUMNS`인 title/link/summary입니다. 표 열은 축약 이름 또는 키마다 검증하는 매핑입니다. `value`는 필수이며 세 이름 중 하나, 셀 좌표 매핑(`row`·`column`은 음이 아닌 정수, 선택적 `table` 인덱스와 문자열 `skipTablesWithHeaders`), 또는 단독 `{ extractor }`입니다. `link`는 `section`, `parent`, `document` 중 하나이고 `minWidth`는 숫자와 `px`, `rem`, `em`, `ch`, `%` 중 한 단위로 된 CSS 길이입니다. `render`에는 `type`과 `columns` 외의 키를 쓸 수 없습니다. 선택 동작은 [문서 쿼리](./document.ko.md#섹션과-쿼리)에 정의되어 있습니다.
+`parseEmbedSpec`은 YAML을 읽고 최상위 키와 선택 조건 키, 치환 규칙 키, 소스 목록, 출력 형식을 검증합니다. 모르는 키는 세 계층 모두에서 거부하며 메시지에 알려진 키 목록을 함께 보여 줍니다. `regex: true` 없이 쓴 `flags`는 조용히 무시하지 않고 오류로 처리합니다. `parseEmbedBlock(value, documentId, number?)`은 이 함수를 감싸서, 실패했을 때 문서와 블록 번호를, 파서 오류라면 줄과 열까지 함께 알려 줍니다. `sources`는 비어 있으면 안 됩니다. 기본 출력은 `section`, 표 기본 열은 `DEFAULT_TABLE_COLUMNS`인 title/link/summary입니다. 표 열은 축약 이름 또는 키마다 검증하는 매핑입니다. `value`는 필수이며 세 이름 중 하나, 셀 좌표 매핑(`row`·`column`은 음이 아닌 정수, 선택적 `table` 인덱스와 문자열 `skipTablesWithHeaders`), 또는 단독 `{ extractor }`입니다. `link`는 `section`, `parent`, `document` 중 하나이고 `minWidth`는 숫자와 `px`, `rem`, `em`, `ch`, `%` 중 한 단위로 된 CSS 길이입니다. `render`는 `section`이거나 `type`이 `table` 또는 `tree`인 매핑이며, 그 밖의 값은 `cudoc: render must be "section" or a mapping with type: table or type: tree` 오류입니다. 표에는 `type`과 `columns` 외의 키를, 트리에는 `type`, `open`, `print`, `depth`, `headings`, `order`, `columns` 외의 키를 쓸 수 없습니다. 트리의 `open`은 0 이상의 정수, `print`와 `depth`는 1 이상의 정수, `headings`는 0부터 5까지의 정수이고, `order`는 비어 있지 않은 문자열의 목록이며 NFC 기준으로 같은 이름을 두 번 쓸 수 없고 `...`는 한 번만 쓸 수 있습니다. 트리의 열은 표의 열과 같이 검증합니다. 트리는 절의 본문을 복사하지 않으므로 `select`나 `replace`를 쓰면 오류입니다. 선택 동작은 [문서 쿼리](./document.ko.md#섹션과-쿼리)에 정의되어 있습니다.
 
 표 출력은 선택된 절마다 `buildEmbedRow`로 `EmbedRow` 하나를 만들며, id를 재기준화하기 전에 읽으므로 셀의 링크가 복사본이 아닌 원본 문서를 가리킵니다. `section.title`은 제목의 보이는 글자(문서 전체면 문서 제목), `parent`는 원본 트리에서 그 절 위에 있는 가장 가까운 더 얕은 제목, `url`은 문서 경로에 앵커를 붙인 값입니다. `extractCell`은 열 하나를 글자와 선택적 링크로 바꿉니다. `title`, `summary`(절의 직접 자식 중 첫 문단의 일반 텍스트), `parent`, 표 셀(절 안의 표를 문서 순서로 세되 머리 행에 `skipTablesWithHeaders`의 이름이 있는 표는 제외, `row` 0은 머리 행, 글자는 `nodeText`), 또는 추출기의 반환값입니다. 열의 `link`는 절의 `url`, 상위 제목의 주소(앵커가 있으면 앵커, 없으면 문서 경로), 문서 경로로 해석되며 추출기가 돌려준 `url`은 링크가 없을 때 쓰입니다. 값이 없으면(문단 없음, 상위 제목 없음, 표·행·셀 부족, 추출기가 `undefined`나 `""`를 반환) `cell.text`는 `""`이고 `problem`이 무엇을 기대했고 절에 무엇이 있는지 적습니다. `buildEmbedTable`은 `minWidth`를 지정한 열의 머리 셀에 `data.hProperties.style`로 `min-width: <minWidth>`를 쓰고 `EmbedRow`마다 행 하나를 씁니다. 라이브러리에 없는 추출기를 부르는 `{ extractor }` 열은 예외를 던집니다.
 
 추출기는 `BuildDocumentsOptions.extractors`, 즉 이름에서 `{ version, extract }`로 가는 맵에서 옵니다. `version`은 비어 있지 않은 문자열이어야 하며 이름순으로 정렬한 `{ 이름: version }`으로 설정 해시에 들어가므로, 추출기가 바뀌면 컴파일러가 바뀔 때처럼 다시 수집합니다. 함수는 런타임의 `Library.extractors`에만 있고 직렬화되지 않으며, 불러온 라이브러리에는 없습니다. 준비된 임베드에는 문제가 없고, `{ extractor }` 열을 새로 해석할 때에만 오류가 됩니다. 검사는 표 임베드를 새로 해석하므로 `cudoc check`는 설정의 `extractors`를 불러온 라이브러리에 붙입니다. 불러온 라이브러리를 직접 검사하는 프로그램은 `library.extractors`를 스스로 설정합니다.
 
+트리 출력은 원본마다 `resolveTreeSource`로 읽습니다. `/`로 끝나는 경로는 폴더이며 `from` 기준으로, `/`로 시작하면 라이브러리 맨 위 기준으로 해석합니다. 폴더 원본은 `cudoc: a folder source takes no anchor: <참조>`, `cudoc: embed source escapes root: <참조>`, 또는 폴더 아래에 문서가 없을 때 `cudoc: no documents in folder <참조> referenced from <from>` 오류가 날 수 있습니다. 트리가 놓이는 문서 `page`를 주면, 그 페이지가 `private`가 아닌 한 문서가 모두 `private`인 폴더도 `cudoc: folder <참조> referenced from <from> holds only private documents, which a tree on <page> leaves out` 오류입니다. 그 밖의 경로는 `resolveDocumentReference`와 같이 문서를 가리키며, id는 NFC로도 비교합니다. 없는 문서의 경로가 문서를 가진 폴더라면 문서 누락 메시지에 `; a folder source ends with /, as in <경로>/`가 붙습니다. 문서의 계층은 [tree.ts](../../packages/cudoc/src/node/tree.ts)가 문서 목록마다 한 번 계산하며, id는 NFC로 비교합니다. 문서 자신의 폴더부터 위로 올라가면서, 폴더를 대표하는 문서 가운데 그 문서 자신이 아닌 첫 문서가 상위 문서가 됩니다. 대표 문서는 `<폴더>.md`를 `<폴더>/index.md`보다 먼저 보며, 라이브러리 맨 위는 `index`가 대표합니다. 그래서 `X.md`는 `X/`의 문서를 하위로 받고, `X/index.md`는 `X.md`가 없으면 `X/`의 나머지 문서를 받고 `X.md`가 있으면 그 아래에 달리며, 대표 문서가 없는 폴더는 건너뜁니다. 폴더 원본의 첫 층은 폴더 안의 문서 가운데 상위 문서가 그 폴더 안에 있지 않은 문서이며, 폴더를 대표하는 문서는 빠집니다. 문서 원본은 줄 하나이고, 앵커가 붙은 원본은 `collectSections`가 그 앵커로 찾은 제목마다 줄 하나이며 각 줄은 `headings` 범위 안의 더 깊은 제목을 하위로 가집니다. 문서 줄 아래에는 단계가 `depth` 안에 있는 동안 깊이 2부터 `headings + 1`까지의 제목이 문서 순서대로 깊이에 따라 중첩되어 달리고(`depth`를 넘은 제목은 그 아래 제목도 함께 뺍니다), 그다음에 그 문서를 상위로 둔 문서가 달립니다. 트리가 놓이는 페이지 `context.documentId`가 `private`가 아니면(수집된 문서를 가리키지 않는 id도 `private`가 아닌 페이지로 봅니다), 폴더 원본이나 상위 문서를 통해 들어오는 `private` 문서는 그 아래 줄과 함께 뺍니다. 내보내기가 비공개 문서를 쓰지 않아 그 문서로 링크할 수 없기 때문입니다. 문서 원본은 그 문서가 무엇이든 가리킵니다. 첫 층은 `sources`에 적은 순서를 따릅니다. 폴더 원본이 가져온 문서와 모든 줄 아래의 문서는 `title`, `name`, `id` 순으로 정렬하며, 대소문자를 무시하고 연속된 숫자는 값으로, 그 밖에는 코드 포인트로 비교하므로 순서가 로캘을 따르지 않습니다. 그다음 `order`가 같은 순위의 순서를 유지하며 첫 층을 옮깁니다. 줄은 `namesTreeNode`가 일치시키는 첫 항목, 곧 `name`이나 `title`이 NFC 기준으로 같은 항목의 자리로 가고, 그 밖의 줄은 `...`의 자리로, `...`가 없으면 끝으로 갑니다.
+
+문서 줄의 행에는 앵커가 없고 `url`은 문서 경로입니다. 제목은 문서의 `#` 제목, 곧 최상위 블록 가운데 또는 최상위 `header` 요소 안의 첫 깊이 1 제목의 보이는 글자입니다. `header` 요소는 Docusaurus가 페이지 제목을 읽는 제목을 넣는 곳입니다. 그런 제목이 없으면 앞부분 정보의 비어 있지 않은 문자열 `title`을, 그것도 없으면 `name`을 씁니다. `name`은 확장자를 뺀 파일 이름이며 index 문서라면 폴더 이름이고 NFC로 씁니다. 행의 `section.tree`는 제목을 담은 블록부터 다음 제목 블록 전까지이고, 제목이 없으면 문서 전체이므로 `summary`는 제목 다음의 첫 문단입니다. 제목 줄의 행은 그 절의 `buildEmbedRow`이고, `name`은 NFC로 쓴 제목입니다. 칸은 트리를 다 만든 뒤 가장 깊은 줄부터 채우므로, 추출기의 `context.node`에는 그 아래 줄이 모두 채워져 있습니다. `extractCell`은 `node` 인자를 그 `node`로 넘깁니다. 트리의 `data.cudocDependencies`는 줄을 읽어 온 문서이며, `{ extractor }` 열이 있으면 `"*"`가 더해집니다. 트리는 절의 본문을 복사하지 않으므로 그 안에서 펼치거나 이름공간을 붙이는 것은 없습니다. 복사된 절 안의 트리는 그 사본을 가져온 문서를 기준으로 해석하며, 그 링크는 사본의 나머지와 함께 재기준화합니다.
+
+`buildEmbedTree`는 `spread: false`인 순서 없는 `list`를 쓰며, 여기에 `data.cudoc.kind: "tree"`와 `className: ["cudoc-tree"]` `hProperties`를, `print`가 있으면 `data-cudoc-print`도 붙입니다. 아래에 다른 줄이 있는 줄은 `hName: "details"`인 `blockquote`를 담은 `listItem`이며, 단계가 `open` 이하이면 `hProperties.open: true`가 붙고, 그 자식은 `hName: "summary"`인 `paragraph`로 쓴 줄과 중첩된 `list`입니다. 아래 줄이 없는 줄은 `className: ["cudoc-tree-leaf"]`인 `listItem`이 그 줄을 `paragraph`로 담습니다. 줄은 비어 있지 않은 칸을 `·`로 이은 것이며, `url`이 있는 칸은 `link`이고, 모든 칸이 비어 있으면 제목만 씁니다. 페이지 단위 출력이 트리를 알아보는 값은 `@cudoment/cudoc/paged`가 내보냅니다. `TREE_KIND`, `TREE_CLASS`, `TREE_PRINT_ATTRIBUTE`, `isTree(node)`, 그리고 인쇄 깊이나 `Infinity`를 돌려주는 `treePrintDepth(value)`입니다.
+
 참조는 `context.documentId`의 상대 경로이며 `/`로 시작하면 문서 루트 기준입니다. `.md`/`.mdx`, `#anchor`를 지원합니다. 앵커는 퍼센트 인코딩을 풀어 읽으며, 이스케이프가 아닌 `%`가 있으면 `cudoc: embed source has a malformed percent-escape: <참조>` 오류입니다. URL, 역슬래시 경로, 루트 이탈, 없는 문서는 오류입니다. 문서는 문서 목록마다 한 번 만드는 색인으로 찾으므로, 큰 라이브러리의 블록을 모두 해석해도 참조마다 목록을 훑지 않습니다. 앵커와 선택 조건이 모두 없으면 문서 전체를 사용합니다.
 
-소스 AST를 복제합니다. 치환이 있으면 원본의 선택 범위를 읽고 규칙을 순서대로 적용한 뒤 기존 컴파일러·옵션으로 다시 컴파일합니다. 일반 치환은 split/join으로 전체 일치를 바꾸고, 정규식은 JavaScript `RegExp`를 사용하며 기본 플래그는 `g`입니다. 선택 범위 밖의 정의는 바꾸지 않고 추가합니다. 원본 소스와 AST는 수정하지 않습니다. 비동기 API는 처리별 컴파일 캐시를 통해 비동기 컴파일러를 사용합니다. 반환된 루트에는 렌더러가 각주 레이블을 구분하는 데 쓰는 `data.cudocEmbedPrefix`(`cudoc-<문서 id>-<prefix 또는 embed>-`, 문서 id는 [`idToken`](./document.ko.md#문서-옵션)으로 표기)와 `data.cudocDependencies`가 있습니다. 후자는 해석이 읽은 모든 문서의 id를 정렬한 목록으로, 펜스의 sources와 그 안에 중첩된 임베드의 sources를 포함하며, `{ extractor }` 열이 실행되었으면 추출기가 어떤 문서든 읽을 수 있으므로 `"*"`가 더해집니다.
+소스 AST를 복제합니다. 치환이 있으면 원본의 선택 범위를 읽고 규칙을 순서대로 적용한 뒤 기존 컴파일러·옵션으로 다시 컴파일합니다. 일반 치환은 split/join으로 전체 일치를 바꾸고, 정규식은 JavaScript `RegExp`를 사용하며 기본 플래그는 `g`입니다. 선택 범위 밖의 정의는 바꾸지 않고 추가합니다. 원본 소스와 AST는 수정하지 않습니다. 비동기 API는 처리별 컴파일 캐시를 통해 비동기 컴파일러를 사용합니다. 반환된 루트에는 렌더러가 각주 레이블을 구분하는 데 쓰는 `data.cudocEmbedPrefix`(`cudoc-<문서 id>-<prefix 또는 embed>-`, 문서 id는 [`idToken`](./document.ko.md#문서-옵션)으로 표기)와 `data.cudocDependencies`가 있습니다. 후자는 해석이 읽은 모든 문서의 id를 정렬한 목록으로, 펜스의 sources와 그 안에 중첩된 임베드의 sources를 포함하며, `{ extractor }` 열이 실행되었으면 추출기가 어떤 문서든 읽을 수 있으므로 `"*"`가 더해집니다. 트리라면 줄을 읽어 온 문서입니다.
 
 ID·각주·정의를 구분하고 링크·이미지·지원하는 raw HTML 속성 경로를 조정합니다. 조정하는 raw HTML 속성은 내보내기가 복사하는 자산과 같은 `href`, `src`, `poster`, `data`, `xlink:href`와 `srcset`의 각 후보이며, `srcset` 후보의 너비나 밀도 표기는 그대로 둡니다. 낮춘 요소의 같은 `hProperties`(`srcSet` 포함)도 같은 방식으로 조정합니다. 조각 링크는 복사본에 그 id가 있으면 복사본 안을 계속 가리키고, 없으면 원본 문서 경로에 조각을 붙인 주소가 됩니다. 경로가 없는 링크(`?tab=2`, 빈 `href`)는 원본 문서의 디렉터리가 아니라 복사해 온 원본 문서 자체를 가리킵니다. 상대 경로는 원본 문서의 라이브러리 경로를 기준으로 해석하며, 수집된 문서를 라이브러리 경로나 id로 가리키는 경로(`/guide/setup.md`, `/guide/setup`, `/guide/setup/`)와 index 문서의 디렉터리를 가리키는 경로(`guide/index`의 `/guide/`)는 그 문서의 경로가 되고, 그 밖의 경로는 정규화한 루트 상대 경로로 남습니다. `internal/notes.md`의 `../../outside.png`처럼 라이브러리 루트 밖으로 올라가는 상대 경로는 라이브러리 경로가 없고, 루트에서 잘라 내면 다른 파일을 가리키게 됩니다. 그래서 임베드하는 문서 기준으로 다시 적습니다(`guide.md`에서는 `../outside.png`). 라이브러리에 루트가 있으면 두 파일의 실제 디렉터리를 기준으로 삼아 같은 파일에 닿고, 없으면 작업 디렉터리와 상관없이 라이브러리 경로만으로 계산합니다. 디렉터리는 index를 가리키는 끝의 슬래시를 유지합니다. 임베드하는 문서를 알 수 없으면 쓴 그대로 둡니다. 끝에 슬래시를 붙여 쓴 디렉터리는 같은 이름의 문서가 옆에 있어도 index 문서를 가리키며, 슬래시 없이 쓰면 같은 이름의 문서를 가리킵니다. `.`와 `..` 경로도 같은 방식으로 디렉터리를 가리킵니다. Docusaurus가 Markdown 이미지([`data.cudocImage`](./document.ko.md#의미-ast))나 로컬 파일로 가는 링크를 쓰는 방식처럼 속성이 webpack 로더 뒤에 `./`나 `../`로 시작하는 상대 모듈을 `require()`하는 JSX 요소는, 사본이 들어가는 파일의 디렉터리 기준으로 그 경로를 다시 씁니다. 이때 경로를 JavaScript 문자열로 읽은 뒤, 원래 따옴표에 맞춰 이스케이프한 문자열로 다시 적습니다. 사본이 얼마나 깊이 중첩되었든 한 번만 다시 쓰므로 다른 디렉터리의 페이지에서도 모듈을 찾을 수 있습니다. 라이브러리에 루트가 있으면 파일의 디렉터리를, 없으면 라이브러리 경로의 디렉터리를 기준으로 삼으며, 후자는 모든 루트의 기준 경로가 디렉터리 이름과 같을 때에만 파일의 디렉터리와 일치합니다. 임베드하는 문서의 id가 수집된 문서를 가리키지 않으면 수집한 경로를 그대로 둡니다. 누락된 섹션, 순환 의존성, 처리할 수 없는 치환, 64를 초과한 깊이는 문맥을 포함한 오류입니다. 독립적인 `resolveEmbed` 결과를 합칠 때는 서로 다른 `prefix`를 사용합니다. 전체 문서·준비 API는 블록 번호를 직접 관리합니다.
 
@@ -177,6 +214,30 @@ const tree = resolveEmbed(
 )
 const html = renderDocument(tree)
 ```
+
+### 트리 데이터
+
+`resolveTree(library, spec, context)`는 트리 임베드가 그리는 줄을 돌려줍니다. 생성한 페이지에 트리를 블록으로 적어 두는 아웃라이너처럼, 트리를 자기 형식으로 쓰는 프로그램을 위한 함수입니다. `spec`은 `render`가 트리인 임베드이며 `parseEmbedSpec`과 같이 검증합니다. 다른 출력이면 `cudoc: resolveTree needs an embed whose render is a tree` 오류이고, 아무것도 가리키지 않는 원본에는 해석기와 같은 오류를 던집니다. `context.documentId`는 상대 원본을 해석하는 기준이자 추출기가 받는 값이며, `prefix`는 쓰지 않습니다. `open`과 `print`가 무엇이든 `depth`까지의 모든 단계가 들어 있습니다. 결과는 일반 데이터이므로 같은 라이브러리와 명세는 같은 `JSON.stringify` 출력을 내며, 자기가 쓴 내용을 해시로 확인하는 프로그램은 이 성질에 기댈 수 있습니다. `buildEmbedTree(nodes, render)`는 줄을 `resolveEmbed`가 만드는 mdast로 바꾸므로, 줄을 먼저 고친 프로그램도 임베드와 같은 방식으로 렌더링할 수 있습니다.
+
+```js
+import { loadLibrary } from "@cudoment/cudoc/node/library"
+import { resolveTree } from "@cudoment/cudoc/node/resolve-embed"
+
+const library = loadLibrary(".cudoc/documents")
+const lines = resolveTree(
+  library,
+  { sources: ["/projects/"], render: { type: "tree", columns: ["summary"] } },
+  { documentId: "index" },
+)
+const outline = (nodes, indent = "") =>
+  nodes.flatMap((node) => [
+    `${indent}- [[${node.name}]] · ${node.cells[0].text}`,
+    ...outline(node.children, `${indent}\t`),
+  ])
+console.log(outline(lines).join("\n"))
+```
+
+불러온 라이브러리에는 추출기가 없으므로, 열이 추출기를 부르는 트리를 해석하기 전에 표와 마찬가지로 `library.extractors`를 설정합니다. 여러 단계에 걸친 합계는 [하위 단계의 합계](../embedding.ko.md#하위-단계의-합계)처럼 `context.node`를 읽는 추출기로 구하거나, 돌려받은 줄을 순회하며 값을 더해서 구합니다.
 
 ## 준비된 임베드
 
@@ -236,15 +297,17 @@ watchDocuments(config: CollectConfig, options?: {
 
 `checkReferences(library: Library, options?: CheckOptions): CheckResult`는 모든 문서를 훑어 `{ issues, documentCount, checkedReferences }`를 반환합니다. 읽기만 하며 아무것도 쓰지 않고 라이브러리도 바꾸지 않습니다.
 
-`ReferenceIssue`는 `code`, `severity`(`"error"` 또는 `"warning"`), `documentId`, `sourcePath`, `message`, `reference`(작성자가 쓴 그대로), 선택적 `position`을 담습니다. `missing-anchor`와 `missing-embed-anchor`에는 대상 문서가 실제로 가진 앵커를 나열한 `available`이 추가됩니다. `missing-embed-anchor`에는 제목 id만 나열합니다. raw HTML이 선언한 id는 링크 대상은 될 수 있어도 임베드할 구역을 시작하지 않기 때문입니다. 코드는 `missing-document`, `missing-anchor`, `missing-asset`, `missing-embed-source`, `missing-embed-anchor`, `invalid-embed-spec`, `duplicate-anchor`, `empty-anchor`, `unstable-anchor-link`, `unmatched-embed-replacement`, `unreplaceable-embed-section`, `empty-embed-cell`, `unportable-embed-component`, `imported-embed-component`, `cyclic-embed`이며, 이 중 `unstable-anchor-link`, `unmatched-embed-replacement`, `empty-embed-cell`, `unportable-embed-component`가 경고입니다.
+`ReferenceIssue`는 `code`, `severity`(`"error"` 또는 `"warning"`), `documentId`, `sourcePath`, `message`, `reference`(작성자가 쓴 그대로), 선택적 `position`을 담습니다. `missing-anchor`와 `missing-embed-anchor`에는 대상 문서가 실제로 가진 앵커를 나열한 `available`이 추가됩니다. `missing-embed-anchor`에는 제목 id만 나열합니다. raw HTML이 선언한 id는 링크 대상은 될 수 있어도 임베드할 구역을 시작하지 않기 때문입니다. `unmatched-tree-order`의 `available`에는 트리 첫 층의 제목이 들어 있습니다. 코드는 `missing-document`, `missing-anchor`, `missing-asset`, `missing-embed-source`, `missing-embed-anchor`, `invalid-embed-spec`, `duplicate-anchor`, `empty-anchor`, `unstable-anchor-link`, `unmatched-embed-replacement`, `unreplaceable-embed-section`, `empty-embed-cell`, `unportable-embed-component`, `imported-embed-component`, `cyclic-embed`, `unmatched-tree-order`이며, 이 중 `unstable-anchor-link`, `unmatched-embed-replacement`, `empty-embed-cell`, `unportable-embed-component`, `unmatched-tree-order`가 경고입니다.
 
 `CheckOptions`는 `ignore`(결과에서 제외할 코드), `assetDirs`, `withoutBase`, `externalPaths`, 그리고 `sourceRoot` 또는 `roots`를 받으며 루트의 기본값은 라이브러리 자체의 루트입니다. 루트가 전혀 없으면 파일 검사는 건너뛰고 문서 링크·앵커·임베드만 검사합니다. 문서 링크는 라이브러리 좌표에서 해석합니다. 상대 경로는 문서의 라이브러리 경로를 기준으로, 루트 상대 경로는 라이브러리 경로 그대로, 그리고 `withoutBase`가 있으면 배포 기본 경로를 뗀 형태로 한 번 더 찾는데 이는 내보내기가 경로를 찾는 방식과 같습니다. 라이브러리 맨 위보다 더 올라가는 상대 경로는 어떤 문서도 가리키지 않습니다. `./`나 `guide/`처럼 디렉터리를 가리키는 경로는 그 디렉터리의 index 문서로 해석하며, 끝에 슬래시가 있으면 같은 이름의 문서가 옆에 있어도 index 문서로, 슬래시가 없으면 같은 이름의 문서로 해석합니다. 쿼리는 다른 문서를 가리키지 않으므로 `guide/?tab=1`은 `guide/`로 검사합니다. 경로는 먼저 퍼센트 인코딩을 풀어 읽으며, `100%.md`처럼 이스케이프가 아닌 `%`가 있으면 검사를 끝내지 않고 쓴 그대로 찾아 해당 문서와 함께 누락으로 보고합니다. 호스트가 ASCII가 아닌 조각을 퍼센트 인코딩하므로 조각은 쓴 그대로든 풀어 읽은 것이든 앵커와 맞으면 됩니다. `externalPaths`는 같은 호스트에서 다른 애플리케이션이 담당하는 루트 상대 접두어 목록이며(`/sdk` 등), pathname이 그 접두어 자체이거나 그 아래에 있는 링크는 외부로 보아 검사하지 않습니다. 이 판정 함수 `isExternalPath(url, prefixes)`도 export합니다. 로컬 링크와 이미지는 그다음 [`resolveLocalTarget`](../../packages/cudoc/src/node/local-target.ts)으로 해석하며, 이 함수는 `isExternalPath`, `externalUrl`, `parseSrcSet`과 함께 `@cudoment/cudoc/node/local-target`에서 export합니다. `cudoc-export`이 자산을 복사할 때 쓰는 것과 같은 함수이므로, 대상의 존재 여부를 두고 검사기와 출력기가 어긋날 수 없습니다. 그 함수의 `LocalTargetRoots`는 `{ roots, assetDirs?, withoutBase?, externalPaths? }`이며, 문서 상대 경로는 그 라이브러리 경로를 담는 루트를 통해 디스크에 닿습니다. `parseSrcSet(value)`는 HTML 표준이 읽는 방식대로 `srcset`의 `{ url, descriptor }` 후보를 반환합니다. URL은 다음 ASCII 공백까지이고, URL 끝의 쉼표는 구분자로 보며, 빈 후보는 건너뛰고, 설명자는 괄호 밖의 다음 쉼표까지입니다. 임베드 해석기와 내보내기가 모두 이 함수로 `srcset`을 읽습니다.
 
 위치는 저장된 트리가 아니라 `document.source.text`에서 복원합니다. 수집이 AST를 저장할 때 `position`을 제거하기 때문입니다. 탐색은 Markdown 목적지 구분자로 끝나는 출현을 우선하므로, `guide.md#limit`이 `guide.md#limits`가 있는 줄을 가리키지 않습니다. 중복 앵커는 나중 선언을 보고합니다. 원본에 더 이상 없는 참조는 틀린 위치 대신 위치 없음으로 처리합니다.
 
-`formatCheckResult(result: CheckResult): string`은 문서별로 묶어 `줄:열` 접두어와 함께 출력하며, `available`은 최대 네 개까지 보이고 나머지는 개수로 요약합니다.
+`formatCheckResult(result: CheckResult): string`은 문서별로 묶어 `줄:열` 접두어와 함께 출력하며, `available`은 최대 네 개까지 보이고 나머지는 개수로 요약합니다. 앵커는 `#id`로, `unmatched-tree-order`의 이름은 큰따옴표로 감싸서 보입니다.
 
 임베드 원본은 해석기가 직접 호출하는 `resolveDocumentReference`로 해석하므로, 검사기가 통과시킨 원본은 빌드도 찾습니다. 이 함수가 거부하는 것(없는 문서, URL, 역슬래시 경로, 루트를 벗어나는 경로, 앵커의 잘못된 퍼센트 이스케이프)은 해석기의 메시지를 담은 `missing-embed-source`입니다. 대상에 없는 앵커를 가리키는 원본과 어떤 절에도 맞지 않는 선택은 `missing-embed-anchor`이며, 해석기도 두 경우 모두 실패합니다.
+
+트리 임베드의 원본은 해석기와 같이 `resolveTreeSource`로 읽습니다. 이 함수가 거부하는 원본은, 아래에 문서가 없는 폴더를 포함해 그 메시지를 담은 `missing-embed-source`이고, 앵커가 대상의 어느 제목 id와도 맞지 않는 문서 원본은 그 id들을 `available`로 담은 `missing-embed-anchor`입니다. 라이브러리에 없는 추출기를 부르는 열은 추출기 이름 위치의 `invalid-embed-spec`입니다. 폴더 원본은 임베드하는 문서를 `page`로 주고 읽으므로, 공개 페이지라면 모두 빠질 문서만 가진 폴더도 `missing-embed-source`입니다. 모든 원본이 해석되면, `...`가 아닌 `order` 항목 가운데 `namesTreeNode` 기준으로 첫 층의 어느 줄과도 일치하지 않는 항목을, 페이지가 뺀 비공개 문서를 가리키는 항목까지 포함해 `unmatched-tree-order`로 보고하며, 위치는 펜스 안 `order:` 뒤의 그 항목 줄입니다. 트리는 절의 본문을 복사하지 않고 빈 열을 줄에서 빼므로, 순환을 따라가지 않고 컴포넌트나 빈 셀도 검사하지 않습니다.
 
 `cyclic-embed`는 블록이 복사하는 모든 절 안의 임베드를 따라가며, 중첩된 블록을 해석기가 전개하는 방식대로 파싱합니다. 따라가는 대상은 블록의 `replace` 규칙이 남긴 사본이므로, 중첩된 펜스를 일반 코드로 바꾸는 규칙은 연쇄를 거기서 끝내고 중첩된 원본을 되돌려 가리키게 하는 규칙은 연쇄를 새로 만듭니다. 이미 복사하고 있는 절로 되돌아오거나 해석기의 깊이 한도 64에 닿는 연쇄를 `a#* -> b#limits -> a#*` 형태로, 연쇄를 시작하는 펜스의 줄에 보고합니다. 빌드도 같은 연쇄에서 실패합니다.
 

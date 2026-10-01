@@ -119,7 +119,7 @@ type RenderOptions = {
 
 ### 호스트 스타일시트
 
-소스: [styles.css](../../packages/cudoc/styles.css). `@cudoment/cudoc/styles.css`로 import합니다. 렌더러가 생성하는 `cudoc-callout`, `cudoc-callout-title`, `cudoc-badge` 클래스만 처리하며 그 밖의 요소에는 관여하지 않습니다.
+소스: [styles.css](../../packages/cudoc/styles.css). `@cudoment/cudoc/styles.css`로 import합니다. 렌더러가 생성하는 `cudoc-callout`, `cudoc-callout-title`, `cudoc-badge`, `cudoc-page-break`, `cudoc-tree`, `cudoc-tree-leaf` 클래스만 처리하며 그 밖의 요소에는 관여하지 않습니다. [트리](../embedding.ko.md#문서-트리-그리기)는 개요 모양으로 그립니다. 아래에 다른 줄이 있는 항목은 잎 항목의 글머리표 자리에 펼침 삼각형을 보이고, 그 `details`는 Docusaurus의 정보 알림이나 Nextra의 테두리 상자처럼 호스트가 직접 쓴 details에 입히는 상자 모양을 벗고 페이지의 글자 색과, Docusaurus 알림 안에서는 그 링크 색을 따릅니다.
 
 호스트의 페이지 안에서 로딩되므로 텍스트 색을 지정하지 않습니다. 본문 색은 호스트 테마에서 상속하고 표면과 강조색만 전환됩니다. 속성은 `--cudoc-wash`, `--cudoc-line`, `--cudoc-accent`, `--cudoc-accent-soft`, `--cudoc-warn`, `--cudoc-warn-wash`, `--cudoc-danger`, `--cudoc-danger-wash`로 이름을 구분해 두었으므로, 호스트 변수를 건드리지 않고 이 속성만 재정의해서 컴포넌트 색을 바꿀 수 있습니다. 테마 신호는 명시도 순서대로 세 가지를 인식합니다. `prefers-color-scheme: dark`, 루트 요소의 `dark` 클래스(VitePress, Nextra), 그리고 `data-theme="dark"`(Docusaurus)입니다. `light` 클래스나 `data-theme="light"`는 시스템이 다크를 선호해도 라이트 팔레트로 되돌리므로, 호스트 자체 토글이 양방향으로 우선합니다. 팔레트는 [내보내기 어댑터](./adapters.ko.md#내보내기)의 `siteStyles`와 동일하며, 모든 표면이 라이트와 다크 상속 텍스트 색 양쪽에서 WCAG AA를 충족합니다.
 

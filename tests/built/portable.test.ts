@@ -39,6 +39,7 @@ for (const host of BUILT_HOSTS) {
         "lists",
         "summary",
         "rewritten",
+        "outline",
         "embed-2-1-limits",
         "embed-2-1-retry",
       ])
@@ -76,6 +77,36 @@ for (const host of BUILT_HOSTS) {
         summary.querySelectorAll("a").map((a) => a.getAttribute("href")),
       ).toEqual([
         `${host.reference}#limits`,
+        `${host.reference}#authentication`,
+      ])
+    })
+
+    it("folds the outline tree in details, with host link shapes", () => {
+      const tree = content!.querySelector(".cudoc-tree")
+      expect(tree, `${host.name}: tree`).toBeTruthy()
+      const folds = tree!.querySelectorAll("details")
+      expect(
+        folds.map((fold) => clean(fold.querySelector("summary")!.text)),
+      ).toEqual([
+        // The title has no paragraph of its own, so the first one after it
+        // summarizes the document, as in a summary table.
+        "Reference · This original description is reused by another document.",
+        "Limits · This original description is reused by another document.",
+      ])
+      // The first level starts open, the second folded.
+      expect(folds.map((fold) => fold.hasAttribute("open"))).toEqual([
+        true,
+        false,
+      ])
+      expect(clean(tree!.text)).toContain(
+        "Authentication · Use an access token when calling the API.",
+      )
+      expect(
+        tree!.querySelectorAll("a").map((a) => a.getAttribute("href")),
+      ).toEqual([
+        host.reference,
+        `${host.reference}#limits`,
+        `${host.reference}#retry`,
         `${host.reference}#authentication`,
       ])
     })

@@ -162,6 +162,16 @@ render:
     - { header: First field, value: { row: 1, column: 0 } }
 ```
 
+## Heading tree (#heading-tree)
+
+```cudoc-embed
+sources: [reference.md]
+render:
+  type: tree
+  headings: 2
+  print: 2
+```
+
 ## Literal replacement (#literal-replace)
 
 ```cudoc-embed

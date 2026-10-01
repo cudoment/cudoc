@@ -507,11 +507,22 @@ where it is phrasing content, a paragraph there being an error.
 `thematicBreak` carrying `hName: "div"`, `className: ["cudoc-page-break"]`,
 `hidden: true` and `data.cudoc.kind: "pageBreak"`.
 
+**Trees** are read through the same module: `TREE_KIND`, `TREE_CLASS`,
+`TREE_PRINT_ATTRIBUTE`, `isTree(node)` and `treePrintDepth(value)`. A tree
+embed prints as the nested list it is down to its `print` level, read from the
+outer list's `data-cudoc-print`: each item's `summary` line becomes the item's
+own text, the lists in its `details` follow it, and the levels past `print` are
+left out. The print HTML does this to its hast with `printTrees` before it opens
+the other details, and the print stylesheet bullets those items again; the Word
+writer does the same to the mdast before writing the list, so every line is a
+list paragraph at its own level.
+
 **Print rules** correct three defects the screen stylesheet had for paper: a
 table was `display: block`, which silently disabled `table-header-group`; `pre`
 and callouts promised `break-inside: avoid`, which cannot hold once a block is
 taller than a page; and body text was repainted black. The builder also opens
-every `<details>`, because Chrome prints a closed one as its summary alone.
+every `<details>`, because Chrome prints a closed one as its summary alone; a
+tree's are written out first, as described above.
 
 Subpaths: `cudoc-export/docx` exports `buildDocx`, `writeDocx`, `bookmarkName`
 and the `Docx*` types, `DocxWriterOptions` and `DocxComponentRenderer` among
@@ -524,7 +535,7 @@ and the `PdfOptions`, `PrintJob` and `Printer` types;
 `cudoc-export/print` exports `writePrintOutputs`, `printStylesheet`,
 `fillVolumePageNumbers`, `resolveVolumeOptions`, `namespaceIds`,
 `namespaceDocument`, `volumeId`, `volumePrefix`, `printFileName`,
-`openDetails`, `tableColumns`, `dropLeadingBreaks`, `wrapWideTables`,
+`openDetails`, `printTrees`, `tableColumns`, `dropLeadingBreaks`, `wrapWideTables`,
 `localizeAssets`, `srcSetCandidate`, `urlPath`,
 `PRINT_STYLESHEET`, `DEFAULT_VOLUME_NAME` and `VOLUME_FILE`, with the
 `PrintableDocument`, `PrintOutputOptions`, `VolumeOptions`,

@@ -423,6 +423,33 @@ details summary {
 details[open] summary {
   margin-bottom: var(--space-2);
 }
+/* A tree embed is an outline: an item with children folds its list in a
+   details whose summary is the item's line, the disclosure triangle where a
+   leaf's bullet is, and none of the box an authored details gets. */
+.cudoc-tree,
+.cudoc-tree ul {
+  margin: 0;
+  padding-left: 1.5em;
+}
+.cudoc-tree {
+  margin: var(--space-4) 0;
+}
+.cudoc-tree li:not(.cudoc-tree-leaf) {
+  list-style: none;
+}
+.cudoc-tree details {
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+}
+.cudoc-tree details summary,
+.cudoc-tree details[open] summary {
+  margin: 0 0 0 -1.1em;
+  padding: 0;
+  font-weight: inherit;
+}
 .cudoc-badge {
   display: inline-block;
   margin-left: 0.35em;
