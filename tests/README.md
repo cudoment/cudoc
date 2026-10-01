@@ -32,14 +32,16 @@ stopped installing cannot turn assertions into skips that pass.
 
 ## Which tier to reach for
 
-The integration tier also holds four suites that need nothing installed.
+The integration tier also holds five suites that need nothing installed.
 `example-locks.test.ts` checks that every example lockfile records the linked
 workspace packages as they are, and names `npm run lock:examples` when one is
 behind. `release.test.ts` checks what the publish workflow relies on: that the
 comparison with npm treats only npm's not-found as unpublished and stops on any
 other failure, that packages are listed after the workspace packages they
 depend on, that the release job creates a release npm has and GitHub does not
-only at the commit npm recorded, and that every package shares one version and
+only at the commit npm recorded, that the documentation site deploys only a
+release that is on npm from its commit and tagged there and never an older
+version over a newer one, and that every package shares one version and
 pins its siblings to exactly that version. `guides.test.ts` holds each Korean
 host guide to the steps of its English counterpart, which
 `tests/scripts/guide-consumers.mjs` follows in a new project, each guide's
@@ -48,7 +50,10 @@ host guide to the steps of its English counterpart, which
 declare, which start where support starts.
 `links.test.ts` checks that every local link in the guides, the API reference
 and the READMEs names a file that exists, and every fragment into a Markdown
-file one of its headings as GitHub slugs it.
+file one of its headings as GitHub slugs it. `docs-site.test.ts` builds the
+documentation site as the release workflow does and checks that it holds every
+guide and nothing else, that every link and anchor inside it resolves, and that
+a link to a source file opens it on GitHub at the built commit.
 
 The integration tier needs no site build, so it is the fastest way to catch a
 syntax, normalization or embedding regression:
@@ -133,7 +138,7 @@ tests.
 Five checks cannot run inside vitest: two rewrite a fixture every example
 shares, the third packs and installs every package, the fourth follows every
 host guide in a new project from those packed packages, and the fifth rebuilds
-the committed export showcase and compares it with the committed copy. They
+the committed export samples and compares them with the committed copies. They
 live in [`scripts/`](./scripts/README.md) and run in sequence.
 
 ```sh

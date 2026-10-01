@@ -1,28 +1,107 @@
 name: Pages
 
-# The export showcase is committed as the release machine built it, so this
-# publishes that directory as it is and builds nothing. The repository's Pages
-# source has to be set to GitHub Actions once, in its settings.
+# The documentation site: this repository's README and docs/, exported by
+# cudoc-export, with the committed export samples beside the guides that
+# describe them. It deploys only when a release is complete, from the
+# publish workflow, or by hand for a version already released. The
+# repository's Pages source has to be set to GitHub Actions once, in its
+# settings, and the github-pages environment allows main alone, so a manual
+# run is dispatched from main and builds the released commit it names.
 on:
-  push:
-    branches: [main]
-    paths:
-      - examples/export/showcase-output/**
-      - .github/workflows/pages.yml
+  workflow_call:
+    inputs:
+      sha:
+        description: The released commit to build
+        required: true
+        type: string
+      version:
+        description: The released version
+        required: true
+        type: string
   workflow_dispatch:
+    inputs:
+      version:
+        description: A released version to deploy again, such as 0.8.0
+        required: true
+        type: string
+      rollback:
+        description: Deploy it even if the site serves a newer version
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
-# A deployment in progress finishes; a newer one waits for it.
-concurrency:
-  group: pages
-  cancel-in-progress: false
-
 jobs:
-  deploy:
-    name: Publish the export showcase
+  build:
+    name: Build and check the documentation site
     runs-on: ubuntu-latest
+    env:
+      CUDOC_SKIP_BROWSER_DOWNLOAD: "1"
+    outputs:
+      sha: ${{ steps.release.outputs.sha }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - name: Require main
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error title=Not main::The site deploys from main; this run is on $GITHUB_REF."
+            exit 1
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # A manual run builds a released commit older than main's head.
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      # The commit to build: the one the publish workflow released, or the
+      # one every tag of the dispatched version names, checked complete.
+      - name: Resolve the release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ inputs.sha }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [ -n "$SHA" ]; then
+            echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          else
+            node scripts/site-release.mjs resolve --version "$VERSION"
+          fi
+      # The site states its version in version.json; an older one replaces
+      # it only when the run says it is a rollback.
+      - name: Refuse to replace a newer site
+        env:
+          ROLLBACK: ${{ inputs.rollback && '--rollback' || '' }}
+        run: node scripts/site-release.mjs guard --version "${{ steps.release.outputs.version }}" --deployed "https://cudoment.github.io/cudoc/version.json" $ROLLBACK
+      - run: git checkout --detach "${{ steps.release.outputs.sha }}"
+      - name: Require a release that has the documentation site
+        run: |
+          if [ ! -f docs-site/build.mjs ]; then
+            echo "::error title=No documentation site::${{ steps.release.outputs.version }} predates the documentation site, which 0.8.0 introduced."
+            exit 1
+          fi
+      - run: npm ci
+      - run: npm run build
+      # The site reads the commit it describes from the checkout above.
+      - run: npm run docs:site
+      # The directory checked here is the one uploaded.
+      - run: node docs-site/verify.mjs .cudoc/docs-site "${{ steps.release.outputs.version }}"
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: .cudoc/docs-site
+
+  deploy:
+    name: Publish the documentation site
+    needs: build
+    runs-on: ubuntu-latest
+    # A deployment in progress finishes; a newer one waits for it.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     # A job's permissions replace the workflow's, so reading the repository is
     # named again.
     permissions:
@@ -33,10 +112,16 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # Checked again inside the concurrency group: a newer release may have
+      # deployed while this run was building or waiting here.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
-      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          path: examples/export/showcase-output
+          node-version: 24
+      - name: Refuse to replace a newer site
+        env:
+          ROLLBACK: ${{ inputs.rollback && '--rollback' || '' }}
+        run: node scripts/site-release.mjs guard --version "${{ needs.build.outputs.version }}" --deployed "https://cudoment.github.io/cudoc/version.json" $ROLLBACK
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
