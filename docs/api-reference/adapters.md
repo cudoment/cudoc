@@ -193,39 +193,76 @@ Source/import: [index.ts](../../packages/cudoc-export/src/index.ts), `cudoc-expo
 
 ```ts
 type SiteLinkMode = "relative" | "host" | "none"
+type HtmlMode = "site" | "standalone" | "annotate"
 
-buildSite(options: SiteOptions): {
+buildSite(options: SiteOptions): SiteResult
+
+type SiteResult = {
   outDir: string
-  documentCount: number
+  documentCount: number // the pages this run wrote
   libraryDir: string
+  files: string[] // what the HTML output wrote, relative to outDir, sorted
+  diagnostics: NavigationDiagnostic[]
+  dependencies: SiteDependency[] // single pages only, sorted by document, kind and url
+  omitted: OmittedDocument[]
+}
+
+type SiteDependency = {
+  kind: "remote" | "file" | "page"
+  document: string
+  url: string // as the document wrote it
+}
+
+type OmittedDocument = {
+  document: string
+  reason: "private" | "not-in-navigation"
+}
+
+type NavigationDiagnostic = {
+  code:
+    | "missing-translation"
+    | "unmatched-navigation-order"
+    | "unmatched-navigation-exclude"
+  message: string
+  document: string // a document id, or where the entry was written
 }
 ```
 
-`SiteOptions` extends `DocumentOptions` with these fields. `SiteOptions` and `SiteLinkMode` are exported types; returned paths are absolute. `siteStyles` exports the built-in CSS string.
+`SiteOptions` extends `DocumentOptions` with these fields. `SiteOptions`, `SiteResult`, `SiteDependency`, `SiteLinkMode`, `HtmlMode`, `OmittedDocument`, `AnnotateOptions`, `StandaloneOptions`, `NavigationOption`, `NavigationSpec`, `NavigationItem`, `NavigationTitle`, `NavigationDiagnostic`, `LocaleOption` and `UiStrings` are exported types; returned paths are absolute. `siteStyles` exports the built-in CSS string. A key that is neither a field below nor a collection option is an error naming it; `annotations`, which `mode: "annotate"` replaced, names its replacement.
 
-| Option          | Type / default                                                     | Contract                                                                                                                                                                       |
-| --------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `sourceRoot`    | `string`; one of `sourceRoot`/`roots` required                     | One source directory at the top of the library; the shorthand for `roots: [{ dir }]`. Needed even with `library`, for asset resolution and output protection.                  |
-| `roots`         | `SourceRoot[]`; one of `sourceRoot`/`roots` required               | The directories documents live in, each under its base. With `library` the bases must be the ones the library was collected with.                                              |
-| `exclude`       | `string[]`, collection only                                        | Files that are not documents; passed to collection. See [collection](./node.md#collection).                                                                                    |
-| `private`       | `string[]`, collection only                                        | Documents collected but never exported; passed to collection. A private document is rendered by no format and appears in no navigation, contents or count.                     |
-| `externalPaths` | `string[]`, `[]`                                                   | Root-relative prefixes another application serves on the same host, such as `/sdk`. A link into one is external under every policy: kept as written, never resolved or copied. |
-| `extractors`    | `Record<string, TableExtractor>`, collection only                  | Cell extractors an embed table may name; passed to collection. See [embedding](./node.md#embedding).                                                                           |
-| `outDir`        | required `string`                                                  | Dedicated site output, separate from source, library and asset roots.                                                                                                          |
-| `title`         | `string`, `"Documentation"`                                        | Site header and page-title suffix.                                                                                                                                             |
-| `navigation`    | `string[]`, all IDs                                                | Existing document IDs to put first; remaining documents follow.                                                                                                                |
-| `css`           | optional `string`                                                  | Local CSS file appended to built-in styles. HTML presentation only; it never reaches a format that emits no CSS.                                                               |
-| `tokens`        | optional `DesignTokenOverrides`                                    | Design token overrides merged over the defaults, one level into each group. Read by every output format.                                                                       |
-| `page`          | optional `PageOptions`                                             | Paper, margins, running header and footer, heading page breaks and printed link addresses; see [paginated output](#paginated-output).                                          |
-| `volume`        | optional `VolumeOptions`                                           | The bound file's name, cover and contents; see [paginated output](#paginated-output).                                                                                          |
-| `libraryDir`    | `string`, `path.join(path.dirname(outDir), ".cudoc", "documents")` | Collection output when `library` is absent. Ignored when `library` is provided.                                                                                                |
-| `library`       | optional `string`                                                  | Existing collected library directory, read without compilation or publication.                                                                                                 |
-| `links`         | `SiteLinkMode`, `"relative"`                                       | Policy for all output hyperlinks.                                                                                                                                              |
-| `hostUrl`       | optional `string`, required for `"host"`                           | Absolute HTTP(S) deployment URL including any base path. No credentials, query or fragment. A trailing slash is normalized.                                                    |
-| `assetDirs`     | `string[]`, `[]`                                                   | Additional URL-root resource directories, searched in order after the roots.                                                                                                   |
-| `renderOptions` | optional `RenderOptions`                                           | HTML component callbacks and code-highlighting override; see [rendering](./document.md#components-and-rendering).                                                              |
-| `annotations`   | `boolean`, `false`                                                 | Ship the review-note runtime on every page, so a reader can leave notes and hand them back as a file; see [Annotations](#annotations).                                         |
-| `themeSwitch`   | `boolean`, `false`                                                 | Add a header button that cycles the colour scheme through system, light and dark and remembers the choice in the browser; see [Theme switch](#theme-switch).                   |
+| Option          | Type / default                                                     | Contract                                                                                                                                                                                                                       |
+| --------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `sourceRoot`    | `string`; one of `sourceRoot`/`roots` required                     | One source directory at the top of the library; the shorthand for `roots: [{ dir }]`. Needed even with `library`, for asset resolution and output protection.                                                                  |
+| `roots`         | `SourceRoot[]`; one of `sourceRoot`/`roots` required               | The directories documents live in, each under its base. With `library` the bases must be the ones the library was collected with.                                                                                              |
+| `exclude`       | `string[]`, collection only                                        | Files that are not documents; passed to collection. See [collection](./node.md#collection).                                                                                                                                    |
+| `private`       | `string[]`, collection only                                        | Documents collected but never exported; passed to collection. A private document is rendered by no format, and naming one in `navigation`, `home` or `documents` is an error.                                                  |
+| `externalPaths` | `string[]`, `[]`                                                   | Root-relative prefixes another application serves on the same host, such as `/sdk`. A link into one is external under every policy: kept as written, never resolved or copied.                                                 |
+| `extractors`    | `Record<string, TableExtractor>`, collection only                  | Cell extractors an embed table may name; passed to collection. See [embedding](./node.md#embedding).                                                                                                                           |
+| `outDir`        | required `string`                                                  | Dedicated output, separate from source, library, asset and mounted roots.                                                                                                                                                      |
+| `title`         | `string`, `"Documentation"`                                        | Site header and page-title suffix.                                                                                                                                                                                             |
+| `mode`          | `HtmlMode`, `"site"`                                               | `site`: every published page with shared stylesheets, navigation, homes and the print HTML. `standalone`: [single pages](#single-pages). `annotate`: the review-note runtime, as single pages or a site per `annotate.target`. |
+| `annotate`      | `AnnotateOptions`, `{}`                                            | `target` (`"file"`, the default, or `"hosted"`), `reviewId` (required for `hosted`; up to 64 letters, digits, `.`, `-` and `_`, starting with a letter or digit) and `inbox` (`hosted` only); see [Annotations](#annotations). |
+| `documents`     | optional `string[]`                                                | The documents a single-page run writes, by id or source path; each must be one the site publishes. An error in a site, which writes every page it publishes.                                                                   |
+| `strict`        | `boolean`, `false`                                                 | Fail a single-page run whose pages have any `dependencies`, before anything is published. An error in a site.                                                                                                                  |
+| `standalone`    | `StandaloneOptions`, `{}`                                          | `maxAssetBytes` (5 MiB) bounds one resource written inline, `maxPageBytes` (20 MiB) one single page; each is a whole number of bytes up to 28 MiB.                                                                             |
+| `home`          | optional `string`                                                  | The document written as `index.html`, by source path such as `README.md`; its translations become `index.<code>.html`. Every language needs one.                                                                               |
+| `header`        | `{ links?: { title: NavigationTitle; url: string }[] }`, `{}`      | Links beside the site title, each an absolute `http(s)` or `mailto` URL.                                                                                                                                                       |
+| `navigation`    | `NavigationOption`, every document by folder                       | The left-hand list and what the site publishes; see [Site structure](#site-structure).                                                                                                                                         |
+| `locales`       | optional `Record<string, LocaleOption>`                            | The site's languages, the default first, each found by a file-name suffix; see [Site structure](#site-structure).                                                                                                              |
+| `toc`           | `false \| { depth?: number }`, `{ depth: 6 }`                      | The headings the right-hand contents lists, down to `depth` (2–6). `false` drops the column on every page; front matter `toc: false` drops it on one.                                                                          |
+| `css`           | optional `string \| string[]`                                      | Local stylesheets loaded after the built-in one: linked as files in a site, carried inline on a single page. HTML presentation only; it never reaches a format that emits no CSS.                                              |
+| `sourceLinks`   | optional `{ root: string; url: string }`                           | Where a link to an uncollected file under `root` points: `url` followed by its library path. `url` is absolute `http(s)` without query or fragment.                                                                            |
+| `mounts`        | `{ from: string; to: string }[]`, `[]`                             | Directories copied into the output under `to`; a link into `from` points at the copy. A site with `relative` links only.                                                                                                       |
+| `tokens`        | optional `DesignTokenOverrides`                                    | Design token overrides merged over the defaults, one level into each group. Read by every output format.                                                                                                                       |
+| `page`          | optional `PageOptions`                                             | Paper, margins, running header and footer, heading page breaks and printed link addresses; see [paginated output](#paginated-output).                                                                                          |
+| `volume`        | optional `VolumeOptions`                                           | The bound file's name, cover, contents and order; see [paginated output](#paginated-output).                                                                                                                                   |
+| `libraryDir`    | `string`, `path.join(path.dirname(outDir), ".cudoc", "documents")` | Collection output when `library` is absent. Ignored when `library` is provided.                                                                                                                                                |
+| `library`       | optional `string`                                                  | Existing collected library directory, read without compilation or publication.                                                                                                                                                 |
+| `links`         | `SiteLinkMode`, `"relative"`                                       | Policy for all output hyperlinks.                                                                                                                                                                                              |
+| `hostUrl`       | optional `string`, required for `"host"`                           | Absolute HTTP(S) deployment URL including any base path. No credentials, query or fragment. A trailing slash is normalized.                                                                                                    |
+| `assetDirs`     | `string[]`, `[]`                                                   | Additional URL-root resource directories, searched in order after the roots.                                                                                                                                                   |
+| `renderOptions` | optional `RenderOptions`                                           | HTML component callbacks and code-highlighting override; see [rendering](./document.md#components-and-rendering).                                                                                                              |
+| `themeSwitch`   | `boolean`, `false`                                                 | Add a header menu that chooses the colour scheme, system, light or dark, and remembers the choice in the browser; see [Theme switch](#theme-switch).                                                                           |
 
 The synchronous builder has two input paths:
 
@@ -234,7 +271,7 @@ The synchronous builder has two input paths:
 
 Prepared data is loaded only for documents with embed fences. Missing/stale preparation or missing blocks fail. Validation uses the stored source snapshot and manifest fingerprints; the exporter does not compare every live source file with its snapshot. Recollect and prepare after source, routes or compiler changes. The returned `libraryDir` is the input directory when `library` is set.
 
-Rendering uses `renderDocument`, with highlight.js by default; unknown languages fall back to escaped code. `renderOptions` overrides these render defaults and supplies explicit component callbacks. Frontmatter `title` sets the navigation/page title and `lang` sets the language (default `en`). The builder adds CSS/navigation/TOC and creates an index if needed.
+Rendering uses `renderDocument`, with highlight.js by default; unknown languages fall back to escaped code. `renderOptions` overrides these render defaults and supplies explicit component callbacks. Frontmatter `title` sets the navigation and page title. Without `locales`, frontmatter `lang` sets `<html lang>` (default `en`); with `locales` the file name decides the language, as [Site structure](#site-structure) describes. The builder adds the page shell and, for a language without a home document, a landing page.
 
 `siteStyles` is a token-driven, theme-aware stylesheet, generated by `buildStyles(tokens)` from the object in [design/tokens.ts](../../packages/cudoc-export/src/design/tokens.ts). `designTokens`, `resolveTokens` and `buildStyles` are exported; `siteStyles` is `buildStyles()` with the defaults. The declarations and the four highlight.js colour rules are generated from that object, and `__tests__/styles.test.ts` compares the result against a byte-for-byte golden fixture. The light palette is defined as custom properties on `:root`, and only those properties are redefined under `prefers-color-scheme: dark`, so a viewer's system setting selects the theme without any script. No rule contains a raw colour outside the print block, and every foreground/surface pair clears WCAG AA: 4.5:1 for text and 3:1 for the focus ring, in both themes. The dark colours are declared twice at the specificity of `:root`: under `prefers-color-scheme: dark` for `:root:where(:not([data-theme="light"]))`, and under `:root:where([data-theme="dark"])`, so `data-theme="light"` or `"dark"` on `<html>` overrides the system setting (and sets `color-scheme`) while an appended stylesheet's own `:root` rules still win. [Theme switch](#theme-switch) is what sets that attribute; without it nothing does.
 
@@ -253,7 +290,76 @@ A callout is drawn in `--accent` and `--wash` unless its type is in the severity
 
 Type scales from the browser's own base size rather than a fixed pixel root, so a reader's font-size setting is respected: `html` is `font-size: 100%` and body copy is `--text-base` (0.9375rem) at `--leading-body` (1.7). The font stacks name IBM Plex Sans and JetBrains Mono first and fall through to the platform UI and Korean faces; nothing is fetched, so the export stays usable from `file://` and offline. Prose is bounded to `--measure` (72ch) while headings, tables, code blocks and callouts use the full content column.
 
-The page shell is a sticky header with a sticky document sidebar and heading TOC beside that column, collapsing to two columns at 1024px and to one at 768px, where navigation targets grow to 2.75rem. Tables use horizontal rules, alternating row backgrounds, label-style headers and tabular figures rather than a full border grid, and scroll horizontally instead of widening the page. Interactive states transition over `--ease`, which `prefers-reduced-motion` collapses to 1ms. `css` is appended after these styles, so a site restyles the export by redefining properties rather than rewriting rules. Prefer `tokens` for a change that should hold across formats: it is data, and a writer that emits no CSS reads the same object, while `css` reaches only the outputs that load a stylesheet. `resolveTokens` merges one level into each group, so redefining a single colour keeps the rest of the palette, and it replaces a font stack whole rather than merging it. `--radius`, `--measure`, `--head-h` and `--ease` and the dark palette have no counterpart outside CSS. The print block drops the header and both navigation columns, removes the measure bound, keeps the reading colour, repeats table headers across pages, and lets a code line wider than the page wrap instead of scaling every page down to fit it; the standalone print stylesheet adds the option-dependent rules described below, so the site's own print block never changes with an option.
+The page shell is a sticky header with a sticky document sidebar and heading TOC beside that column, collapsing to two columns at 1024px and to one at 768px, where navigation targets grow to 2.75rem. Tables use horizontal rules, alternating row backgrounds, label-style headers and tabular figures rather than a full border grid, and scroll horizontally instead of widening the page. Interactive states transition over `--ease`, which `prefers-reduced-motion` collapses to 1ms. `css` files load after these styles, so a site restyles the export by redefining properties rather than rewriting rules. Prefer `tokens` for a change that should hold across formats: it is data, and a writer that emits no CSS reads the same object, while `css` reaches only the outputs that load a stylesheet. `resolveTokens` merges one level into each group, so redefining a single colour keeps the rest of the palette, and it replaces a font stack whole rather than merging it. `--radius`, `--measure`, `--head-h` and `--ease` and the dark palette have no counterpart outside CSS. The print block drops the header and both navigation columns, removes the measure bound, keeps the reading colour, repeats table headers across pages, and lets a code line wider than the page wrap instead of scaling every page down to fit it; the separate print stylesheet, `cudoc-print.css`, adds the option-dependent rules described below, so the site's own print block never changes with an option.
+
+### Site structure
+
+Source: [plan.ts](../../packages/cudoc-export/src/plan.ts), [navigation.ts](../../packages/cudoc-export/src/navigation.ts), [locales.ts](../../packages/cudoc-export/src/locales.ts), [design/shell.ts](../../packages/cudoc-export/src/design/shell.ts).
+
+Before anything is written, every run computes one output plan from the library and the options, and every format reads it: the published set (each document the navigation or `hidden` lists, plus the homes), the documents left out with their reason, each language's navigation and home, each document's output path, the documents this run writes, and the bound volume's members and order. No format can therefore publish a document another leaves out. A private document is never published; a document that is neither listed nor hidden is omitted as `not-in-navigation`, and a link to it is an error under `relative`.
+
+**Navigation.** `NavigationOption` is a YAML file path, a list of entries, or a `NavigationSpec`:
+
+```ts
+type NavigationOption = string | NavigationItem[] | NavigationSpec
+type NavigationSpec = { items: NavigationItem[]; hidden?: string[] }
+type NavigationTitle = string | Record<string, string> // text per language code
+type NavigationItem =
+  | string // "guide.md" a document, "guides" a folder, "." the whole collection
+  | {
+      folder: string
+      title?: NavigationTitle
+      page?: string // a document in the folder, such as README.md
+      exclude?: string[] // globs, relative to the folder
+      order?: string[] // names or titles first; "..." once, for every other
+      depth?: number // from 1: how many levels are drawn as groups
+      collapsed?: boolean
+    }
+  | { title: NavigationTitle; items: NavigationItem[]; collapsed?: boolean }
+  | { title: NavigationTitle; url: string } // http(s) or mailto
+```
+
+A YAML file is read with duplicate keys refused, and an error in it or in one of its entries names `file:line`; an inline entry is named by its path, such as `navigation[2].items[0]`. A document is written with `.md` or `.mdx` and is found by its translation key, so the default language's file names every translation; a name without an extension is a folder, a folder entry that names a document is an error that spells the document's form, and a document entry that names nothing is an error. Entries resolve in two passes. First every explicit entry claims its document: a file entry, a folder's `page` and a `hidden` file. A document claimed twice is an error naming both places, and a private one is an error. Then each folder lists what is left inside it: not a claimed document, not the page that stands for a listed folder, not what a more specific listed folder lists, and not what its `exclude` matches, a glob tested against the path inside the folder and each of its parent folders, so `drafts` leaves out a subfolder. Inside a folder, `X.md` stands for the folder `X/`, else `X/index.md` does, as [`resolveTree`](./node.md#embedding) reads a tree, and the collection's own `index.md` stands for `.`; a `README.md` stands for nothing unless `page` names it. A folder nothing stands for is kept as a group named after the folder, since a menu that dissolved its folders would lose the reader's bearings. A folder's entries sort with `compareNames` by title, then name, after the ones `order` names by name or title; `...` places all others. Below `depth` levels no group is drawn: a deeper folder's page and documents join the list of the last group drawn, sorted with the rest. Without `navigation`, the whole collection is one folder entry drawn in place, `index` first. An `order` or `exclude` entry that matched nothing is reported as `unmatched-navigation-order` or `unmatched-navigation-exclude`, with where it was written.
+
+**Languages.** `locales` maps each language code, shaped like `en`, `ko` or `pt-BR`, to a label or to `{ label, suffix?, ui? }`:
+
+```ts
+type LocaleOption =
+  string | { label: string; suffix?: string; ui?: Partial<UiStrings> }
+type UiStrings = Record<
+  | "skip"
+  | "documents"
+  | "onThisPage"
+  | "language"
+  | "theme"
+  | "system"
+  | "light"
+  | "dark",
+  string
+>
+```
+
+The first language is the default and has no suffix. Another's suffix defaults to `.<code>`, is a dot followed by letters, digits or `-`, and differs from every other language's. A document's language is the suffix that ends its file name, read from the last dotted part only, so `notes.v2.ko.md` is the Korean `notes.v2`; its translation key is its id without the suffix. Front matter `lang` may only make that code more specific (`ko-KR` for `ko`) and then becomes `<html lang>`; naming another language is an error. Without `locales`, every page's `lang` is its front matter `lang` or `en`. Every language draws the navigation from the same entries, each document entry, folder page and folder member drawn as that language's translation of its key. A translation that does not exist is left out and reported once as `missing-translation`, and a group left with no entries is dropped. A `title` object gives the language's text, then the default language's; a key that `locales` does not name is an error. `ui` replaces any of the shell's words; cudoc carries them for English and Korean, and another language starts from the English ones.
+
+**Homes and output paths.** A language's home is the translation of `home`, which must exist in every language, or of `index`. It is written to `index.html` in the default language and `index.<code>.html` in the others, and every other document to `<id>.html`. A document whose own file would be a home's file and is not that home is an error. A language without a home gets a generated landing page that lists its navigation. Single pages write no home: every document, `index` included, is `<id>.html`.
+
+**The shell.** A site page has a header (the site title linking to the language's home, `header.links`, a language menu when there are two or more languages, the theme menu), the navigation sidebar, the main column and, unless `toc` or the page's front matter turns it off or the page is a home, the contents of headings down to `toc.depth`. The language menu links each other language to the same document's published translation, else to that language's home. Groups are `<details>` elements, open unless `collapsed`, and open around the current page. A single page has the title, `header.links`, the theme menu and the contents, without navigation, home link or language menu. Links the shell generates carry `data-cudoc-final` while the page is assembled, so the link policy does not rewrite them a second time; the attribute is removed from authored content and does not reach the written page.
+
+**Stylesheets.** `css` files are parsed with css-tree. An `@import` is refused. Each `url()` resolves like a rendering resource from the stylesheet's own directory and must stay inside a root, an `assetDirs` directory or that directory. In a site the files are linked after `cudoc.css` as `cudoc-css/<n>-<name>.css`, in the order given, and what they load is copied to `cudoc-css/files/<first 12 hex digits of its SHA-256>-<name>`, so a rebuild names the same content the same way; a remote `url()` is kept. On a single page their text goes into the page's one `<style>`, each `url()` becomes a `data:` URL, and a remote `url()` is refused. No copied resource may be written under `cudoc-css/`.
+
+**sourceLinks and mounts.** Under `relative` and `host`, a hyperlink to a file that is neither a document nor found under a root or `assetDirs`, but exists under `sourceLinks.root` at its library path, becomes `sourceLinks.url` followed by that path, each segment percent-encoded, with its query and fragment kept; a directory keeps its trailing slash, and the private-document check applies. A mount's `from` is a directory and its `to` a folder path inside the output, without `.`, `..` or a leading `/`, and neither may overlap a source, library, asset or output directory, nor one mount another mount's `from` or `to`: a mount over a root would publish documents the navigation leaves out. A link into `from`, whether its file is under a root or under `sourceLinks.root`, is rewritten to the copy, and the folder is copied whole after the pages; a symbolic link or a private document inside it is an error. No copied resource may be written under a mount's `to/`. A mount on single pages, or with `host` or `none` links, is an error, since only a relative link inside a site reaches the copy.
+
+### Single pages
+
+`standalone`, and `annotate` with `target: "file"`, write single pages: each written document is one `<id>.html` that renders the same from any folder.
+
+- The head holds one `<style>`: `cudoc.css` from the resolved tokens, then each `css` file's text with what it loads inlined. The page links no stylesheet. An authored `<link rel="stylesheet">` to a local file becomes a `<style>` with that file's text, what it loads inlined, and one to another server is refused.
+- Every rendering resource the [asset rules](#export-links-and-assets) would copy on an `<img>`, `<input>`, SVG `<image>` or `<feImage>` (`src`, each `srcset` candidate, `href`), a video's `poster`, an inline `style`'s `url()` and a `url()` in an authored `<style>` becomes a `data:` URL of its file. Only images (PNG, JPEG, GIF, WebP, AVIF, SVG, BMP, ICO) and fonts (WOFF, WOFF2, TTF, OTF) can be carried; another local resource is an error naming it, and so is a local resource loaded by any other element, such as `<object data>`, `<use href>`, an `<iframe>`, `<audio>`, a video's own `src` or a media `<source>`.
+- The theme script and the review-note runtime are inline `<script>` elements, and the runtime's stylesheet an inline `<style>`. Text that would end its element is escaped (`<\/script`, `<\/style`); a script containing `<!--` is refused, which the built runtime never contains.
+- A hyperlink to another document stays a relative `<id>.html` link, or names the deployed page under `host`, and is reported as `page` unless this run writes that document too. A hyperlink to another local file copies the file beside the page, as a site does, and is reported as `file`. A resource on another server stays as written and is reported as `remote`.
+- `dependencies` lists those reports. The CLI prints each as `cudoc-export: <document>: needs a page beside it|a file beside it|a remote resource: <url>` on standard error, and `strict` turns a non-empty list into an error that lists them before anything is published.
+- `standalone.maxAssetBytes` (default 5 MiB) bounds one resource as written inline, base64 included, and `standalone.maxPageBytes` (default 20 MiB) the written page. Both are at most `LIMITS.htmlBytes − LIMITS.fileBytes − 2 MiB`, 28 MiB, so a copy saved with its notes stays under the 32 MiB a reader can load back.
+- Print HTML, `cudoc-print.css` and copied rendering resources are written only when `formats` asks for a PDF, which is printed from that print HTML; Word needs none of them.
 
 ### Paginated output
 
@@ -282,20 +388,24 @@ type DocxWriterOptions = {
   >
 }
 
-type ExportResult = SiteResult & {
+type ExportResult = Omit<SiteResult, "files" | "diagnostics"> & {
   formats: ExportFormat[]
   files: Record<ExportFormat, string[]> // relative to outDir, in output order
-  diagnostics: {
-    code:
-      | "dropped-html"
-      | "html-as-text"
-      | "image-as-text"
-      | "dropped-footnote-table"
-      | "unsafe-link"
-    message: string
-    document: string
-  }[]
+  diagnostics: ExportDiagnostic[]
 }
+
+type ExportDiagnostic =
+  | NavigationDiagnostic // see Export
+  | {
+      code:
+        | "dropped-html"
+        | "html-as-text"
+        | "image-as-text"
+        | "dropped-footnote-table"
+        | "unsafe-link"
+      message: string
+      document: string
+    }
 
 type RunningText = string | { left?: string; center?: string; right?: string }
 
@@ -387,9 +497,9 @@ because Word embeds no SVG, and it is copied to the output as
 `<id>.pdf`, `<id>.docx` for every document and the volume name — is reserved, and
 an asset that would land on one fails.
 
-**What each format writes.** Every build writes `cudoc-print.css`,
+**What each format writes.** A site writes `cudoc-print.css`,
 `<id>.print.html` per document and `<volume>.print.html`, whether or not a
-browser exists. `pdf` prints those to `<id>.pdf` and `<volume>.pdf` with
+browser exists; single pages write them only when `formats` asks for a PDF. `pdf` prints those to `<id>.pdf` and `<volume>.pdf` with
 `playwright-core` driving `chromium-headless-shell` in one browser session, each
 file once; a `postinstall` installs that shell and never fails an install. It
 is skipped when `CUDOC_SKIP_BROWSER_DOWNLOAD` or
@@ -401,7 +511,7 @@ browser is absent and a PDF is requested, the export throws naming that
 command. `docx` writes `<id>.docx` and `<volume>.docx` with the `docx` package,
 walking the same mdast the HTML renderer consumes.
 
-**The bound volume** is the documents in navigation order, each in its own
+**The bound volume** is the default language's documents in navigation order, then its `hidden` documents, with the ones `volume.order` names moved to the front in that order (each must be a member, named once, by id or source path), each in its own
 `<article class="cudoc-doc" id="cudoc-<token>">` and in its own Word
 section, preceded by a cover section and a contents section unless `volume`
 turns either off. The token is `idToken(id)` from `@cudoment/cudoc/document`:
@@ -619,44 +729,65 @@ stylesheet reads (`warn` for `warning`; `danger` for `caution`, `danger` and
 
 ### Theme switch
 
-`themeSwitch: true` (CLI `--theme-switch`) adds a button to every page's header
-that cycles the colour scheme through system, light and dark, and ships one
-reserved file at the output root, `cudoc-theme.js`, copied from the package's
-`dist/browser/`. Every page loads it with a plain `<script src>` at the end of
-`<head>`, without `defer`, so a remembered choice is applied before the body
-paints; the same Content-Security-Policy meta as for annotations is added once,
-whichever option asks first. The script sets or removes `data-theme="light"` or
-`"dark"` on `<html>`, which the stylesheet answers to as described under
-`siteStyles`, and remembers the choice under `localStorage["cudoc-theme"]`
-(absent means system; storage is best effort, as for annotations, and a change
-in another tab is followed through the `storage` event). The button is created
-by the script, so a page without the script has no button. Its label follows
-the document's `lang` (`ko`, else English) and reads System, Light or Dark
-beside a monitor, sun or moon icon; the tooltip and accessible name are
-"Theme: <mode>". Off by default; the default output stays script-free and
+`themeSwitch: true` (CLI `--theme-switch`) adds a theme menu to every page's
+header, a native `<select>` with System, Light and Dark beside a monitor, sun or
+moon icon, so the browser supplies keyboard use, a screen reader's announcement
+and a phone's own picker. In a site it ships one reserved file at the output
+root, `cudoc-theme.js`, copied from the package's `dist/browser/`, which every
+page loads with a plain `<script src>` at the end of `<head>`, without `defer`,
+so a remembered choice is applied before the body paints; a single page carries
+the same script inline there. The same Content-Security-Policy meta as for
+annotations is added once, whichever option asks first. The script sets or
+removes `data-theme="light"` or `"dark"` on `<html>`, which the stylesheet
+answers to as described under `siteStyles`, and remembers the choice under
+`localStorage["cudoc-theme"]` (absent means system; storage is best effort, as
+for annotations, and a change in another tab is followed through the `storage`
+event). The menu is created by the script, so a page without the script has
+none. Its words come from `data-cudoc-ui` on `<html>`, which the builder writes
+from the page language's `ui` strings (`theme`, `system`, `light`, `dark`), and
+otherwise from the document's `lang` (`ko`, else English); the tooltip is
+"<theme>: <mode>". Off by default; the default output stays script-free and
 follows the system setting.
 
 ### Annotations
 
-`annotations: true` (CLI `--annotations`) ships a review-note runtime with the
-site, so whoever receives the files can select text or a block, leave plain-text
-notes, reply, mark them resolved, and hand them back. The option is off by
-default, and the default output is unchanged byte for byte: no script, no
-policy, no block ids.
+`mode: "annotate"` (CLI `--mode annotate`) ships a review-note runtime with the
+pages, so whoever receives them can select text or a block, leave plain-text
+notes, reply, mark them resolved, and hand them back. The other modes are
+unchanged byte for byte by it: no script, no policy, no block ids.
 
-**What the option adds.** Two reserved files at the output root, copied from
-the package's `dist/browser/`: `cudoc-annotations.js`, one classic deferred
-script with no dependencies and no network access, and
-`cudoc-annotations.css`. Every page gets `<link>` and `<script defer>` tags for
-them (the landing page loads the script, which finds no document and does
-nothing) and, right after the charset,
+```ts
+type AnnotateOptions = {
+  target?: "file" | "hosted" // "file"
+  reviewId?: string // required for "hosted"
+  inbox?: { github: { repo: string; template: string; field?: string } }
+}
+```
+
+`target: "file"`, the default, writes [single pages](#single-pages) that carry
+the runtime inline. `target: "hosted"` writes a site with the runtime beside
+the pages, for a static host, and requires `reviewId`, because sites on one
+host share an origin and therefore browser storage. `reviewId` keys that
+storage; without it a file-target page uses a hash of the title and every
+published document id, the same whichever `documents` a run writes. `inbox` (hosted only) names a GitHub repository (`owner/name`),
+an issue form file in it (`*.yml` or `*.yaml`) and the form's field id
+(`notes` by default, letters, digits, `_` and `-`).
+
+**What the mode adds.** In a site, two reserved files at the output root,
+copied from the package's `dist/browser/`: `cudoc-annotations.js`, one classic
+deferred script with no dependencies and no network access, and
+`cudoc-annotations.css`; every page gets `<link>` and `<script defer>` tags for
+them (a generated landing page loads the script, which finds no document and
+does nothing). A single page carries both inline. Every page gets, right after
+the charset,
 `<meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'none'; form-action 'none'; connect-src 'none'">`.
 The policy names only origin-free directives, because `'self'` does not match
 the opaque origin some browsers give a `file://` page and would block the
 stylesheet. `<main>` carries `data-cudoc-document` (the document id),
 `data-cudoc-ast-hash` and `data-cudoc-source-hash` (the library manifest's
-`astHash` and `hash` for that document), `data-cudoc-site` (a hash of the title
-and document order, which keys browser storage) and `data-cudoc-generator`.
+`astHash` and `hash` for that document), `data-cudoc-site` (the storage key
+above), `data-cudoc-generator` and, with an inbox, `data-cudoc-inbox`, its
+JSON.
 Every `p`, `li`, `tr`, `pre`, `blockquote`, `dt`, `dd`, heading and
 `aside.cudoc-callout` carries `data-cudoc-block="<heading id>:<8 hex>"`: the
 nearest preceding heading's id (empty before the first) and the first eight hex
@@ -665,11 +796,19 @@ digits of the SHA-256 of the block's whitespace-collapsed text, with `~2`,
 or moved anywhere else, and an edited block gets a new id, so its notes fall
 back to the quote search. The print HTML, PDF and Word are built from the
 shared tree and do not change. `object-src 'none'` and `form-action 'none'`
-affect an author's raw `<embed>` or `<form>` only while the option is on.
+affect an author's raw `<embed>` or `<form>` only in this mode.
 
 **The runtime.** Selecting text shows a note button; hovering a block shows `+`
 in its gutter, and the button stays while the pointer crosses the margin to
-reach it; each opens a composer for plain text. A round toggle at the bottom
+reach it; each opens a composer for plain text. The note button follows the
+selection: a press anywhere but on it or in the composer hides it at once
+(`pointerdown`, captured), and it comes back on release only for a press that
+started in `main` outside a control (`button`, `select`, `input`, `textarea`, `label`, `summary`, `[role=button]`, editable text), so using the theme menu
+or a details summary never brings it back beside an old selection. A
+selection that collapses or leaves `main` hides it (`selectionchange`); a
+touch or pen selection shows it once the selection has been still for 350 ms.
+Escape hides it, Tab from a keyboard selection moves focus to it, and focus
+moving anywhere else hides it. A round toggle at the bottom
 right, a speech-bubble icon with the number of notes on this document, opens the
 panel. The panel starts with a name field (optional, applied as it is typed,
 remembered in the browser, empty by default), then two primary actions, copy a
@@ -677,8 +816,9 @@ share token and clear this browser's storage, and a collapsed _More_ with the
 file actions: download `<id>.annotations.json`; save `<id>.annotated.html`, a
 copy of the page with the notes in a
 `<script type="application/json" id="cudoc-annotations-data">` block (every `<`
-escaped) and without the runtime's UI, which must sit in the same folder as the
-original to load its stylesheet; load a `.json` or `.annotated.html` file,
+escaped) and without the runtime's UI, which opens anywhere when it is a single
+page and must sit in the same folder as the original to load its stylesheet
+when it is a site page; load a `.json` or `.annotated.html` file,
 also by drag and drop anywhere on the layer. Below them it lists this document's
 notes as cards: state and position pills, author and UTC time, the quoted passage
 (block boundaries collapsed to spaces, at most three lines), the text, replies,
@@ -709,6 +849,17 @@ by that width too and its right-aligned controls move exactly that far.
 _Cover the page_ lays the panel over them. Below 768px the panel always covers the page. Language, placement and
 name are remembered per browser under `cudoc-annotations:lang`, `:layout`
 and `:author`.
+With an inbox, the panel adds _Compose on GitHub_ beside the token: it
+encodes the notes as a share token and builds
+`https://github.com/<repo>/issues/new?template=<template>&title=Review%20notes%3A%20<page title>&<field>=%23cudoc-notes%3D<token>`.
+An address longer than 6,000 characters downloads the JSON file instead, with
+a message to attach it, since GitHub answers a long address with 414 and
+publishes no limit. Otherwise the panel first shows what travels (the note
+text, the quotes and the name, public on a public repository, and that a
+compressed token is not encryption) and opens the address with
+`window.open(url, "_blank", "noopener,noreferrer")` only on the reader's
+confirmation; nothing is marked as sent, since opening the page is not
+submitting it. Without notes it says there is nothing to send.
 `window.cudocAnnotations` exposes `create(exact, text)`,
 `createOnBlock(blockId, text)`, `reply(id, text)`, `list()`, `anchors()`,
 `load(text)`, `collection()`, `embeddedCopy()` and `token()` for automation.
@@ -733,7 +884,8 @@ types are dropped, unknown fields ignored, and the input refused when
 above, when a quote is missing, when an offset is negative or reversed, when a
 date is not ISO 8601, or when a limit is exceeded: 2 MiB per file, 500 notes,
 10 KiB per note text, 2 KiB per quote, 64 bytes per context, 200 per name or
-id. A date is a calendar date (`2026-09-16`) or a date and time with `Z` or a
+id. A saved `.annotated.html` may be up to 32 MiB (`LIMITS.htmlBytes`), and the
+notes block inside it is held to the 2 MiB of a notes file. A date is a calendar date (`2026-09-16`) or a date and time with `Z` or a
 `±hh:mm` offset, checked against the calendar, and is stored in the UTC form
 above, so dates from any offset compare as text; a local time without an
 offset, or anything else `Date.parse` would accept, is refused. A file, chosen
@@ -765,7 +917,9 @@ destinations, and line-leading `>`, `#`, `|` and list markers), then the same
 two passes over the whole document; the result is `exact`, `loose`, `moved` or
 `not-found`, with 1-based line numbers. The Markdown report states facts only
 and gives no instructions, because it is meant to sit under the author's own
-prompt: a header with files, library and counts; one section per document in
+prompt: a header with files, the library (as a path relative to the working
+directory, so a pasted report does not carry the author's home path) and
+counts; one section per document in
 library order, unknown documents last, with its source path and whether its
 version changed since the notes; one entry per note, sorted by line, with the
 heading, state, scope and match, the source lines in a fence, and the
@@ -785,15 +939,15 @@ is not in the embedding document's Markdown, so a note on it is `not-found`.
 
 [links.ts](../../packages/cudoc-export/src/links.ts) resolves document targets from source IDs and collected routes. Markdown paths prefer source IDs; native URL paths prefer routes. A path spelled as a directory, `guide/`, `./` or `..`, names that directory's index document even beside a document of the directory's own name, as [`cudoc check`](./node.md#reference-checking) reads it. Root-relative, source-relative, deployment-prefixed and custom routes are supported. Query strings and fragments are retained.
 
-- `relative`: map known documents to local `.html` output. Keep fragment-only links local and external URLs unchanged. Other local hyperlink targets must be files that can be copied.
-- `host`: map known documents to `hostUrl` plus the stored route without duplicating an existing base prefix. Fragment-only links point to the deployed current document. Other root paths are relative to the deployment base; other relative paths resolve against the deployed current document URL. External scheme URLs and protocol-relative URLs remain unchanged. No remote link checking occurs.
+- `relative`: map published documents to their output files. Keep fragment-only links local and external URLs unchanged. Other local hyperlink targets go to a mount's copy or to `sourceLinks`, or must be files that can be copied. A link to a document the site does not publish is an error that names it and the way out.
+- `host`: map known documents to `hostUrl` plus the stored route without duplicating an existing base prefix. Fragment-only links point to the deployed current document. A file under `sourceLinks.root` that is not collected goes to `sourceLinks.url`; other root paths are relative to the deployment base, and other relative paths resolve against the deployed current document URL. External scheme URLs and protocol-relative URLs remain unchanged. No remote link checking occurs.
 - `none`: replace `<a>` with `<span>` and remove hyperlink attributes from `<a>`/`<area>`, preserving labels, IDs, nested markup and images. No removed hyperlink target is resolved or copied. This is hyperlink removal, not sanitization of scripts or event handlers.
 
-The policy runs on the complete page, including body, raw HTML, renderer callbacks, embeds, generated header/navigation/TOC, footnotes and synthetic index. The local skip link is emitted only in `relative` mode. This setting is independent of collection's `syntax.link`.
+The policy runs on the complete page, including body, raw HTML, renderer callbacks, embeds, footnotes and the synthetic index; the shell's own header, navigation, language menu and TOC links are written resolved and marked `data-cudoc-final`, which the rewrite skips and removes. The local skip link is emitted only in `relative` mode. This setting is independent of collection's `syntax.link`.
 
-Rendering resources are processed separately and stay local in every mode when their source is local: `src` on any element, each candidate of a `srcset`, read as the browser reads it (a URL runs to the next white space, so the comma inside a data URL stays part of it, and an empty candidate a stray comma leaves is dropped), a `<video>`'s `poster`, an `<object>`'s `data`, an authored stylesheet's `<link href>`, and the `href` or `xlink:href` of an SVG `<image>`, `<use>` or `<feImage>`. Resources are searched in library coordinates — a document-relative path against the document's library path, a root-relative one as a library path — and reach disk through the root holding that path, then beneath `assetDirs` using a URL-root path with the optional deployment base removed. Referenced files are copied with relative output URLs, each once however many pages and outputs name it; the path is written as a URL by `urlPath` from `cudoc-export/print`, which escapes white space, commas, `%`, `#` and `?` in a file name, so `media/a b.png` is written `media/a%20b.png` in `src` and in `srcset` alike, and a link to a copied file is written the same way in the site, the print HTML and Word; external resources remain external. This is not recursive bundling of CSS imports or `url()` dependencies.
+Rendering resources are processed separately and stay local in every mode when their source is local: `src` on any element, each candidate of a `srcset`, read as the browser reads it (a URL runs to the next white space, so the comma inside a data URL stays part of it, and an empty candidate a stray comma leaves is dropped), a `<video>`'s `poster`, an `<object>`'s `data`, an authored stylesheet's `<link href>`, and the `href` or `xlink:href` of an SVG `<image>`, `<use>` or `<feImage>`. Resources are searched in library coordinates — a document-relative path against the document's library path, a root-relative one as a library path — and reach disk through the root holding that path, then beneath `assetDirs` using a URL-root path with the optional deployment base removed. Referenced files are copied with relative output URLs, each once however many pages and outputs name it; the path is written as a URL by `urlPath` from `cudoc-export/print`, which escapes white space, commas, `%`, `#` and `?` in a file name, so `media/a b.png` is written `media/a%20b.png` in `src` and in `srcset` alike, and a link to a copied file is written the same way in the site, the print HTML and Word; external resources remain external. A `css` file's `url()` files are handled as [Site structure](#site-structure) describes, and its `@import` is refused; on a single page every one of these resources is written inline as [Single pages](#single-pages) describes.
 
-Invalid link modes/URLs, empty inputs, unknown navigation IDs, missing assets, asset/output collisions, different assets sharing one output path, unsupported nodes and unsafe output directories fail. A local rendering resource that reaches outside every root and every `assetDirs` root is reported under every policy as a missing local target naming both the URL and the document that carries it; a hyperlink there is reported so only under `relative`, which would copy it, while `host` resolves it against the deployment and `none` removes it. Nothing is ever copied from outside those roots. A link from an exported document to a private one is an error naming both under `relative`, because the page is not in the output and copying its source would publish it; under `host` it points at the deployment, which serves the page, in every output, the bound volume included; `none` removes it like any other link. A resource, or under `relative` a link to a local file, that reaches a private document's file fails under every policy, whichever path reaches it — its root, an `assetDirs` directory, a symbolic link or another spelling of the name — because the check compares the file itself, not the path: `cudoc-export: <document> loads the private document <library path> as a resource (<url>), which would publish its source`. Output overlap with source, library or asset roots is rejected before writing. Site publication uses staging and preserves the previous site on failure. In collection mode, library and site publication are separate; a failed site write does not roll back a newly collected library. In reuse mode the library remains unchanged. Source HTML is not sanitized and React/Vue code is not executed. The generated shell has no client-side JavaScript dependency unless `annotations` or `themeSwitch` is on, each adding one local script, described under [Annotations](#annotations) and [Theme switch](#theme-switch).
+Invalid link modes/URLs, empty inputs, navigation entries naming no document or folder, missing assets, asset/output collisions, different assets sharing one output path, unsupported nodes and unsafe output directories fail. A local rendering resource that reaches outside every root and every `assetDirs` root is reported under every policy as a missing local target naming both the URL and the document that carries it; a hyperlink there is reported so only under `relative`, which would copy it, while `host` resolves it against the deployment and `none` removes it. Nothing is ever copied from outside those roots. A link from an exported document to a private one is an error naming both under `relative`, because the page is not in the output and copying its source would publish it; under `host` it points at the deployment, which serves the page, in every output, the bound volume included; `none` removes it like any other link. A resource, or under `relative` a link to a local file, that reaches a private document's file fails under every policy, whichever path reaches it — its root, an `assetDirs` directory, a symbolic link or another spelling of the name — because the check compares the file itself, not the path: `cudoc-export: <document> loads the private document <library path> as a resource (<url>), which would publish its source`. Output overlap with source, library, asset or mounted roots is rejected before writing. Publication uses staging: a failed run preserves the previous output, and a successful one replaces it whole, so nothing an earlier run or mode wrote is left beside the new output. In collection mode, library and site publication are separate; a failed site write does not roll back a newly collected library. In reuse mode the library remains unchanged. Source HTML is not sanitized and React/Vue code is not executed. The generated shell has no client-side JavaScript dependency unless `mode: "annotate"` or `themeSwitch` adds its script, described under [Annotations](#annotations) and [Theme switch](#theme-switch).
 
 CLI ([source](../../packages/cudoc-export/src/cli.ts)):
 
@@ -803,11 +957,12 @@ cudoc-export build --config site.config.mjs
 cudoc-export build docs --library .cudoc/documents --out-dir shared-html \
   --links host --host-url https://docs.example.com/project/ --asset-dir public
 cudoc-export build docs --library .cudoc/documents --out-dir shared-html --links none
-cudoc-export build --config site.config.mjs --annotations
+cudoc-export build docs --out-dir out --mode standalone --document guide.md --strict
+cudoc-export build --config review.yml --mode annotate
 cudoc-export build docs --out-dir out --format pdf --format docx \
   --granularity both --paper Letter --landscape
 cudoc-export annotations review.annotations.json --library .cudoc/documents --out review.md
 cudoc-export install-browser
 ```
 
-`--annotations` and `--theme-switch` turn those options on. `--format` is repeatable and the list replaces config `formats`; `--granularity` sets `granularity`; `--paper <name>` (a named size: `A4`, `A5`, `A3`, `Letter`, `Legal`) and `--landscape` set `page.paper` and `page.orientation` over the config's `page`. `cudoc-export annotations <notes…> [--token token]… --library <dir> [--out file] [--json]` prints or writes the review report described under [Annotations](#annotations), and exits 1 only for a missing or invalid file or library. `cudoc-export install-browser` runs the browser installer and exits with its status. CLI defaults are `docs` and `site`. ESM config must default-export an object; JSON is supported, while callback functions require ESM or the programmatic API. Explicit source, `--out-dir`, `--library`, `--links`, `--host-url` and `--granularity` override config. Repeated `--asset-dir` flags form an array that replaces config `assetDirs`, and repeated `--external-path` flags replace config `externalPaths`. A config that lists `roots` keeps them unless a source root is given on the command line, which replaces them. Relative paths use the invoking working directory. Success prints the build result as JSON on standard output and each diagnostic as `cudoc-export: <document>: <message>` on standard error; errors, including an unknown flag or a value flag without a value, set exit code 1. There is no watch or single-file bundling command.
+`--mode` sets `mode`, repeated `--document` flags form the `documents` list that replaces the config's, and `--strict` and `--theme-switch` turn those options on. `--annotations`, retired, fails with a message naming `--mode annotate`. `--format` is repeatable and the list replaces config `formats`; `--granularity` sets `granularity`; `--paper <name>` (a named size: `A4`, `A5`, `A3`, `Letter`, `Legal`) and `--landscape` set `page.paper` and `page.orientation` over the config's `page`. `cudoc-export annotations <notes…> [--token token]… --library <dir> [--out file] [--json]` prints or writes the review report described under [Annotations](#annotations), and exits 1 only for a missing or invalid file or library. `cudoc-export install-browser` runs the browser installer and exits with its status. CLI defaults are `docs` and `site`. ESM config must default-export an object; JSON and YAML (`.json`, `.yml`, `.yaml`) are supported, while callback functions require ESM or the programmatic API. Explicit source, `--out-dir`, `--library`, `--links`, `--host-url` and `--granularity` override config. Repeated `--asset-dir` flags form an array that replaces config `assetDirs`, and repeated `--external-path` flags replace config `externalPaths`. A config that lists `roots` keeps them unless a source root is given on the command line, which replaces them. Relative paths use the invoking working directory. Success prints the build result as JSON on standard output, and on standard error each diagnostic as `cudoc-export: <document>: <message>` and each single-page dependency as `cudoc-export: <document>: needs a page beside it: <url>` (or `a file beside it`, `a remote resource`); errors, including an unknown flag or a value flag without a value, set exit code 1. There is no watch command.

@@ -37,7 +37,7 @@
  * The embedded section sits one directory below the page that embeds it,
  * links back to that page and shows a root-relative image from the host's
  * static directory, which the collector, the check, the site build and the
- * export all have to resolve from the other directory. The standalone
+ * export all have to resolve from the other directory. The
  * export guide has no host and no build script: only its first section is
  * followed, and its commands run in the order it gives them. The host
  * packages the starting site and the install lines name install at the

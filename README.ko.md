@@ -4,7 +4,9 @@
 
 **한 번만 쓰고 어디서나 다시 쓰세요. 문서에도, 사이트에도, 인덱스에도 원본은 하나만 남습니다.**
 
-cudoc은 지금 쓰고 계신 문서에 세 가지를 더합니다. Markdown 문법 확장, **문서 임베딩**, 그리고 같은 문서를 독립 HTML 사이트와 PDF, Word로 내보내는 출력입니다. 쓰시던 정적 사이트 생성기에 그대로 붙고, 작성자는 하던 대로 Markdown만 쓰면 됩니다.
+**이 README는 [웹사이트](https://cudoment.github.io/cudoc/index.ko.html)로도 읽을 수 있습니다.** 정적 사이트 생성기 없이 `cudoc-export`가 이 파일과 `docs/`로 만든 사이트입니다. cudoc의 문서를 cudoc이 직접 내보냈습니다.
+
+cudoc은 지금 쓰고 계신 문서에 세 가지를 더합니다. Markdown 문법 확장, **문서 임베딩**, 그리고 같은 문서를 HTML 사이트와 단일 HTML 페이지, PDF, Word로 내보내는 출력입니다. 쓰시던 정적 사이트 생성기에 그대로 붙고, 작성자는 하던 대로 Markdown만 쓰면 됩니다.
 
 **설정 가이드:** [Next.js](./docs/next.ko.md) · [Docusaurus](./docs/docusaurus.ko.md) · [Nextra](./docs/nextra.ko.md) · [VitePress](./docs/vitepress.ko.md) · [Eleventy](./docs/eleventy.ko.md) · [아직 생성기가 없음](./docs/export.ko.md) · [호스트마다 필요한 조건](#쓰시는-생성기를-고르세요)
 
@@ -71,7 +73,7 @@ cudoc은 문서를 통째로 둡니다. `reference.md`는 URL을 가진 페이�
 
 ### 그리고 가져온 내용은 진짜 글입니다
 
-바로 다음 절이 이 사실 위에 서 있습니다. 컴포넌트 노드는 호스트가 아닌 모든 것에게 불투명합니다. 독립 HTML 내보내기도, AST 데이터셋도, 말뭉치를 읽는 검색기도 그 안을 볼 수 없습니다. cudoc이 해석해 놓은 결과는 실제 내용이므로, 어느 도착지든 똑같이 완성된 문서를 받습니다. → [문서 임베딩](./docs/embedding.ko.md)
+바로 다음 절이 이 사실 위에 서 있습니다. 컴포넌트 노드는 호스트가 아닌 모든 것에게 불투명합니다. HTML 내보내기도, AST 데이터셋도, 말뭉치를 읽는 검색기도 그 안을 볼 수 없습니다. cudoc이 해석해 놓은 결과는 실제 내용이므로, 어느 도착지든 똑같이 완성된 문서를 받습니다. → [문서 임베딩](./docs/embedding.ko.md)
 
 ---
 
@@ -105,7 +107,7 @@ cudoc은 문서를 통째로 둡니다. `reference.md`는 URL을 가진 페이�
 | **Nextra**             | [Nextra 설정 →](./docs/nextra.ko.md)         | `@cudoment/cudoc cudoc-remark cudoc-nextra`     |
 | **VitePress**          | [VitePress 설정 →](./docs/vitepress.ko.md)   | `@cudoment/cudoc cudoc-vitepress`               |
 | **Eleventy**           | [Eleventy 설정 →](./docs/eleventy.ko.md)     | `@cudoment/cudoc cudoc-eleventy`                |
-| **아직 생성기가 없음** | [독립 HTML →](./docs/export.ko.md)           | `@cudoment/cudoc cudoc-export`                  |
+| **아직 생성기가 없음** | [HTML 내보내기 →](./docs/export.ko.md)       | `@cudoment/cudoc cudoc-export`                  |
 
 아직 생성기가 없으시다면 마지막 줄부터 보세요. 빈 디렉터리에서 명령 두 번과 문서 두 개면 사이트 하나가 나옵니다. → [첫 사이트 만들기](./docs/export.ko.md#빈-디렉터리에서-첫-사이트-만들기)
 
@@ -120,7 +122,7 @@ cudoc은 문서를 통째로 둡니다. `reference.md`는 URL을 가진 페이�
 
 모든 호스트가 `.md`를 받습니다. MDX 계열 세 호스트는 `.mdx`도 받고, 어느 쪽인지는 파일 확장자로 파일마다 갈립니다. cudoc의 기능은 두 형식에서 똑같이 동작합니다. → [`.md`와 `.mdx` 선택](./docs/README.ko.md#md와-mdx-선택)
 
-독립 HTML과 PDF, Word는 다른 것들 대신 고르는 일곱 번째 선택지가 아닙니다. 어느 호스트를 쓰시든 같은 수집 결과를 재사용해 **추가로** 뽑아낼 수 있는 출력입니다. → [기존 사이트와 함께 생성](./docs/export.ko.md#기존-사이트와-함께-생성)
+HTML과 PDF, Word 내보내기는 다른 것들 대신 고르는 일곱 번째 선택지가 아닙니다. 어느 호스트를 쓰시든 같은 수집 결과를 재사용해 **추가로** 뽑아낼 수 있는 출력입니다. → [기존 사이트와 함께 생성](./docs/export.ko.md#기존-사이트와-함께-생성)
 
 ---
 
@@ -168,17 +170,17 @@ VitePress와 Eleventy는 설정을 평가할 때 라이브러리를 불러오므
 
 ### 문서 한 벌로 도착지 세 곳
 
-사이트와 전달용 HTML 묶음과 기계가 읽는 AST 말뭉치가, 같은 Markdown에서 같은 방식으로 나옵니다.
+사이트와 전달용 HTML과 기계가 읽는 AST 말뭉치가, 같은 Markdown에서 같은 방식으로 나옵니다.
 
-| 출력         | 명령                 | 쓰임새                                                    |
-| ------------ | -------------------- | --------------------------------------------------------- |
-| 기존 사이트  | 평소 쓰시던 빌드     | 사람이 읽는 운영 문서                                     |
-| 독립 HTML    | `cudoc-export build` | 오프라인 전달, 망분리 환경 검토, 정적 배포                |
-| AST 데이터셋 | `cudoc dataset`      | RAG 파이프라인, 검색 인덱스, MCP 서버, 에이전트 참고 자료 |
+| 출력          | 명령                 | 쓰임새                                                    |
+| ------------- | -------------------- | --------------------------------------------------------- |
+| 기존 사이트   | 평소 쓰시던 빌드     | 사람이 읽는 운영 문서                                     |
+| HTML 내보내기 | `cudoc-export build` | 오프라인 전달, 파일 하나로 첨부, 리뷰 회차, 정적 배포     |
+| AST 데이터셋  | `cudoc dataset`      | RAG 파이프라인, 검색 인덱스, MCP 서버, 에이전트 참고 자료 |
 
-HTML 출력은 하이퍼링크를 세 가지 방식으로 다룹니다. 로컬 파일로 잇거나, 배포 URL로 바꾸거나, 아예 없앱니다. 덕분에 같은 내용을 디스크에서 열든 웹에 올리든 그대로 동작합니다.
+HTML 출력은 사이트로 쓰거나, 스타일과 그림을 품은 단일 페이지로 쓰거나, 리뷰 메모를 받는 페이지로 씁니다. 하이퍼링크는 세 가지 방식으로 다룹니다. 로컬 파일로 잇거나, 배포 URL로 바꾸거나, 아예 없앱니다. 덕분에 같은 내용을 디스크에서 열든, 메시지에 첨부하든, 웹에 올리든 그대로 동작합니다.
 
-완성된 예시가 저장소에 함께 들어 있습니다. 문서 여섯 개로 된 API 핸드북을 [설정 파일 하나](./examples/export/showcase.config.mjs)로 사이트, 문서별 파일, 표지와 목차가 붙은 묶음 파일로 내보낸 결과입니다. [PDF](./examples/export/showcase-output/northlight-handbook.pdf)와 [Word 파일](./examples/export/showcase-output/northlight-handbook.docx)은 바로 열어 볼 수 있고, 저장소를 내려받으면 [사이트](./examples/export/showcase-output/index.html)를 디스크에서 열 수 있습니다. 이 결과를 만든 Markdown은 [원본 문서](./examples/export/showcase/)에 있습니다. → [완성 예시](./docs/export.ko.md#완성-예시)
+완성된 예시가 저장소에 함께 들어 있습니다. 문서 여섯 개로 된 API 핸드북을 [설정 파일 하나](./examples/export/showcase.config.mjs)로 두 언어의 사이트, 문서별 파일, 표지와 목차가 붙은 묶음 파일로 내보냈고, 설정 세 개를 더해 [단일 페이지](./examples/export/standalone-output/getting-started.html), [리뷰용 페이지](./examples/export/annotate-output/getting-started.html), [호스팅 리뷰](./examples/export/review-output/)로도 내보냈습니다. [PDF](./examples/export/showcase-output/northlight-handbook.pdf)와 [Word 파일](./examples/export/showcase-output/northlight-handbook.docx)은 바로 열어 볼 수 있고, [사이트](./examples/export/showcase-output/index.html)는 문서 사이트에서 보거나 저장소를 내려받아 디스크에서 열 수 있습니다. 이 결과를 만든 Markdown은 [원본 문서](./examples/export/showcase/)에 있습니다. → [완성 예시](./docs/export.ko.md#완성-예시)
 
 ---
 
@@ -190,7 +192,7 @@ HTML 출력은 하이퍼링크를 세 가지 방식으로 다룹니다. 로컬 �
 | -------------------------------------------------------- | -------------------------------------------------- |
 | 문법 모드, 콜아웃 종류, 네이티브 형태, 열 배치           | [Markdown 문법](./docs/syntax.ko.md)               |
 | 수집 설정, 선택, 치환, 갱신 규칙                         | [문서 임베딩](./docs/embedding.ko.md)              |
-| 링크 정책, 자산, 설정, 배포 경로                         | [독립 HTML](./docs/export.ko.md)                   |
+| HTML 모드, 사이트 구성, 링크 정책, PDF와 Word            | [내보내기](./docs/export.ko.md)                    |
 | 문서 집합 전체의 깨진 링크·앵커·이미지·임베드            | [참조 검사](./docs/check.ko.md)                    |
 | 투영 옵션, 매니페스트 형식, 소비자 계약                  | [AST 데이터셋](./docs/dataset.ko.md)               |
 | import, 시그니처, 옵션 기본값, AST 메타데이터, 내부 동작 | [API 레퍼런스](./docs/api-reference/README.ko.md)  |

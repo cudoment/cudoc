@@ -1,20 +1,23 @@
 // A complete export of a small documentation set: the site, a bound PDF and a
 // Word file from one configuration. Build it from this directory with
 //   npm run showcase
-// which writes showcase-output/, the copy committed beside these sources.
+// which writes showcase-output/, the copy committed beside these sources,
+// together with the standalone, review and hosted review samples.
 export default {
   sourceRoot: "showcase",
   outDir: "showcase-output",
   libraryDir: ".cudoc/showcase-library",
   title: "Northlight Weather API",
-  navigation: [
-    "index",
-    "getting-started",
-    "reference/endpoints",
-    "reference/limits",
-    "reference/errors",
-    "release-notes",
-  ],
+  // What the site lists on the left, and so what it publishes.
+  navigation: "showcase/nav.yml",
+  // English files carry no suffix; Korean ones end in `.ko.md`.
+  locales: { en: "English", ko: "한국어" },
+  header: {
+    links: [{ title: "GitHub", url: "https://github.com/cudoment/cudoc" }],
+  },
+  toc: { depth: 3 },
+  // Linked after the built-in stylesheet, with the picture it loads.
+  css: ["theme/brand.css"],
   // Authors write cudoc's own markers; no host syntax is in play here.
   syntax: {
     headingAnchor: "cudoc",
@@ -50,8 +53,7 @@ export default {
       dark: { accent: "#67e8f9", accentSoft: "#164e63" },
     },
   },
-  // Readers of the site can leave notes and switch the theme.
-  annotations: true,
+  // Readers of the site can choose the theme.
   themeSwitch: true,
   formats: ["html", "pdf", "docx"],
   granularity: "both",

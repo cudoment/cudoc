@@ -1,6 +1,6 @@
 {
   "name": "cudoc-markdown-it",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Shared markdown-it pipeline for cudoc host adapters",
   "license": "MIT",
   "repository": {
@@ -44,7 +44,7 @@
   "dependencies": {
     "@types/mdast": "^4.0.4",
     "@types/unist": "^3.0.3",
-    "@cudoment/cudoc": "0.7.0"
+    "@cudoment/cudoc": "0.8.0"
   },
   "peerDependencies": {
     "markdown-it": "^14.1.0",

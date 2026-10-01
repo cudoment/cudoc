@@ -234,7 +234,7 @@ Collection has to run before the site does. To collect again as you write, call 
 
 `cudoc check` reports every broken link, anchor, image and embed in one pass, and exits non-zero, so a broken reference stops the build before the site is generated. → [Reference checking](./check.md)
 
-## Step 7 — Optionally export standalone HTML
+## Step 7 — Optionally export HTML
 
 Reuse the library you just collected to produce a shareable HTML bundle:
 
@@ -244,7 +244,7 @@ npx cudoc-export build docs --library .cudoc/documents --out-dir shared-html \
   --links host --host-url https://docs.example.com/project/ --asset-dir static
 ```
 
-Your Docusaurus build and its collected data are not modified. → [Standalone HTML](./export.md)
+Your Docusaurus build and its collected data are not modified. → [Export](./export.md)
 
 ---
 

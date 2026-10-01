@@ -169,7 +169,7 @@ export default {
 
 `cudoc check`는 깨진 링크와 앵커, 이미지, 임베드를 한 번에 전부 보고하고 종료 코드를 0이 아닌 값으로 냅니다. 사이트가 생성되기 전에 빌드가 멈춥니다. → [참조 검사](./check.ko.md)
 
-## 7단계 — 독립 HTML도 내보내기 (선택)
+## 7단계 — HTML로도 내보내기 (선택)
 
 ```sh
 npm install cudoc-export
@@ -177,7 +177,7 @@ npx cudoc-export build content --library .cudoc/documents --out-dir shared-html 
   --links host --host-url https://docs.example.com/project/ --asset-dir public
 ```
 
-소스 디렉터리가 `docs`가 아니라 `content`인 점에 유의하십시오. Nextra 빌드 결과와 수집 데이터는 변경되지 않습니다. → [독립 HTML](./export.ko.md)
+소스 디렉터리가 `docs`가 아니라 `content`인 점에 유의하십시오. Nextra 빌드 결과와 수집 데이터는 변경되지 않습니다. → [내보내기](./export.ko.md)
 
 ---
 
@@ -209,7 +209,7 @@ cudocRemarkPlugins({ syntax: { headingAnchor: "both", callout: "both" } })
 
 **제목 id는 slug로 바뀝니다.** Nextra는 자체 `[#id]`를 포함한 모든 제목 id를 slugger에 통과시키므로, id는 이미 slug 형태일 때만 철자가 유지됩니다. `## 버전 (#v1.2)`은 `v12`로 렌더링됩니다. 이 slugger는 id를 문서 순서대로 받으므로, 앞선 제목의 글자가 이미 만든 id를 뒤에서 명시하면(`## Setup` 다음 `## Intro (#setup)`) 여기와 Docusaurus에서는 명시한 쪽이 `setup-1`이 되지만, VitePress, Eleventy, 독립 내보내기는 명시한 id에 `setup`을 남기고 앞의 제목에 번호를 붙입니다. 앵커를 영문 소문자, 숫자, 하이픈으로 쓰고, 명시한 id를 가진 제목을 같은 id를 만들 글자의 제목보다 앞에 두시면 그 앵커로 가는 링크가 모든 호스트에서 같게 해석됩니다.
 
-**정적 컴포넌트는 문서 노드가 되고 동적 컴포넌트는 컴포넌트로 남습니다.** 정적 `<Callout>`은 이식 가능한 콜아웃으로 정규화되어 모든 호스트와 독립 내보내기가 렌더링할 수 있습니다. 임베드된 절에 남은 컴포넌트는 복사본이 접합되는 자리에서 Nextra의 컴포넌트 매핑으로 렌더링되며, 독립 HTML 내보내기에는 여전히 렌더러가 필요하고 `cudoc check`가 그 이름을 알려 줍니다.
+**정적 컴포넌트는 문서 노드가 되고 동적 컴포넌트는 컴포넌트로 남습니다.** 정적 `<Callout>`은 이식 가능한 콜아웃으로 정규화되어 모든 호스트와 HTML 내보내기가 렌더링할 수 있습니다. 임베드된 절에 남은 컴포넌트는 복사본이 접합되는 자리에서 Nextra의 컴포넌트 매핑으로 렌더링되며, HTML 내보내기에는 여전히 렌더러가 필요하고 `cudoc check`가 그 이름을 알려 줍니다.
 
 **`.md`와 `.mdx`의 차이.** 직접 만든 React 컴포넌트는 `.mdx`에 작성하십시오. `.md`는 Markdown으로 남아 `{value}`가 그대로 글자가 됩니다. → [`.md`와 `.mdx` 선택](./README.ko.md#md와-mdx-선택)
 

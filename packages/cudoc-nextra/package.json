@@ -1,6 +1,6 @@
 {
   "name": "cudoc-nextra",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Nextra adapter for cudoc: remark wiring and default components.",
   "license": "MIT",
   "repository": {
@@ -46,7 +46,7 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "cudoc-remark": "0.7.0",
+    "cudoc-remark": "0.8.0",
     "unified": "^11.0.5"
   },
   "peerDependencies": {

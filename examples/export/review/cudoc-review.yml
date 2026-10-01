@@ -1,0 +1,28 @@
+# An issue form for review notes sent from a cudoc-export hosted review.
+# Copy it to .github/ISSUE_TEMPLATE/ in the repository the review names; the
+# panel's "Compose on GitHub" button fills the notes field and the reader
+# submits the issue. The label is set here because a label in the address
+# applies only for someone allowed to label issues.
+name: Review notes
+description: Notes left on the documentation review.
+labels: [review-notes]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        The notes below were filled in by the review page. Add anything
+        else you want to say, then submit. Everything here is public on a
+        public repository.
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes token
+      description: >-
+        The author loads this into a copy of the site, or reads it with
+        npx cudoc-export annotations --token.
+    validations:
+      required: true
+  - type: textarea
+    id: comment
+    attributes:
+      label: Anything else

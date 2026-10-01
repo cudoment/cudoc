@@ -138,7 +138,7 @@ Collection has to run before Next.js does. While you write, run `cudoc collect -
 
 **Match collected routes to your App Router paths.** A `guide.md` served at `/help/guide` needs `routes: { guide: "/help/guide" }`.
 
-## Step 7 — Optionally export standalone HTML
+## Step 7 — Optionally export HTML
 
 ```sh
 npm install cudoc-export
@@ -146,7 +146,7 @@ npx cudoc-export build docs --library .cudoc/documents --out-dir shared-html \
   --links host --host-url https://docs.example.com/project/ --asset-dir public
 ```
 
-Your Next.js build and its collected data are not modified. → [Standalone HTML](./export.md)
+Your Next.js build and its collected data are not modified. → [Export](./export.md)
 
 ---
 

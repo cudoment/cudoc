@@ -5,7 +5,7 @@
   "scripts": {
     "sync": "node ../scripts/sync-portable.mjs docs",
     "build": "npm run sync && cudoc-export build docs --out-dir site",
-    "showcase": "cudoc-export build --config showcase.config.mjs"
+    "showcase": "cudoc-export build --config showcase.config.mjs && cudoc-export build --config standalone.config.mjs && cudoc-export build --config annotate.config.mjs && cudoc-export build --config review.config.mjs && cudoc-export annotations review-samples/getting-started.annotations.json --library .cudoc/annotate-library --out review-samples/report.md"
   },
   "dependencies": {
     "@cudoment/cudoc": "file:../../packages/cudoc",
