@@ -65,7 +65,11 @@ suite("review notes in the browser", () => {
     fs.mkdirSync(sourceRoot)
     fs.writeFileSync(
       path.join(sourceRoot, "index.md"),
-      '---\nlang: ko\n---\n\n# Home (#home)\n\nFirst paragraph of the page.\n\n## Start (#start)\n\nRun the installer before anything else.\n\n- First item\n- Second item\n\n<button type="button" id="probe">Probe</button>\n',
+      '---\nlang: ko\n---\n\n# Home (#home)\n\nFirst paragraph of the page.\n\n## Start (#start)\n\nRun the installer before anything else.\n\n- First item\n- Second item\n\n<button type="button" id="probe">Probe</button>\n\n<img id="picture" src="picture.svg" alt="Picture" width="120" height="60">\n',
+    )
+    fs.writeFileSync(
+      path.join(sourceRoot, "picture.svg"),
+      '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="60"><rect width="120" height="60" fill="#888"/></svg>',
     )
     buildSite({
       sourceRoot,
@@ -574,6 +578,8 @@ suite("review notes in the browser", () => {
           const text = document
             .createTreeWalker(p, NodeFilter.SHOW_TEXT)
             .nextNode()!
+          // A press in text drops the old selection before it makes one.
+          getSelection()!.removeAllRanges()
           p.dispatchEvent(
             new PointerEvent("pointerdown", { bubbles: true, pointerType }),
           )
@@ -600,6 +606,18 @@ suite("review notes in the browser", () => {
     await shown()
     await page.click("#probe")
     await page.waitForTimeout(50)
+    expect(await float()).toBe(false)
+    expect(await page.evaluate(() => getSelection()!.isCollapsed)).toBe(false)
+
+    // A press on a picture in the text leaves the selection where it was,
+    // and the button must not come back beside it on the release.
+    await select()
+    await shown()
+    const picture = (await page.locator("#picture").boundingBox())!
+    await page.mouse.move(picture.x + 20, picture.y + 20)
+    await page.mouse.down()
+    await page.mouse.up()
+    await page.waitForTimeout(100)
     expect(await float()).toBe(false)
     expect(await page.evaluate(() => getSelection()!.isCollapsed)).toBe(false)
 

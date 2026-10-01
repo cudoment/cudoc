@@ -480,7 +480,7 @@ The site opens on `index.md`, or on the document `home` names, such as `home: "R
 
 ### Look
 
-The built-in stylesheet follows the viewer's light or dark system setting, needs no script to do so, and keeps every colour in a custom property that both themes define. `themeSwitch: true` (or `--theme-switch`) adds a theme menu to the header, with System, Light and Dark, whose choice the browser remembers; it is the one small script the site loads besides the review-note runtime, and the default output stays without it.
+The built-in stylesheet follows the viewer's light or dark system setting, needs no script to do so, and keeps every colour in a custom property that both themes define. `themeSwitch: true` (or `--theme-switch`) adds a theme menu to the header with Light and Dark: until the reader chooses, the page follows the system setting and the menu shows which one it is, and the browser remembers a choice; it is the one small script the site loads besides the review-note runtime, and the default output stays without it.
 
 `css` names one stylesheet or a list, loaded after the built-in one. A site links each as its own file under `cudoc-css/`, and copies an image or font it loads to `cudoc-css/files/` under a name taken from the file's content; a single page carries its text and those files inline. To restyle the site, redefine the custom properties rather than rewriting the rules. The full token list is in the [adapter reference](./api-reference/adapters.md#export):
 

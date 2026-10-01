@@ -171,7 +171,7 @@ describe("features used together", () => {
     const ui = JSON.parse(
       page.querySelector("html")!.getAttribute("data-cudoc-ui")!,
     )
-    expect(ui).toMatchObject({ theme: "테마", system: "시스템", dark: "다크" })
+    expect(ui).toEqual({ theme: "테마", light: "라이트", dark: "다크" })
     // The theme script itself, inline: the stylesheet only mentions it.
     expect(
       page

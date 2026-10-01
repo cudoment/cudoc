@@ -262,7 +262,7 @@ type NavigationDiagnostic = {
 | `hostUrl`       | optional `string`, required for `"host"`                           | Absolute HTTP(S) deployment URL including any base path. No credentials, query or fragment. A trailing slash is normalized.                                                                                                    |
 | `assetDirs`     | `string[]`, `[]`                                                   | Additional URL-root resource directories, searched in order after the roots.                                                                                                                                                   |
 | `renderOptions` | optional `RenderOptions`                                           | HTML component callbacks and code-highlighting override; see [rendering](./document.md#components-and-rendering).                                                                                                              |
-| `themeSwitch`   | `boolean`, `false`                                                 | Add a header menu that chooses the colour scheme, system, light or dark, and remembers the choice in the browser; see [Theme switch](#theme-switch).                                                                           |
+| `themeSwitch`   | `boolean`, `false`                                                 | Add a header menu that chooses light or dark, showing the system setting until the reader chooses, and remembers the choice in the browser; see [Theme switch](#theme-switch).                                                 |
 
 The synchronous builder has two input paths:
 
@@ -327,14 +327,7 @@ A YAML file is read with duplicate keys refused, and an error in it or in one of
 type LocaleOption =
   string | { label: string; suffix?: string; ui?: Partial<UiStrings> }
 type UiStrings = Record<
-  | "skip"
-  | "documents"
-  | "onThisPage"
-  | "language"
-  | "theme"
-  | "system"
-  | "light"
-  | "dark",
+  "skip" | "documents" | "onThisPage" | "language" | "theme" | "light" | "dark",
   string
 >
 ```
@@ -730,9 +723,11 @@ stylesheet reads (`warn` for `warning`; `danger` for `caution`, `danger` and
 ### Theme switch
 
 `themeSwitch: true` (CLI `--theme-switch`) adds a theme menu to every page's
-header, a native `<select>` with System, Light and Dark beside a monitor, sun or
-moon icon, so the browser supplies keyboard use, a screen reader's announcement
-and a phone's own picker. In a site it ships one reserved file at the output
+header, a native `<select>` with Light and Dark beside a sun or moon icon, so
+the browser supplies keyboard use, a screen reader's announcement and a phone's
+own picker. Until the reader chooses, the page follows the system setting and
+the select shows which of the two that is, following a change of the setting
+while the page is open. In a site it ships one reserved file at the output
 root, `cudoc-theme.js`, copied from the package's `dist/browser/`, which every
 page loads with a plain `<script src>` at the end of `<head>`, without `defer`,
 so a remembered choice is applied before the body paints; a single page carries
@@ -740,11 +735,11 @@ the same script inline there. The same Content-Security-Policy meta as for
 annotations is added once, whichever option asks first. The script sets or
 removes `data-theme="light"` or `"dark"` on `<html>`, which the stylesheet
 answers to as described under `siteStyles`, and remembers the choice under
-`localStorage["cudoc-theme"]` (absent means system; storage is best effort, as
-for annotations, and a change in another tab is followed through the `storage`
-event). The menu is created by the script, so a page without the script has
+`localStorage["cudoc-theme"]` (absent means the system's; storage is best
+effort, as for annotations, and a change in another tab is followed through
+the `storage` event). The menu is created by the script, so a page without the script has
 none. Its words come from `data-cudoc-ui` on `<html>`, which the builder writes
-from the page language's `ui` strings (`theme`, `system`, `light`, `dark`), and
+from the page language's `ui` strings (`theme`, `light`, `dark`), and
 otherwise from the document's `lang` (`ko`, else English); the tooltip is
 "<theme>: <mode>". Off by default; the default output stays script-free and
 follows the system setting.
@@ -803,8 +798,11 @@ in its gutter, and the button stays while the pointer crosses the margin to
 reach it; each opens a composer for plain text. The note button follows the
 selection: a press anywhere but on it or in the composer hides it at once
 (`pointerdown`, captured), and it comes back on release only for a press that
-started in `main` outside a control (`button`, `select`, `input`, `textarea`, `label`, `summary`, `[role=button]`, editable text), so using the theme menu
-or a details summary never brings it back beside an old selection. A
+started in `main` outside a control (`button`, `select`, `input`, `textarea`,
+`label`, `summary`, `[role=button]`, editable text) and that started a
+selection (`selectstart`) or moved the old one, so using the theme menu, a
+details summary or pressing a picture, which leave the selection in place,
+never brings it back beside an old selection. A
 selection that collapses or leaves `main` hides it (`selectionchange`); a
 touch or pen selection shows it once the selection has been still for 350 ms.
 Escape hides it, Tab from a keyboard selection moves focus to it, and focus
