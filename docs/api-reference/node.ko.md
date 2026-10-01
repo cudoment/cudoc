@@ -217,7 +217,7 @@ const html = renderDocument(tree)
 
 ### 트리 데이터
 
-`resolveTree(library, spec, context)`는 트리 임베드가 그리는 줄을 돌려줍니다. 생성한 페이지에 트리를 블록으로 적어 두는 아웃라이너처럼, 트리를 자기 형식으로 쓰는 프로그램을 위한 함수입니다. `spec`은 `render`가 트리인 임베드이며 `parseEmbedSpec`과 같이 검증합니다. 다른 출력이면 `cudoc: resolveTree needs an embed whose render is a tree` 오류이고, 아무것도 가리키지 않는 원본에는 해석기와 같은 오류를 던집니다. `context.documentId`는 상대 원본을 해석하는 기준이자 추출기가 받는 값이며, `prefix`는 쓰지 않습니다. `open`과 `print`가 무엇이든 `depth`까지의 모든 단계가 들어 있습니다. 결과는 일반 데이터이므로 같은 라이브러리와 명세는 같은 `JSON.stringify` 출력을 내며, 자기가 쓴 내용을 해시로 확인하는 프로그램은 이 성질에 기댈 수 있습니다. `buildEmbedTree(nodes, render)`는 줄을 `resolveEmbed`가 만드는 mdast로 바꾸므로, 줄을 먼저 고친 프로그램도 임베드와 같은 방식으로 렌더링할 수 있습니다.
+`resolveTree(library, spec, context)`는 트리 임베드가 그리는 줄을 돌려줍니다. 생성한 페이지에 트리를 블록으로 적어 두는 아웃라이너처럼, 트리를 자기 형식으로 쓰는 프로그램을 위한 함수입니다. `spec`은 `render`가 트리인 임베드이며 `parseEmbedSpec`과 같이 검증합니다. 다른 출력이면 `cudoc: resolveTree needs an embed whose render is a tree` 오류이고, 아무것도 가리키지 않는 원본에는 해석기와 같은 오류를 던집니다. `context.documentId`는 상대 원본을 해석하는 기준이자 추출기가 받는 값이며, `prefix`는 쓰지 않습니다. `open`과 `print`가 무엇이든 `depth`까지의 모든 단계가 들어 있습니다. 결과는 일반 데이터이므로 같은 라이브러리와 명세는 같은 `JSON.stringify` 출력을 내며, 자기가 쓴 내용을 해시로 확인하는 프로그램은 이 성질에 기댈 수 있습니다. `buildEmbedTree(nodes, render)`는 줄을 `resolveEmbed`가 만드는 mdast로 바꾸므로, 줄을 먼저 고친 프로그램도 임베드와 같은 방식으로 렌더링할 수 있습니다. 아래 예시는 `cudoc collect`가 `.cudoc/documents`에 출력한 라이브러리를 읽어 트리를 아웃라이너의 들여쓴 블록으로 출력합니다.
 
 ```js
 import { loadLibrary } from "@cudoment/cudoc/node/library"
