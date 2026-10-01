@@ -74,7 +74,7 @@ export function runAnnotationsCommand(
     ).version
     const report = locateAnnotations(collections, library, {
       files: [...files, ...tokens.map(() => "share token")],
-      libraryDir: path.resolve(libraryDir),
+      libraryDir: shownPath(libraryDir),
       generator: `cudoc-export ${version}`,
     })
     const output = json
@@ -92,4 +92,18 @@ export function runAnnotationsCommand(
       exitCode: 1,
     }
   }
+}
+
+/**
+ * A path as the report shows it: relative to where the command ran when it
+ * is inside, so a report pasted elsewhere does not carry the author's home
+ * directory, and absolute otherwise.
+ */
+function shownPath(dir: string): string {
+  const relative = path.relative(process.cwd(), path.resolve(dir))
+  return relative && !relative.startsWith("..") && !path.isAbsolute(relative)
+    ? relative.split(path.sep).join("/")
+    : relative
+      ? path.resolve(dir)
+      : "."
 }

@@ -575,16 +575,19 @@ export function resolveNavigation(
         (other) => other !== folder && inside(other, folder) && other !== "",
       )
     // What this folder may list: not what an entry names, not a page that
-    // stands for a listed folder, not what a more specific folder lists.
+    // stands for a listed folder, not what a more specific folder lists, and
+    // not what it excludes. Every document inside is tested against the
+    // excludes, so a pattern that matches one an entry already took is not
+    // reported as matching nothing.
+    const inFolder = keys.filter((key) => inside(key, folder) && key !== folder)
+    const excludedKeys = new Set(inFolder.filter(excluded))
     const available = new Set(
-      keys.filter(
+      inFolder.filter(
         (key) =>
-          inside(key, folder) &&
-          key !== folder &&
           !explicit.has(key) &&
           !taken.has(key) &&
           !deeper.some((other) => inside(key, other)) &&
-          !excluded(key),
+          !excludedKeys.has(key),
       ),
     )
     for (const entry of expressions)

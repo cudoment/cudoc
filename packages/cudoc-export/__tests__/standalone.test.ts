@@ -10,6 +10,7 @@ import os from "node:os"
 import path from "node:path"
 import { parse } from "node-html-parser"
 import { buildSite, type SiteOptions } from "../src/index.js"
+import { scriptText, styleText } from "../src/stylesheets.js"
 
 const PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
@@ -225,6 +226,22 @@ describe("a standalone page", () => {
   })
 })
 
+describe("text written inside a page", () => {
+  it("cannot end the element that carries it", () => {
+    expect(styleText("a{} </STYLE><script>x</script> <!-- b")).toBe(
+      "a{} <\\/STYLE><script>x</script> <\\!-- b",
+    )
+    expect(scriptText('let s = "</Script>"', "runtime")).toBe(
+      'let s = "<\\/Script>"',
+    )
+    // `<!--` has no spelling that reads the same in every script context,
+    // so a script holding one is refused rather than altered.
+    expect(() => scriptText("let s = '<!--'", "runtime")).toThrow(
+      "cudoc-export: runtime contains <!--, which a page cannot carry inline",
+    )
+  })
+})
+
 describe("a site's stylesheets", () => {
   it("links each file after the built-in one and copies what it loads by content", () => {
     const p = project({
@@ -273,6 +290,39 @@ describe("a site's stylesheets", () => {
     expect(() =>
       p.build({ css: [p.at("theme/leak.css")], private: ["secret.md"] }),
     ).toThrow(/loads the private document secret\.md as a resource/)
+  })
+
+  it("refuses the same files on a single page, from a stylesheet and from a document's own styles", () => {
+    // A single page writes these files into itself, so a path that leaves
+    // the roots would carry a file from anywhere on the disk.
+    const p = project({
+      "docs/a.md": doc("A"),
+      "docs/styled.md": doc(
+        "Styled",
+        '<p style="background: url(../elsewhere/x.png)">styled</p>',
+      ),
+      "docs/sheet.md": doc(
+        "Sheet",
+        "<style>.x { background: url(../elsewhere/x.png) }</style>",
+      ),
+      "theme/brand.css": '.a { background: url("../elsewhere/x.png") }',
+      "elsewhere/x.png": PNG,
+    })
+    expect(() =>
+      p.build({
+        mode: "standalone",
+        documents: ["a"],
+        css: [p.at("theme/brand.css")],
+      }),
+    ).toThrow(
+      /outside the collection roots, the asset directories and the stylesheet's own folder/,
+    )
+    for (const id of ["styled", "sheet"])
+      expect(() => p.build({ mode: "standalone", documents: [id] })).toThrow(
+        new RegExp(
+          `${id} styles with \\.\\./elsewhere/x\\.png, which is outside the collection roots and asset directories`,
+        ),
+      )
   })
 })
 
@@ -334,10 +384,57 @@ describe("links to files outside the output", () => {
       (root: string) => ({ from: path.join(root, "samples"), to: "../x" }),
       /must be a folder path inside the output/,
     ],
+    // Over a root it would publish what the navigation leaves out.
+    [
+      "a mount of a collection root",
+      (root: string) => ({ from: path.join(root, "docs"), to: "src" }),
+      /overlaps a source, library or asset directory/,
+    ],
+    [
+      "a mount of a folder inside a root",
+      (root: string) => ({ from: path.join(root, "docs/media"), to: "media" }),
+      /overlaps a source, library or asset directory/,
+    ],
+    [
+      "a mount around a root",
+      (root: string) => ({ from: root, to: "everything" }),
+      /overlaps/,
+    ],
   ])("refuses %s", (_, mount, message) => {
-    const p = project({ "docs/a.md": doc("A"), "samples/x.txt": "x" })
+    const p = project({
+      "docs/a.md": doc("A"),
+      "docs/media/pic.png": PNG,
+      "samples/x.txt": "x",
+    })
     fs.mkdirSync(p.outDir, { recursive: true })
-    expect(() => p.build({ mounts: [mount(p.root)] })).toThrow(message)
+    expect(() =>
+      p.build({ navigation: ["a.md"], mounts: [mount(p.root)] }),
+    ).toThrow(message)
+  })
+
+  it("refuses two mounts that share files or a destination", () => {
+    const p = project({
+      "docs/a.md": doc("A"),
+      "samples/x.txt": "x",
+      "samples/deep/y.txt": "y",
+      "other/z.txt": "z",
+    })
+    expect(() =>
+      p.build({
+        mounts: [
+          { from: p.at("samples"), to: "s" },
+          { from: p.at("samples/deep"), to: "d" },
+        ],
+      }),
+    ).toThrow(/overlap/)
+    expect(() =>
+      p.build({
+        mounts: [
+          { from: p.at("samples"), to: "s" },
+          { from: p.at("other"), to: "s/other" },
+        ],
+      }),
+    ).toThrow(/overlap/)
   })
 
   it("refuses a symbolic link or a private document inside a mount", () => {

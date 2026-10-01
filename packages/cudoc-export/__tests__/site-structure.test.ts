@@ -107,6 +107,25 @@ describe("the navigation", () => {
     ])
   })
 
+  it("draws groups down to depth and lists what lies deeper among them, by title", () => {
+    const p = project({
+      "docs/guides/setup.md": doc("Setup"),
+      "docs/guides/advanced.md": doc("Advanced"),
+      "docs/guides/advanced/tuning.md": doc("Tuning"),
+      "docs/guides/advanced/deep/limits.md": doc("Limits"),
+    })
+    p.build({ navigation: [{ folder: "guides", depth: 1 }] })
+    expect(p.sidebar("guides/setup.html")).toEqual([
+      "guides/",
+      // No `advanced/` group: its page and everything below it join the
+      // folder's list, sorted with the rest.
+      "  Advanced advanced.html",
+      "  Limits advanced/deep/limits.html",
+      "  Setup setup.html *",
+      "  Tuning advanced/tuning.html",
+    ])
+  })
+
   it("takes a folder as everything in it, a file as itself, and excludes what a folder names", () => {
     const p = project({
       "docs/index.md": doc("Home"),
@@ -260,6 +279,14 @@ describe("the navigation", () => {
     ])
   })
 
+  it("counts an exclude as matching a document an entry already took", () => {
+    const p = project({ "docs/f/a.md": doc("A"), "docs/f/b.md": doc("B") })
+    const result = p.build({
+      navigation: ["f/a.md", { folder: "f", exclude: ["a.md"] }],
+    })
+    expect(result.diagnostics).toEqual([])
+  })
+
   it("refuses a link to a document the navigation leaves out, and names the way out", () => {
     const p = project({
       "docs/a.md": doc("A", "[B](b.md)"),
@@ -359,6 +386,23 @@ describe("the home page", () => {
     expect(() => p.build({ home: "README.md" })).toThrow(
       /index\.md would be written to index\.html, which is the site home's file/,
     )
+  })
+
+  it("gives each language's landing page a menu of the other languages' homes", () => {
+    const p = project({ "docs/a.md": doc("A"), "docs/a.ko.md": doc("가") })
+    p.build({ locales: { en: "English", ko: "한국어" } })
+    const menu = (file: string) =>
+      parse(p.read(file))
+        .querySelectorAll("nav.languages li > *")
+        .map((item) => [item.text, item.getAttribute("href") ?? "current"])
+    expect(menu("index.html")).toEqual([
+      ["English", "current"],
+      ["한국어", "index.ko.html"],
+    ])
+    expect(menu("index.ko.html")).toEqual([
+      ["English", "index.html"],
+      ["한국어", "current"],
+    ])
   })
 
   it("generates a landing page when no document is the home", () => {
@@ -497,6 +541,45 @@ describe("languages", () => {
 })
 
 describe("the rest of the shell", () => {
+  it.each([
+    [{ home: "nothing.md" }, /home names no document: nothing\.md/],
+    [
+      { home: "secret.md", private: ["secret.md"] },
+      /home secret\.md is private/,
+    ],
+    [
+      { volume: { order: ["a.md", "a.md"] } },
+      /volume\.order names a\.md twice/,
+    ],
+    [
+      { mode: "annotate" as const, annotate: { reviewId: "has space" } },
+      /annotate\.reviewId is up to 64 letters/,
+    ],
+    [
+      { mode: "annotate" as const, annotate: { target: "hosted" as const } },
+      /annotate\.target "hosted" needs annotate\.reviewId/,
+    ],
+    [
+      {
+        mode: "annotate" as const,
+        annotate: { inbox: { github: { repo: "o/r", template: "t.yml" } } },
+      },
+      /annotate\.inbox applies to target "hosted"/,
+    ],
+    [
+      { header: { links: [{ title: "X", url: "/relative" }] } },
+      /header\.links is a list/,
+    ],
+    [
+      { sourceLinks: { root: ".", url: "ftp://x/" } },
+      /sourceLinks\.url is an absolute http\(s\) URL/,
+    ],
+    [{ mounts: [{ from: "nowhere" }] }, /each mount is \{ from, to \}/],
+  ])("refuses %j", (options, message) => {
+    const p = project({ "docs/a.md": doc("A"), "docs/secret.md": doc("S") })
+    expect(() => p.build(options as Partial<SiteOptions>)).toThrow(message)
+  })
+
   it("draws header links, honours toc settings and refuses an unknown or retired option", () => {
     const p = project({
       "docs/a.md": doc("A", "## One\n\nx\n\n### Two\n\ny\n\n#### Three\n\nz"),
