@@ -123,8 +123,17 @@ export function rewritePageLinks(
   rewrite: (url: string) => RewrittenLink,
 ): void {
   const walk = (node: Root | RootContent) => {
+    // A link the page shell resolved through the policy already, marked so
+    // that it is not resolved a second time from another location.
+    const final =
+      node.type === "element" && node.properties.dataCudocFinal !== undefined
+    if (final)
+      delete (node as { properties: Record<string, unknown> }).properties
+        .dataCudocFinal
     if (node.type === "element" && ["a", "area"].includes(node.tagName)) {
-      if (mode === "none") {
+      if (final && mode !== "none") {
+        // Kept as the shell wrote it.
+      } else if (mode === "none") {
         if (node.tagName === "a") node.tagName = "span"
         for (const key of [
           "href",

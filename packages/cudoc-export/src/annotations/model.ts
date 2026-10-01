@@ -84,7 +84,14 @@ export type AnnotationCollection = {
 
 /** Caps on anything read from outside. A file over them is refused whole. */
 export const LIMITS = {
+  /** A notes file, and the notes block a saved page carries. */
   fileBytes: 2 * 1024 * 1024,
+  /**
+   * A saved page: a standalone page carries its images, so it is far larger
+   * than the notes in it. The largest page a build writes plus the largest
+   * notes block fits under it.
+   */
+  htmlBytes: 32 * 1024 * 1024,
   fragmentChars: 64 * 1024,
   decodedBytes: 1024 * 1024,
   items: 500,

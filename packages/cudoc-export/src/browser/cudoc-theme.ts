@@ -1,6 +1,6 @@
 /**
- * The theme switch: a button in the site header that cycles the colour
- * scheme through system, light and dark, remembered per browser. The
+ * The theme switch: a select in the site header that chooses the colour
+ * scheme, system, light or dark, remembered per browser. The
  * stylesheet does the work through `data-theme` on `<html>`; this script only
  * sets that attribute, and it runs from `<head>` so a remembered choice is in
  * place before the first paint rather than flashing the other theme.
@@ -38,9 +38,27 @@ function apply(choice: Choice | undefined): void {
 
 apply(stored())
 
-const STRINGS = root.lang.toLowerCase().startsWith("ko")
-  ? { theme: "테마", system: "시스템", light: "라이트", dark: "다크" }
-  : { theme: "Theme", system: "System", light: "Light", dark: "Dark" }
+type Strings = Record<"theme" | Mode, string>
+
+/**
+ * The control's words: the page's own, written by the builder in the
+ * language the page is in, or the built-in Korean or English ones.
+ */
+const STRINGS: Strings = (() => {
+  const fallback: Strings = root.lang.toLowerCase().startsWith("ko")
+    ? { theme: "테마", system: "시스템", light: "라이트", dark: "다크" }
+    : { theme: "Theme", system: "System", light: "Light", dark: "Dark" }
+  try {
+    const given = JSON.parse(root.dataset.cudocUi ?? "{}") as Partial<Strings>
+    const strings = { ...fallback }
+    for (const key of Object.keys(fallback) as (keyof Strings)[])
+      if (typeof given[key] === "string" && given[key])
+        strings[key] = given[key]!
+    return strings
+  } catch {
+    return fallback
+  }
+})()
 
 /** Monitor, sun and moon, as stroke paths on a 24-unit grid. */
 const ICONS: Record<Mode, string[]> = {
@@ -78,32 +96,39 @@ function icon(mode: Mode): SVGElement {
   return svg
 }
 
-/** system → light → dark → system. */
-const NEXT: Record<Mode, Choice | undefined> = {
-  system: "light",
-  light: "dark",
-  dark: undefined,
-}
+const MODES: Mode[] = ["system", "light", "dark"]
 
+/**
+ * A native select: the browser gives it keyboard use, a screen reader's
+ * announcement, the phone's own picker and closing when the reader looks
+ * elsewhere, none of which a hand-made menu would get right everywhere.
+ */
 function mount(): void {
   const header = document.querySelector("body > header")
   if (!header || header.querySelector(".theme-switch")) return
-  const button = document.createElement("button")
-  button.type = "button"
-  button.className = "theme-switch"
-  const label = document.createElement("span")
+  const control = document.createElement("label")
+  control.className = "theme-switch"
+  const select = document.createElement("select")
+  select.setAttribute("aria-label", STRINGS.theme)
+  for (const mode of MODES) {
+    const option = document.createElement("option")
+    option.value = mode
+    option.textContent = STRINGS[mode]
+    select.append(option)
+  }
   const render = () => {
     const mode: Mode = stored() ?? "system"
-    label.textContent = STRINGS[mode]
-    button.replaceChildren(icon(mode), label)
-    const text = `${STRINGS.theme}: ${STRINGS[mode]}`
-    button.title = text
-    button.setAttribute("aria-label", text)
+    select.value = mode
+    // Only the icon is replaced, so the select keeps focus while it is used.
+    control.querySelector("svg")?.remove()
+    control.prepend(icon(mode))
+    control.title = `${STRINGS.theme}: ${STRINGS[mode]}`
   }
-  button.addEventListener("click", () => {
-    const next = NEXT[stored() ?? "system"]
-    remember(next)
-    apply(next)
+  select.addEventListener("change", () => {
+    const choice =
+      select.value === "system" ? undefined : (select.value as Choice)
+    remember(choice)
+    apply(choice)
     render()
   })
   // A choice made in another tab of the same site applies here too.
@@ -113,8 +138,9 @@ function mount(): void {
       render()
     }
   })
+  control.append(select)
   render()
-  header.append(button)
+  ;(header.querySelector(".header-end") ?? header).append(control)
 }
 
 if (document.readyState === "loading")

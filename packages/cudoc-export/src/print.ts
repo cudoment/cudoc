@@ -52,6 +52,8 @@ export type PrintableDocument = {
    */
   hast: HastRoot
   headings: DocumentNode[]
+  /** What `<html lang>` says for the document, as the output plan decided it. */
+  lang: string
 }
 
 /** A copied resource: its root-relative path and what followed the path. */
@@ -100,12 +102,18 @@ export type VolumeOptions = {
   cover?: false | { image?: string }
   /** `false` for no contents page. */
   contents?: false | { title?: string; pageNumbers?: boolean }
+  /**
+   * Documents to put first in the bound file, by file name; the rest of its
+   * documents follow in navigation order. It reorders, never adds.
+   */
+  order?: string[]
 }
 
 export type ResolvedVolumeOptions = {
   fileName: string
   cover: false | { image?: string }
   contents: false | { title: string; pageNumbers: boolean }
+  order: string[]
 }
 
 export const PRINT_STYLESHEET = "cudoc-print.css"
@@ -172,7 +180,20 @@ export function resolveVolumeOptions(
       pageNumbers: volume.contents.pageNumbers ?? true,
     }
   }
-  return { fileName, cover, contents }
+  const order = volume.order ?? []
+  if (
+    !Array.isArray(order) ||
+    order.some((entry) => typeof entry !== "string" || !entry)
+  )
+    throw new Error(
+      "cudoc-export: volume.order lists documents by file name, such as guide.md",
+    )
+  for (const key of Object.keys(volume))
+    if (!["fileName", "cover", "contents", "order"].includes(key))
+      throw new Error(
+        `cudoc-export: volume has an unknown key ${key}; it takes fileName, cover, contents and order`,
+      )
+  return { fileName, cover, contents, order }
 }
 
 /**
@@ -434,8 +455,6 @@ const shell = (
 const article = (id: string, body: string) =>
   `<article class="cudoc-doc" id="${volumeId(id)}" data-document="${volumeId(id)}">${body}</article>`
 
-const language = (doc: StoredDocument) => String(doc.frontmatter.lang ?? "en")
-
 export type PrintOutputOptions = {
   staging: string
   documents: PrintableDocument[]
@@ -556,7 +575,7 @@ export function writePrintOutputs(options: PrintOutputOptions): string[] {
     fs.writeFileSync(
       target,
       shell(
-        language(entry.doc),
+        entry.lang,
         `${titles.get(entry.doc.id) ?? entry.doc.id} · ${title}`,
         article(entry.doc.id, toHtml(tree)),
         "cudoc-print",
@@ -588,7 +607,7 @@ export function writePrintOutputs(options: PrintOutputOptions): string[] {
     path.join(staging, file),
     shell(
       // One file, one language: the first document's, as its title page is.
-      ordered[0] ? language(ordered[0].doc) : "en",
+      ordered[0] ? ordered[0].lang : "en",
       title,
       frontMatter(ordered, options) + body,
       "cudoc-print cudoc-volume",

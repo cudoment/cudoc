@@ -21,6 +21,8 @@ export {
   sourceFileOf,
 } from "./roots.js"
 export { LIBRARY_SCHEMA_VERSION } from "./collect.js"
+/** The glob dialect of `exclude` and `private`, for a consumer naming documents the same way. */
+export { globMatcher, globToRegExp } from "./glob.js"
 
 export type SourceSnapshot = {
   text: string
