@@ -1,6 +1,6 @@
 {
   "name": "cudoc-remark",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Remark plugins for cudoc: syntax normalization, heading anchors, badges, callouts, table cell lists and layout, prepared embeds and the library loader.",
   "license": "MIT",
   "repository": {
@@ -84,7 +84,7 @@
   },
   "dependencies": {
     "@types/mdast": "^4.0.4",
-    "@cudoment/cudoc": "0.6.0",
+    "@cudoment/cudoc": "0.7.0",
     "estree-util-value-to-estree": "^3.5.0",
     "mdast-util-mdx-jsx": "^3.2.0",
     "unified": "^11.0.5",
