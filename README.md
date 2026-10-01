@@ -213,6 +213,14 @@ Host examples install separately with their own lockfiles. Update the affected g
 
 ## Release notes
 
+### 0.7.0
+
+- A [`render: { type: tree }` embed](./docs/embedding.md#draw-a-tree-of-documents) lists documents the way their folders nest them, `X.md` above the folder `X/` or a folder's own `index.md` above the rest, with a document's sections under it when `headings` asks: one line each, the title linked and the summary beside it, levels folded in `details` that open without a script on every host and in standalone HTML, and written out as a nested list down to `print` levels in the print HTML, the PDF and Word.
+- `resolveTree` returns those lines as data, the same for the same library and spec, for a program that writes the tree in a form of its own; `buildEmbedTree` renders lines it was given.
+- In a tree, an extractor also receives the line it computes as `node`, with the lines below it already complete, so a column can total what the levels below hold.
+- `cudoc check` warns with `unmatched-tree-order` when a tree's `order` names nothing on its first level, and reports a tree's missing folder or document as for any embed.
+- `@cudoment/cudoc/styles.css` and the exported site draw a tree as an outline, without the box a host gives an authored `details`.
+
 ### 0.6.0
 
 - [Supported versions](./docs/README.md#supported-versions) lists the host releases every change is tested against, and what a minor or a patch release keeps compatible before 1.0.0.
