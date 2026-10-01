@@ -1,0 +1,25 @@
+# The documentation site's navigation: what it lists on the left, and so
+# what it publishes. Korean pages draw the same list from the `.ko.md`
+# translations beside each file.
+items:
+  - README.md
+  - title: { en: Guides, ko: 가이드 }
+    items:
+      - docs/README.md
+      - docs/syntax.md
+      - docs/embedding.md
+      - docs/export.md
+      - docs/check.md
+      - docs/dataset.md
+  - title: { en: Site generators, ko: 사이트 생성기 }
+    items:
+      - docs/next.md
+      - docs/docusaurus.md
+      - docs/nextra.md
+      - docs/vitepress.md
+      - docs/eleventy.md
+  - folder: docs/api-reference
+    title: { en: API reference, ko: API 레퍼런스 }
+    page: README.md
+    order: [document, node, adapters]
+  - docs/release-notes.md
