@@ -13,7 +13,11 @@
 
 import fs from "node:fs"
 import { idToken } from "@cudoment/cudoc/document"
-import { PAGE_BREAK_CLASS } from "@cudoment/cudoc/paged"
+import {
+  PAGE_BREAK_CLASS,
+  TREE_CLASS,
+  treePrintDepth,
+} from "@cudoment/cudoc/paged"
 import path from "node:path"
 import { fromHtml } from "hast-util-from-html"
 import { toHtml } from "hast-util-to-html"
@@ -197,6 +201,49 @@ const visit = (
 export const openDetails = (tree: HastRoot): void =>
   visit(tree, (element) => {
     if (element.tagName === "details") element.properties.open = true
+  })
+
+type Element = RootContent & { type: "element" }
+const isElement = (node: RootContent, tagName: string): node is Element =>
+  node.type === "element" && node.tagName === tagName
+
+/**
+ * Every tree embed as paper shows it: the nested list it is down to its
+ * `print` level, each item's summary line as the item's own text and its
+ * children a list beneath, the disclosure widget dropped rather than opened.
+ * The Word writer reads a tree the same way. Runs before `openDetails`, which
+ * then finds no tree item left to open.
+ */
+export const printTrees = (tree: HastRoot): void =>
+  visit(tree, (element) => {
+    const classes = element.properties.className
+    if (
+      element.tagName !== "ul" ||
+      !Array.isArray(classes) ||
+      !classes.includes(TREE_CLASS)
+    )
+      return
+    const limit = treePrintDepth(element.properties.dataCudocPrint)
+    const flatten = (list: Element, level: number) => {
+      for (const item of list.children) {
+        if (!isElement(item, "li")) continue
+        item.children = item.children.flatMap((child) => {
+          if (!isElement(child, "details")) return [child]
+          const summary = child.children.find((node) =>
+            isElement(node, "summary"),
+          ) as Element | undefined
+          const lists =
+            level < limit
+              ? child.children.filter((node): node is Element =>
+                  isElement(node, "ul"),
+                )
+              : []
+          lists.forEach((nested) => flatten(nested, level + 1))
+          return [...(summary?.children ?? []), ...lists]
+        })
+      }
+    }
+    flatten(element, 1)
   })
 
 /** The column count of a table's first row, spans included. */
@@ -498,6 +545,7 @@ export function writePrintOutputs(options: PrintOutputOptions): string[] {
     // A per-document file sits beside its site page, so every path is
     // expressed from that document's directory, as the site's are.
     localizeAssets(tree, (asset) => assetLink(asset, entry.doc))
+    printTrees(tree)
     openDetails(tree)
     dropLeadingBreaks(tree)
     if (page.wideTables) wrapWideTables(tree, page.wideTables.minColumns)
@@ -526,6 +574,7 @@ export function writePrintOutputs(options: PrintOutputOptions): string[] {
       const tree = clone(entry.hast)
       // The volume is at the root, so a root-relative path is the path.
       localizeAssets(tree, (asset) => assetLink(asset))
+      printTrees(tree)
       openDetails(tree)
       dropLeadingBreaks(tree)
       if (page.wideTables) wrapWideTables(tree, page.wideTables.minColumns)

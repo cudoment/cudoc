@@ -42,8 +42,13 @@ export function formatCheckResult(result: CheckResult): string {
       if (issue.available?.length) {
         const shown = issue.available.slice(0, SHOWN_ANCHORS)
         const rest = issue.available.length - shown.length
+        // Anchors read as the fragments they are; a tree's names in quotes.
+        const spell =
+          issue.code === "unmatched-tree-order"
+            ? (name: string) => JSON.stringify(name)
+            : (id: string) => `#${id}`
         lines.push(
-          `  ${" ".repeat(width)}  available: ${shown.map((id) => `#${id}`).join(", ")}${rest > 0 ? ` (+${rest} more)` : ""}`,
+          `  ${" ".repeat(width)}  available: ${shown.map(spell).join(", ")}${rest > 0 ? ` (+${rest} more)` : ""}`,
         )
       } else if (issue.available) {
         lines.push(`  ${" ".repeat(width)}  available: none`)

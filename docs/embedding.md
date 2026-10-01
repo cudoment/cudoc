@@ -144,6 +144,205 @@ export default {
 
 `version` is part of the library configuration, so a changed extractor invalidates prepared embeds the way a changed compiler does. A column that finds nothing renders an empty cell; `cudoc check` reports each such cell as an `empty-embed-cell` warning saying what the column asked for and what the section has, for columns written as mappings. → [Reference checking](./check.md)
 
+## Draw a tree of documents
+
+A tree lists documents the way their folders nest them, one line per document, and folds the levels below `open` until a reader opens them. It needs nothing beyond the collection every embed uses: write the block, collect, build. Its look comes from `@cudoment/cudoc/styles.css`, which every host guide imports; without it, a host draws each folded level the way it draws an authored `details`, which on Docusaurus and Nextra is a box.
+
+### A first tree
+
+Take a set of guides, each file a `#` title and a one-sentence summary:
+
+```text
+docs/
+├── index.md
+├── reference.md          # API reference, with ## and ### sections
+└── guides/
+    └── payments/
+        ├── index.md          # Payments: the page that gets the tree
+        ├── overview.md       # Overview
+        ├── checkout.md       # Checkout
+        ├── checkout/
+        │   ├── cards.md      # Cards
+        │   └── wallets.md    # Wallets
+        └── refunds/
+            ├── index.md      # Refunds
+            └── partial.md    # Partial refunds
+```
+
+In `docs/guides/payments/index.md`:
+
+````md
+```cudoc-embed
+sources: [./]
+render:
+  type: tree
+  order: [Overview, ...]
+```
+````
+
+The page then shows this, each title linked to its document. Here ▾ marks a line that starts unfolded, ▸ one that starts folded, and • one with nothing below it:
+
+```text
+• Overview · Where to start.
+▾ Checkout · Take a payment.
+    • Cards · Card payments.
+    • Wallets · Wallet payments.
+▾ Refunds · Give money back.
+    • Partial refunds · Refund part of a payment.
+```
+
+`./` is the folder the page is in, and the page itself, its `index.md`, is the folder rather than a line. A page that stands for a folder beside it, such as `checkout.md`, names that folder instead: `sources: [checkout/]`, since its own `./` is the folder it sits in and would list Checkout among its siblings. `checkout.md` takes the folder `checkout/` beside it, and `refunds/index.md` stands for its own folder. `order` puts Overview first, and the rest follow by title. A line with lines below it folds them in an HTML `details` element, so the tree opens and closes without a script on every host and in standalone HTML. The print HTML, the PDF and Word have nothing to fold and write the tree out as a nested list.
+
+### Four common trees
+
+**An overview page for a set of documents** is the tree above: `sources: [./]` in a folder's `index.md`.
+
+**A collapsible outline of a long reference** lists the document's own sections under it. In `docs/index.md`, beside `reference.md`, `headings: 2` takes its `##` and `###` headings, and `open: 2` starts both levels unfolded:
+
+````md
+```cudoc-embed
+sources: [reference.md]
+render:
+  type: tree
+  headings: 2
+  open: 2
+```
+````
+
+```text
+▾ API reference · Every endpoint, its limits and how to call it.
+    ▾ Limits · How many calls you may make.
+        • Rate limits · Calls per minute.
+        • Quotas · Calls per day.
+    ▾ Authentication · How to sign a call.
+        • Tokens · Where a token comes from.
+```
+
+**The outline of one section** starts from an anchor. `headings` counts from `##` whatever the section's own level, so a `##` section needs `headings: 2` to bring its `###` headings:
+
+````md
+```cudoc-embed
+sources: [reference.md#limits]
+render:
+  type: tree
+  headings: 2
+```
+````
+
+```text
+▾ Limits · How many calls you may make.
+    • Rate limits · Calls per minute.
+    • Quotas · Calls per day.
+```
+
+**A map of every document** starts from the top of the library. `depth: 2` keeps two levels, `open: 0` starts them folded, and `columns: [link]` shows titles only:
+
+````md
+```cudoc-embed
+sources: [/]
+render:
+  type: tree
+  depth: 2
+  open: 0
+  columns: [link]
+```
+````
+
+```text
+• API reference
+▸ Payments
+```
+
+Payments unfolds to Checkout, Overview and Refunds; Cards, Wallets and Partial refunds are a third level, past `depth`. `guides/` adds no level of its own, because no document stands for it.
+
+### Which document goes under which
+
+- A source ending in `/` is a folder, and the documents directly below it make the first level. Any other source is a document, or with `#anchor` one of its sections, and is a first-level line itself. Sources resolve as other embed sources do: relative to the embedding document, or from the top of the library with a leading `/`. Several sources make one first level, in the order written.
+- The documents under `X.md` are the ones in the folder `X/` beside it. This is how an outliner keeps one page per file, where no page can be called `index`.
+- Where there is no `X.md`, the folder's own `X/index.md` stands for it, as a static site generator reads it, and the folder's other documents go under that one. A folder source starts below it.
+- A folder that nothing stands for passes its documents up to the nearest folder that has such a document, so a category folder such as `projects/` adds no level.
+- With `headings`, a document's sections go under it, before the documents below it. The `#` title names the document's own line.
+
+### Options
+
+| Key        | Meaning                                                                                                                                                       | Default             |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| `open`     | Levels whose lines start unfolded on the web: `0` shows the first level only, `1` the first two                                                               | `1`                 |
+| `print`    | Levels the print HTML, the PDF and Word show                                                                                                                  | every level         |
+| `depth`    | Levels the tree holds, heading lines counted with document lines                                                                                              | every level         |
+| `headings` | Heading levels under each document's title that become its lines: `1` takes `##`, `2` takes `##` and `###`, up to `5`                                         | `0`, documents only |
+| `order`    | Names the first level puts first, in order. `...` stands for every name not listed; without it, the rest follow the names listed                              | by title            |
+| `columns`  | What a line shows, in the vocabulary of [table columns](#define-the-columns-yourself), extractors included. The values that are not empty are joined with `·` | `[link, summary]`   |
+
+### What a line shows
+
+A document's title is its `#` title, else its `title` front matter, else its file name, or its folder's name for an `index.md`. A section's title is its heading's text.
+
+`summary` is read as in a summary table: the first paragraph after the title. A property line above the `#` title, as an outliner writes one, is not it. When a title has no paragraph of its own before the next heading, the first paragraph after it is a subsection's, so the line repeats the summary of the line below it; give the section an opening sentence, or show titles alone with `columns: [link]`.
+
+`columns` takes the table's vocabulary: `[link]` for titles alone, `[title, summary]` for titles that link nowhere, `{ value: { row, column } }` for a value out of a table in the section, and [an extractor](#totals-from-the-levels-below) for anything else. A column whose value is empty is left out of the line, and a line whose every column is empty shows its title.
+
+`select` and `replace` do not apply, because a tree copies no section text.
+
+### The order of lines
+
+The first level follows `sources` in the order written, the documents a folder source brings sorted among themselves; every level below is sorted, while a section keeps its place in its document. Documents are sorted by title, ignoring letter case and reading a number by its value, and come out the same on every machine.
+
+`order` then moves the first level. An entry matches a document's file name without the extension, the folder's name for an `index.md`, or a line's title, exactly and with letter case, unlike the sorting. Names are compared in Unicode NFC, so a file name that a sync tool stored in NFD, as Syncthing does on macOS, matches the composed spelling you type. `...` needs no quotes, in a list written either way, but a name holding `: ` or ` #` does, since YAML reads those as a mapping and a comment, and so does a name holding a comma, `[`, `]`, `{` or `}` in a list written in brackets:
+
+```yaml
+order: ["Step 1: Install", "Install, configure and run", ..., Changelog]
+```
+
+### Private documents
+
+On a page that is not `private`, a tree leaves out a `private` document that a folder or a parent would bring in, together with the lines below it, since an export, which writes no private document, could not link to it. A private page lists them. A source that names a private document lists it anyway, and its line links to it as an authored link would: the export refuses it under `relative` and points it at the deployed page under `host` (see [Choose hyperlink behavior](./export.md#choose-hyperlink-behavior)). A folder whose documents a public page would all leave out fails, and an `order` entry naming a document left out matches nothing. `exclude` keeps a file out of the library, and so out of every tree.
+
+### Totals from the levels below
+
+In a tree an extractor runs for every line, deepest first, and its context carries the line as `node`, with the lines below it complete. This counts the open tasks of a document and of everything below it:
+
+```js
+// cudoc.config.mjs
+const open = (text) => (text.match(/^- TODO /gm) ?? []).length
+
+export default {
+  sourceRoot: "notes",
+  extractors: {
+    openTasks: {
+      version: "1",
+      extract(row, { library, node }) {
+        const total = (line) =>
+          open(
+            library.documents.find((d) => d.id === line.documentId).source.text,
+          ) + line.children.reduce((sum, child) => sum + total(child), 0)
+        const count = node ? total(node) : open(row.document.source.text)
+        return count ? `${count} open` : undefined
+      },
+    },
+  },
+}
+```
+
+````md
+```cudoc-embed
+sources: [/projects/]
+render:
+  type: tree
+  columns: [link, { value: { extractor: openTasks } }, summary]
+```
+````
+
+A total stops at `depth`, since the lines below it are not in the tree. The cells of the lines below are filled in by the time a line's extractor runs, so an extractor can also add up the values its children show.
+
+### Checking and refreshing a tree
+
+`cudoc check` reports a source or an anchor that names nothing as it does for every embed, an extractor the configuration does not register as `invalid-embed-spec`, and an `order` entry that names no first-level line as an `unmatched-tree-order` warning. → [Reference checking](./check.md)
+
+A prepared tree depends on every document a line was read from, so editing a document below it resolves it again on the next collection, `cudoc collect --watch` included. A document added or removed resolves every embed again, so a new file joins the trees it belongs to on the next pass.
+
+A program that writes the tree in a form of its own, such as an outliner's blocks, reads the same lines through [`resolveTree`](./api-reference/node.md#tree-data).
+
 ## Find and replace
 
 ````md
@@ -245,13 +444,20 @@ Set `routeBase` to the host's document prefix, such as `/docs`. VitePress with `
 
 ## Resolve problems
 
-| Symptom                              | Action                                                                                            |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------- |
-| Prepared embeds missing or stale     | Collect and prepare again before running the host; check both output paths agree                  |
-| Missing document or section          | Check relative paths, source-root coverage and explicit anchor IDs                                |
-| Conflicting or duplicate IDs         | Give headings unique IDs; manual API consumers must use distinct prefixes for separate embeds     |
-| Circular embed                       | Remove the cycle the message names (`cudoc: cyclic embed: a#* -> b#limits -> a#*`)                |
-| No portable renderer for a component | Use Markdown, configure a static semantic mapping, or supply a renderer through the rendering API |
-| Correct content but wrong links      | Match `routeBase`, `routeSuffix` and `routes` to the host's actual routing                        |
+| Symptom                                | Action                                                                                                                                                                  |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Prepared embeds missing or stale       | Collect and prepare again before running the host; check both output paths agree                                                                                        |
+| Missing document or section            | Check relative paths, source-root coverage and explicit anchor IDs                                                                                                      |
+| Conflicting or duplicate IDs           | Give headings unique IDs; manual API consumers must use distinct prefixes for separate embeds                                                                           |
+| Circular embed                         | Remove the cycle the message names (`cudoc: cyclic embed: a#* -> b#limits -> a#*`)                                                                                      |
+| No portable renderer for a component   | Use Markdown, configure a static semantic mapping, or supply a renderer through the rendering API                                                                       |
+| Correct content but wrong links        | Match `routeBase`, `routeSuffix` and `routes` to the host's actual routing                                                                                              |
+| `no documents in folder …`             | The folder holds no document besides the page that stands for it: add documents, or check the path and `exclude`                                                        |
+| `… a folder source ends with /`        | The source names a folder without its slash; write `guides/` to list what is in it                                                                                      |
+| `… holds only private documents …`     | A public page lists no private document; write the tree on a private page or name the document                                                                          |
+| A tree drawn as boxes                  | Import `@cudoment/cudoc/styles.css` as the host guide shows                                                                                                             |
+| A line repeats the summary below it    | Give the section a paragraph before its first subheading, or use `columns: [link]`                                                                                      |
+| `unmatched-tree-order`                 | Write the entry as the file name or the title the line shows, letter case included; in a list written in brackets, quote a name holding a comma, which splits it in two |
+| `render.order must be a list of names` | Quote a name holding `: `                                                                                                                                               |
 
 Embedding adjusts IDs and references to avoid collisions and rebases document links and images. A link inside the copied section that names only a fragment or a query, such as `#setup` or `?tab=2`, keeps meaning the document it was written in: it points into the copy when the copy carries that anchor, and at the source document otherwise. See the [Node API reference](./api-reference/node.md) for programmatic collection, async compilers, storage and manual rendering.

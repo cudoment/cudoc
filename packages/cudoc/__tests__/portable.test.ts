@@ -605,6 +605,60 @@ describe("a relative path in an embedded copy that climbs out of the collection"
     }))
 })
 
+describe("links in a copy of a copy", () => {
+  it("are placed on the page once, and only a fragment follows each new id", () =>
+    workspace((root, sourceRoot) => {
+      const write = (name: string, text: string) => {
+        fs.mkdirSync(path.dirname(path.join(sourceRoot, name)), {
+          recursive: true,
+        })
+        fs.writeFileSync(path.join(sourceRoot, name), text)
+      }
+      const embed = (source: string) =>
+        `\`\`\`cudoc-embed\nsources: [${source}]\n\`\`\`\n`
+      write("a.md", "# A\n")
+      write("b.md", "# B\n")
+      // A's route is B's path, and the image climbs out of the collection.
+      write(
+        "internal/deep/notes.md",
+        "# Notes\n\n## Part (#part)\n\n[A](../../a.md) [back](#part) ![out](../../../outside.png)\n",
+      )
+      write(
+        "x/y/list.md",
+        `# List\n\n${embed("../../internal/deep/notes.md#part")}`,
+      )
+      write("direct.md", `# Direct\n\n${embed("internal/deep/notes.md#part")}`)
+      write("guide.md", `# Guide\n\n${embed("x/y/list.md")}`)
+      const library = buildDocuments({
+        sourceRoot,
+        outDir: path.join(root, "library"),
+        routes: { a: "/b", b: "/c" },
+      })
+      const page = (id: string) => {
+        const html = renderDocument(resolveDocumentEmbeds(library, id))
+        const part = html.match(/<h2 id="([^"]+)"/)![1]
+        return {
+          links: html.match(/(?:href|src)="[^"]*"/g),
+          back: html.includes(`href="#${part}"`),
+        }
+      }
+      const direct = page("direct")
+      expect(direct.links).toEqual([
+        'href="/b"',
+        expect.stringMatching(/^href="#/),
+        'src="../outside.png"',
+      ])
+      expect(direct.back).toBe(true)
+      // Two copies deep, the same addresses, and the fragment names the
+      // heading by the id the outer copy gave it.
+      const nested = page("guide")
+      expect(
+        nested.links!.filter((link) => !link.startsWith('href="#')),
+      ).toEqual(['href="/b"', 'src="../outside.png"'])
+      expect(nested.back).toBe(true)
+    }))
+})
+
 describe("links without a path in an embedded copy", () => {
   it("point at the document they were copied from, not its directory", () =>
     workspace((root, sourceRoot) => {

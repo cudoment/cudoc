@@ -53,6 +53,10 @@ try {
       `${host}: cached embedding page must use fresh data`,
     )
     assert.ok(
+      page.querySelector(".cudoc-tree")?.text.includes(marker),
+      `${host}: the tree on the cached embedding page must use fresh data`,
+    )
+    assert.ok(
       fs
         .readFileSync(
           path.join(

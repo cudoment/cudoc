@@ -46,7 +46,7 @@ export default {
 | `missing-document`            | 오류   | 로컬 링크가 수집된 문서도 파일도 가리키지 않음                                    |
 | `missing-anchor`              | 오류   | 문서는 있으나 그 앵커가 없음                                                      |
 | `missing-asset`               | 오류   | 이미지 파일이 어느 수집 루트에도 자산 디렉터리에도 없음                           |
-| `missing-embed-source`        | 오류   | 임베드가 수집되지 않은 문서를 가리킴                                              |
+| `missing-embed-source`        | 오류   | 임베드가 수집되지 않은 문서를, 또는 트리가 나열할 문서가 없는 폴더를 가리킴       |
 | `missing-embed-anchor`        | 오류   | 임베드 대상 문서는 있으나 그 절이나 선택한 절이 없음                              |
 | `duplicate-anchor`            | 오류   | 한 문서의 제목 둘이 같은 앵커를 선언함                                            |
 | `empty-anchor`                | 오류   | id 없는 앵커 표기가 제목 글자에 남음                                              |
@@ -58,6 +58,7 @@ export default {
 | `imported-embed-component`    | 오류   | 원본 파일이 스스로 import한 컴포넌트를 임베드가 복사함                            |
 | `unstable-anchor-link`        | 경고   | 문서 순서에 따라 움직이는 자동 생성 앵커를 링크가 가리킴                          |
 | `unportable-embed-component`  | 경고   | 독립 HTML이 렌더링할 수 없는 컴포넌트를 임베드가 복사함                           |
+| `unmatched-tree-order`        | 경고   | 트리의 `order`가 첫 층의 어느 줄도 가리키지 않음                                  |
 
 외부 URL은 범위 밖입니다. `https://example.com`에 도달할 수 있는지 확인하는 것은 실패 양상이 다른 네트워크 작업이고, 별도 도구가 담당할 일입니다. 문서 사이트 옆에서 다른 애플리케이션이 담당하는 같은 도메인의 경로(`/sdk/js/start` 등)도 그 접두어를 `externalPaths`에 적어 두면 범위 밖이 됩니다. 적어 두지 않으면 문서 누락으로 보고되는데, 검사기가 그 페이지의 존재를 달리 알 방법이 없기 때문입니다.
 
@@ -132,6 +133,19 @@ guide.md
 ```
 
 매핑으로 쓴 열만 보고합니다. 표로 시작하는 절의 축약형 `summary`가 비는 것은 정상입니다. 설정에 등록되지 않은 추출기를 부르는 열은 대신 `invalid-embed-spec` 오류입니다.
+
+## unmatched-order 경고
+
+[트리](./embedding.ko.md#문서-트리-그리기)의 `order`는 적은 이름을 먼저 둡니다. 첫 층의 어느 줄도 가리키지 않는 항목은 아무것도 옮기지 않고, 트리는 조용히 제목 순서로 남습니다. 그래서 검사기가 그 항목과, 항목이 가리켰을 법한 제목을 함께 알려 줍니다.
+
+```
+guides/index.md
+  9:11  warning unmatched-tree-order Overveiw
+        order names "Overveiw", which is not on the tree's first level, so it moves nothing. An entry matches a document's file name or a line's title.
+        available: "Install", "Overview"
+```
+
+항목은 확장자를 뺀 문서 파일 이름이나 줄의 제목과 유니코드 NFC로 비교합니다. `...`는 보고하지 않습니다.
 
 ## 파싱되지 않는 임베드 블록
 

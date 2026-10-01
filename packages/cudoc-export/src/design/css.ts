@@ -427,6 +427,11 @@ export function printOptionRules(
   padding: var(--space-4) var(--space-6);
   background: var(--paper);
 }`,
+    // The print HTML writes a tree out as a plain nested list, so an item
+    // that had children is bulleted again like the rest.
+    `.cudoc-tree li:not(.cudoc-tree-leaf) {
+  list-style: revert;
+}`,
   ]
   if (coverImage)
     rules.push(

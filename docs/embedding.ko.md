@@ -144,6 +144,205 @@ export default {
 
 `version`은 라이브러리 설정에 들어가므로, 추출기가 바뀌면 컴파일러가 바뀔 때처럼 준비된 임베드가 무효가 됩니다. 아무것도 찾지 못한 열은 빈 셀로 렌더링되며, `cudoc check`가 매핑으로 쓴 열에 대해 그런 셀마다 열이 요구한 것과 절이 가진 것을 함께 적은 `empty-embed-cell` 경고를 보고합니다. → [참조 검사](./check.ko.md)
 
+## 문서 트리 그리기
+
+트리는 폴더가 문서를 품은 모양 그대로 문서를 한 줄씩 나열하고, `open` 아래의 단계는 독자가 펼치기 전까지 접어 둡니다. 다른 임베드와 같은 수집만 필요합니다. 블록을 쓰고, 수집하고, 빌드하세요. 트리의 모양은 호스트 가이드마다 가져오는 `@cudoment/cudoc/styles.css`가 정합니다. 이 스타일시트가 없으면 호스트가 접힌 단계를 직접 쓴 `details`처럼 그리며, Docusaurus와 Nextra에서는 상자 모양이 됩니다.
+
+### 첫 트리 만들기
+
+파일마다 `#` 제목과 한 문장 요약이 있는 가이드 묶음이 다음과 같다고 합시다.
+
+```text
+docs/
+├── index.md
+├── reference.md          # API reference, ##와 ### 절이 있음
+└── guides/
+    └── payments/
+        ├── index.md          # Payments: 트리를 넣을 페이지
+        ├── overview.md       # Overview
+        ├── checkout.md       # Checkout
+        ├── checkout/
+        │   ├── cards.md      # Cards
+        │   └── wallets.md    # Wallets
+        └── refunds/
+            ├── index.md      # Refunds
+            └── partial.md    # Partial refunds
+```
+
+`docs/guides/payments/index.md`에 다음과 같이 씁니다.
+
+````md
+```cudoc-embed
+sources: [./]
+render:
+  type: tree
+  order: [Overview, ...]
+```
+````
+
+그러면 페이지에 다음 트리가 보이며, 제목마다 그 문서로 연결됩니다. ▾는 처음부터 펼쳐 있는 줄, ▸는 처음에 접혀 있는 줄, •는 아래에 줄이 없는 줄입니다.
+
+```text
+• Overview · Where to start.
+▾ Checkout · Take a payment.
+    • Cards · Card payments.
+    • Wallets · Wallet payments.
+▾ Refunds · Give money back.
+    • Partial refunds · Refund part of a payment.
+```
+
+`./`는 페이지가 있는 폴더이고, 페이지 자신인 `index.md`는 줄이 아니라 그 폴더를 나타냅니다. `checkout.md`처럼 옆의 폴더를 대표하는 페이지는 그 폴더를 `sources: [checkout/]`로 적습니다. 이 페이지의 `./`는 페이지가 놓인 폴더이므로, `./`를 쓰면 Checkout 자신까지 형제 문서와 함께 나열합니다. `checkout.md`는 옆의 `checkout/` 폴더를 하위로 받고, `refunds/index.md`는 자기 폴더를 대표합니다. `order`가 Overview를 맨 앞에 두고 나머지는 제목 순으로 뒤따릅니다. 아래에 다른 줄이 있는 줄은 그 줄들을 HTML `details` 요소로 접기 때문에, 모든 호스트와 독립 HTML에서 스크립트 없이 트리를 열고 닫을 수 있습니다. 인쇄 HTML, PDF, Word에는 접을 곳이 없으므로 트리를 펼친 중첩 목록으로 씁니다.
+
+### 자주 쓰는 트리 네 가지
+
+**문서 묶음의 개요 페이지**는 위의 트리입니다. 폴더의 `index.md`에 `sources: [./]`를 씁니다.
+
+**긴 레퍼런스의 접이식 개요**는 문서 아래에 그 문서의 절을 나열합니다. `reference.md` 옆의 `docs/index.md`에 쓰며, `headings: 2`가 `##`와 `###` 제목을 가져오고, `open: 2`가 두 단계를 처음부터 펼칩니다.
+
+````md
+```cudoc-embed
+sources: [reference.md]
+render:
+  type: tree
+  headings: 2
+  open: 2
+```
+````
+
+```text
+▾ API reference · Every endpoint, its limits and how to call it.
+    ▾ Limits · How many calls you may make.
+        • Rate limits · Calls per minute.
+        • Quotas · Calls per day.
+    ▾ Authentication · How to sign a call.
+        • Tokens · Where a token comes from.
+```
+
+**절 하나의 개요**는 앵커에서 시작합니다. `headings`는 절 자신의 단계와 상관없이 `##`부터 세므로, `##` 절의 `###` 제목을 가져오려면 `headings: 2`를 씁니다.
+
+````md
+```cudoc-embed
+sources: [reference.md#limits]
+render:
+  type: tree
+  headings: 2
+```
+````
+
+```text
+▾ Limits · How many calls you may make.
+    • Rate limits · Calls per minute.
+    • Quotas · Calls per day.
+```
+
+**전체 문서 지도**는 라이브러리 맨 위에서 시작합니다. `depth: 2`는 두 단계만 담고, `open: 0`은 그 단계를 접어 두며, `columns: [link]`는 제목만 보여 줍니다.
+
+````md
+```cudoc-embed
+sources: [/]
+render:
+  type: tree
+  depth: 2
+  open: 0
+  columns: [link]
+```
+````
+
+```text
+• API reference
+▸ Payments
+```
+
+Payments를 펼치면 Checkout, Overview, Refunds가 나옵니다. Cards, Wallets, Partial refunds는 세 번째 단계라서 `depth` 밖에 있습니다. `guides/`를 대표하는 문서가 없으므로 이 폴더는 단계를 더하지 않습니다.
+
+### 어느 문서가 어디에 달리는가
+
+- `/`로 끝나는 원본은 폴더이며, 그 폴더 바로 아래의 문서가 첫 층이 됩니다. 그 밖의 원본은 문서이거나, `#anchor`가 붙으면 그 문서의 절이며, 그 자체가 첫 층의 줄이 됩니다. 원본 경로는 다른 임베드 원본과 같이 임베드하는 문서를 기준으로 해석하고, `/`로 시작하면 라이브러리 맨 위를 기준으로 해석합니다. 여러 원본은 적은 순서대로 하나의 첫 층을 이룹니다.
+- `X.md` 아래에는 그 옆에 있는 폴더 `X/`의 문서가 달립니다. 아웃라이너는 파일 하나를 페이지 하나로 다루고 `index`라는 이름의 페이지를 둘 수 없으므로 이 방식을 씁니다.
+- `X.md`가 없으면 폴더 안의 `X/index.md`가 정적 사이트 생성기의 관례대로 폴더를 대표하고, 폴더의 나머지 문서는 그 아래에 달립니다. 폴더 원본은 이 문서의 아래에서 시작합니다.
+- 대표하는 문서가 없는 폴더는 자기 문서를 그런 문서가 있는 가장 가까운 상위 폴더로 넘기므로, `projects/` 같은 분류 폴더는 단계를 더하지 않습니다.
+- `headings`를 쓰면 문서의 절이 그 문서 아래, 하위 문서보다 앞에 달립니다. `#` 제목은 문서 자신의 줄 이름이 됩니다.
+
+### 설정
+
+| 키         | 의미                                                                                                                    | 기본값            |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `open`     | 웹에서 처음부터 펼쳐 둘 단계 수입니다. `0`이면 첫 층만, `1`이면 첫 두 단계가 보입니다                                   | `1`               |
+| `print`    | 인쇄 HTML, PDF, Word가 보여 줄 단계 수입니다                                                                            | 모든 단계         |
+| `depth`    | 트리에 담을 단계 수이며, 제목 줄도 문서 줄과 함께 셉니다                                                                | 모든 단계         |
+| `headings` | 각 문서의 제목 아래에서 줄이 될 제목 단계입니다. `1`은 `##`, `2`는 `##`와 `###`이며 `5`까지 쓸 수 있습니다              | `0`, 문서만       |
+| `order`    | 첫 층에서 먼저 둘 이름을 순서대로 적습니다. `...`는 적지 않은 나머지 이름 전체의 자리이며, 없으면 나머지가 뒤에 옵니다  | 제목 순           |
+| `columns`  | 줄 하나에 보일 값입니다. 추출기를 포함한 [표 열](#열을-직접-정의하기)의 어휘를 쓰며, 비어 있지 않은 값을 `·`로 잇습니다 | `[link, summary]` |
+
+### 줄에 보이는 것
+
+문서의 제목은 `#` 제목이며, 없으면 `title` 앞부분 정보, 그것도 없으면 파일 이름이고, `index.md`라면 폴더 이름입니다. 절의 제목은 그 제목 줄의 글자입니다.
+
+`summary`는 요약 표와 같은 방식으로 제목 다음의 첫 문단을 읽습니다. 아웃라이너가 `#` 제목 위에 쓰는 속성 줄은 요약이 되지 않습니다. 제목 아래 다음 제목 전까지 자기 문단이 없으면 제목 다음의 첫 문단이 하위 절의 문단이 되므로, 그 줄은 아래 줄의 요약을 되풀이합니다. 절에 첫 문장을 두거나, `columns: [link]`로 제목만 보이게 하면 됩니다.
+
+`columns`는 표의 어휘를 씁니다. `[link]`는 제목만, `[title, summary]`는 연결하지 않은 제목을 보여 주고, `{ value: { row, column } }`은 절 안의 표에서 값을 하나 가져오며, 그 밖의 값은 [추출기](#하위-단계의-합계)로 계산합니다. 값이 빈 열은 줄에서 빠지며, 모든 열이 비어 있는 줄에는 제목이 보입니다.
+
+트리는 절의 본문을 복사하지 않으므로 `select`와 `replace`를 쓸 수 없습니다.
+
+### 줄의 순서
+
+첫 층은 `sources`에 적은 순서를 따르며, 폴더 원본이 가져온 문서는 그 안에서 정렬합니다. 그 아래 단계는 모두 정렬하되, 절은 문서 안의 순서를 유지합니다. 문서는 제목 순으로 정렬하며, 대소문자를 무시하고 숫자는 값으로 읽어서 어느 컴퓨터에서나 같은 결과가 나옵니다.
+
+그다음 `order`가 첫 층의 위치를 옮깁니다. 항목은 확장자를 뺀 문서 파일 이름, `index.md`라면 폴더 이름, 또는 줄의 제목과 일치해야 하며, 정렬과 달리 대소문자까지 정확히 같아야 합니다. 이름은 유니코드 NFC로 비교하므로, macOS의 Syncthing처럼 동기화 도구가 NFD로 저장한 파일 이름도 직접 입력한 조합형 이름과 일치합니다. `...`는 어느 목록 표기에서든 따옴표가 필요 없지만, `: `나 ` #`가 든 이름은 YAML이 매핑과 주석으로 읽으므로 따옴표로 감쌉니다. 대괄호로 쓴 목록에서는 쉼표나 `[`, `]`, `{`, `}`가 든 이름도 따옴표로 감쌉니다.
+
+```yaml
+order: ["Step 1: Install", "Install, configure and run", ..., Changelog]
+```
+
+### 비공개 문서
+
+`private`가 아닌 페이지의 트리는 폴더나 상위 문서를 통해 들어올 `private` 문서를 그 아래 줄과 함께 뺍니다. 비공개 문서를 쓰지 않는 내보내기가 그 문서로 링크할 수 없기 때문입니다. `private` 페이지는 이런 문서도 나열합니다. 원본에 직접 적은 비공개 문서는 그대로 나열하며, 그 줄의 링크는 직접 쓴 링크와 같은 정책을 따릅니다. 내보내기는 `relative`에서는 그 링크를 거부하고 `host`에서는 배포된 페이지를 가리킵니다([하이퍼링크 동작 선택](./export.ko.md#하이퍼링크-동작-선택) 참고). 공개 페이지에서 문서가 모두 빠지는 폴더는 오류이고, 빠진 문서를 가리키는 `order` 항목은 아무것과도 일치하지 않습니다. `exclude`로 뺀 파일은 라이브러리에 없으므로 어느 트리에도 나오지 않습니다.
+
+### 하위 단계의 합계
+
+트리에서 추출기는 가장 깊은 줄부터 줄마다 실행되며, 실행 문맥에는 아래 줄이 모두 채워진 그 줄이 `node`로 들어 있습니다. 다음은 문서와 그 아래 문서 전체의 남은 할 일을 셉니다.
+
+```js
+// cudoc.config.mjs
+const open = (text) => (text.match(/^- TODO /gm) ?? []).length
+
+export default {
+  sourceRoot: "notes",
+  extractors: {
+    openTasks: {
+      version: "1",
+      extract(row, { library, node }) {
+        const total = (line) =>
+          open(
+            library.documents.find((d) => d.id === line.documentId).source.text,
+          ) + line.children.reduce((sum, child) => sum + total(child), 0)
+        const count = node ? total(node) : open(row.document.source.text)
+        return count ? `${count} open` : undefined
+      },
+    },
+  },
+}
+```
+
+````md
+```cudoc-embed
+sources: [/projects/]
+render:
+  type: tree
+  columns: [link, { value: { extractor: openTasks } }, summary]
+```
+````
+
+`depth` 아래의 줄은 트리에 없으므로 합계도 `depth`에서 멈춥니다. 줄의 추출기가 실행될 때에는 아래 줄의 칸이 이미 채워져 있으므로, 하위 줄이 보여 주는 값을 더하는 방식으로 합계를 구할 수도 있습니다.
+
+### 트리 검사와 갱신
+
+`cudoc check`는 아무것도 가리키지 않는 원본과 앵커를 다른 임베드와 같이 보고하고, 설정에 등록되지 않은 추출기를 `invalid-embed-spec`으로, 첫 층의 어느 줄과도 일치하지 않는 `order` 항목을 `unmatched-tree-order` 경고로 보고합니다. → [참조 검사](./check.ko.md)
+
+준비된 트리는 줄을 읽어 온 모든 문서에 의존하므로, 아래 문서를 고치면 다음 수집(`cudoc collect --watch`의 다음 회차 포함)에서 트리를 다시 해석합니다. 문서를 더하거나 지우면 모든 임베드를 다시 해석하므로, 새 파일은 다음 회차에 자기가 속한 트리에 나타납니다.
+
+아웃라이너의 블록처럼 트리를 자기 형식으로 쓰는 프로그램은 [`resolveTree`](./api-reference/node.ko.md#트리-데이터)로 같은 줄을 읽습니다.
+
 ## 찾기·바꾸기
 
 ````md
@@ -245,13 +444,20 @@ MDX 호스트에서는 임베드 플러그인이 준비된 내용을 페이지�
 
 ## 문제 해결
 
-| 증상                          | 조치                                                                        |
-| ----------------------------- | --------------------------------------------------------------------------- |
-| 준비된 임베드가 없거나 오래됨 | 호스트 실행 전에 다시 수집·준비하고 양쪽 출력 경로가 같은지 확인            |
-| 문서 또는 섹션을 찾을 수 없음 | 상대 경로, 수집 범위, 명시적 앵커 ID 확인                                   |
-| ID 중복 또는 충돌             | 제목에 고유 ID 지정; API로 여러 임베드를 조합하면 서로 다른 prefix 사용     |
-| 순환 임베드                   | 메시지가 알려 주는 순환(`cudoc: cyclic embed: a#* -> b#limits -> a#*`) 제거 |
-| 컴포넌트의 공통 렌더러가 없음 | Markdown 사용, 정적 의미 매핑 설정, 또는 렌더링 API에 렌더러 전달           |
-| 내용은 맞지만 링크가 틀림     | `routeBase`, `routeSuffix`, `routes`를 실제 호스트 경로에 맞춤              |
+| 증상                                   | 조치                                                                                                                                            |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| 준비된 임베드가 없거나 오래됨          | 호스트 실행 전에 다시 수집·준비하고 양쪽 출력 경로가 같은지 확인                                                                                |
+| 문서 또는 섹션을 찾을 수 없음          | 상대 경로, 수집 범위, 명시적 앵커 ID 확인                                                                                                       |
+| ID 중복 또는 충돌                      | 제목에 고유 ID 지정; API로 여러 임베드를 조합하면 서로 다른 prefix 사용                                                                         |
+| 순환 임베드                            | 메시지가 알려 주는 순환(`cudoc: cyclic embed: a#* -> b#limits -> a#*`) 제거                                                                     |
+| 컴포넌트의 공통 렌더러가 없음          | Markdown 사용, 정적 의미 매핑 설정, 또는 렌더링 API에 렌더러 전달                                                                               |
+| 내용은 맞지만 링크가 틀림              | `routeBase`, `routeSuffix`, `routes`를 실제 호스트 경로에 맞춤                                                                                  |
+| `no documents in folder …`             | 폴더에 그 폴더를 대표하는 페이지 말고는 문서가 없음. 문서를 더하거나 경로와 `exclude` 확인                                                      |
+| `… a folder source ends with /`        | 원본이 폴더를 슬래시 없이 가리킴. 폴더의 문서를 나열하려면 `guides/`처럼 씀                                                                     |
+| `… holds only private documents …`     | 공개 페이지는 비공개 문서를 나열하지 않음. 트리를 비공개 페이지에 쓰거나 문서를 원본에 직접 적음                                                |
+| 트리가 상자 모양으로 그려짐            | 호스트 가이드대로 `@cudoment/cudoc/styles.css`를 가져옴                                                                                         |
+| 줄이 아래 줄의 요약을 되풀이함         | 절의 첫 하위 제목 앞에 문단을 두거나 `columns: [link]` 사용                                                                                     |
+| `unmatched-tree-order`                 | 항목을 파일 이름이나 줄에 보이는 제목으로, 대소문자까지 같게 적음. 대괄호 목록에서는 쉼표가 이름을 둘로 나누므로 쉼표가 든 이름을 따옴표로 감쌈 |
+| `render.order must be a list of names` | `: `가 든 이름을 따옴표로 감쌈                                                                                                                  |
 
 임베드는 ID와 참조를 조정해 충돌을 피하고 문서 링크와 이미지 경로를 다시 계산합니다. 복사한 절 안에서 `#setup`이나 `?tab=2`처럼 조각이나 쿼리만 쓴 링크는 원래 쓰인 문서를 계속 뜻합니다. 복사본에 그 앵커가 있으면 복사본 안을, 없으면 원본 문서를 가리킵니다. 코드로 직접 수집하거나 비동기 컴파일러·저장 데이터·수동 렌더링을 다루려면 [Node API 레퍼런스](./api-reference/node.ko.md)를 참고하세요.
