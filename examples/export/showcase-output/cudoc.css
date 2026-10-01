@@ -556,11 +556,11 @@ details[open] summary {
   color: var(--ink);
   font-weight: 700;
 }
-.cudoc-callout-warning,
-.cudoc-callout-caution {
+.cudoc-callout-warning {
   background: var(--warn-wash);
   border-left-color: var(--warn);
 }
+.cudoc-callout-caution,
 .cudoc-callout-danger,
 .cudoc-callout-error {
   background: var(--danger-wash);
@@ -754,6 +754,8 @@ footer {
     transform: translateY(-0.3em);
   }
   .cudoc-contents-page {
+    min-width: 4ch;
+    text-align: right;
     font-variant-numeric: tabular-nums;
     color: var(--muted);
   }

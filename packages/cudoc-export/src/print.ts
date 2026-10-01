@@ -12,6 +12,8 @@
  */
 
 import fs from "node:fs"
+import { idToken } from "@cudoment/cudoc/document"
+import { PAGE_BREAK_CLASS } from "@cudoment/cudoc/paged"
 import path from "node:path"
 import { fromHtml } from "hast-util-from-html"
 import { toHtml } from "hast-util-to-html"
@@ -29,7 +31,11 @@ import {
 } from "./design/css.js"
 import type { DesignTokens } from "./design/tokens.js"
 import type { ResolvedPageOptions } from "./design/page.js"
-import { rewritePageLinks, type SiteLinkMode } from "./links.js"
+import {
+  rewritePageLinks,
+  type RewrittenLink,
+  type SiteLinkMode,
+} from "./links.js"
 
 export type PrintableDocument = {
   doc: StoredDocument
@@ -37,15 +43,51 @@ export type PrintableDocument = {
   tree: Root
   /**
    * The rendered body. Every local resource it references has been copied and
-   * is written root-relative, marked with `data.cudocAsset`, so each output
+   * is written root-relative, marked with `data.cudocAssets`, so each output
    * re-expresses the path from wherever it lives.
    */
   hast: HastRoot
   headings: DocumentNode[]
 }
 
-/** How a copied resource is recorded on the element that references it. */
-export type AssetMark = { key: string; asset: string; suffix: string }
+/** A copied resource: its root-relative path and what followed the path. */
+export type CopiedAsset = { asset: string; suffix: string }
+
+/**
+ * How the copied resources an element references are recorded on it, one
+ * entry per attribute: the path for `src`, `poster`, `data` or `href`, and
+ * each candidate with its width or density for `srcset`. A candidate that was
+ * not copied, one on another host, keeps its `url` as written.
+ */
+export type AssetMark =
+  | ({ key: string } & CopiedAsset)
+  | {
+      key: string
+      candidates: ((CopiedAsset | { url: string }) & { descriptor: string })[]
+    }
+
+/**
+ * A copied file's path written as a URL path. The path names the file on
+ * disk, so what a URL reads differently is escaped: white space, which ends a
+ * `srcset` candidate, a comma, which may end one, and `%`, `#` and `?`, which
+ * a URL reads as an escape, a fragment and a query.
+ */
+export const urlPath = (file: string): string =>
+  file.replace(/[\s%#?,]/g, (character) => encodeURIComponent(character))
+
+/** A `srcset` candidate as one output writes it. */
+export const srcSetCandidate = (
+  candidate: (CopiedAsset | { url: string }) & { descriptor: string },
+  link: (asset: string) => string,
+): string =>
+  [
+    "asset" in candidate
+      ? `${urlPath(link(candidate.asset))}${candidate.suffix}`
+      : candidate.url,
+    candidate.descriptor,
+  ]
+    .filter(Boolean)
+    .join(" ")
 
 export type VolumeOptions = {
   /** Output basename for the bound files. Defaults to `"volume"`. */
@@ -134,7 +176,7 @@ export function resolveVolumeOptions(
  * inside it takes. One encoding for both, so a link built from one always
  * matches an element named by the other.
  */
-export const volumeId = (id: string) => `cudoc-${encodeURIComponent(id)}`
+export const volumeId = (id: string) => `cudoc-${idToken(id)}`
 export const volumePrefix = (id: string) => `${volumeId(id)}-`
 
 const clone = <T>(value: T): T => structuredClone(value)
@@ -181,6 +223,33 @@ export const tableColumns = (
   }, 0)
 }
 
+const isBreak = (node: RootContent) =>
+  node.type === "element" &&
+  (node.properties.className as string[] | undefined)?.includes(
+    PAGE_BREAK_CLASS,
+  )
+
+/**
+ * Removes the authored page breaks that open a document: the top-level break
+ * elements that no other element precedes, whatever text or comments do. A
+ * document starts on a page already, in its own file and in the volume, so
+ * such a break only prints a blank page, and the Word writer skips it too. It
+ * is removed from the tree rather than neutralized by the stylesheet so that
+ * `wrapWideTables` still sees the element after it as the document's first,
+ * which stays on the portrait page. A break nested in a container is left
+ * alone in both.
+ */
+export const dropLeadingBreaks = (tree: HastRoot): void => {
+  const children = tree.children
+  let index = 0
+  while (index < children.length) {
+    const child = children[index]!
+    if (child.type !== "element") index++
+    else if (isBreak(child)) children.splice(index, 1)
+    else break
+  }
+}
+
 /**
  * Wraps every table with at least `minColumns` columns in a block the print
  * stylesheet puts on a landscape page of its own.
@@ -190,8 +259,30 @@ export const tableColumns = (
  * answers a named page on the first element with a blank page in front of it.
  * Documents start with a heading in practice, so the exclusion rarely bites,
  * and the Word writer applies the same rule so the two outputs agree.
+ *
+ * An authored page break beside a wrapped table is dropped: the landscape
+ * page already breaks on both sides, and the empty break element after it
+ * would take a page of its own. The Word writer drops it too.
  */
 export const wrapWideTables = (tree: HastRoot, minColumns: number): void => {
+  const isWide = (node?: RootContent) =>
+    node?.type === "element" &&
+    (node.properties.className as string[] | undefined)?.includes(
+      WIDE_TABLE_CLASS,
+    )
+  /**
+   * The element next to `index` in `step` direction, past blank text and
+   * comments, which the Word writer never sees.
+   */
+  const neighbour = (children: RootContent[], index: number, step: 1 | -1) => {
+    for (let i = index + step; i >= 0 && i < children.length; i += step) {
+      const child = children[i]!
+      if (child.type === "comment") continue
+      if (child.type === "text" && !child.value.trim()) continue
+      return child.type === "element" ? child : undefined
+    }
+    return undefined
+  }
   const wrap = (
     parent: HastRoot | (RootContent & { type: "element" }),
     first: boolean,
@@ -216,6 +307,15 @@ export const wrapWideTables = (tree: HastRoot, minColumns: number): void => {
       wrap(child, isFirst, inTable)
       return child
     })
+    const children = parent.children
+    parent.children = children.filter(
+      (child, index) =>
+        !isBreak(child) ||
+        !(
+          isWide(neighbour(children, index, -1)) ||
+          isWide(neighbour(children, index, 1))
+        ),
+    ) as typeof parent.children
   }
   wrap(tree, true, false)
 }
@@ -226,9 +326,15 @@ export const localizeAssets = (
   link: (asset: string) => string,
 ): void =>
   visit(tree, (element) => {
-    const mark = (element.data as { cudocAsset?: AssetMark } | undefined)
-      ?.cudocAsset
-    if (mark) element.properties[mark.key] = `${link(mark.asset)}${mark.suffix}`
+    const marks = (element.data as { cudocAssets?: AssetMark[] } | undefined)
+      ?.cudocAssets
+    for (const mark of marks ?? [])
+      element.properties[mark.key] =
+        "candidates" in mark
+          ? mark.candidates
+              .map((candidate) => srcSetCandidate(candidate, link))
+              .join(", ")
+          : `${urlPath(link(mark.asset))}${mark.suffix}`
   })
 
 /**
@@ -301,7 +407,11 @@ export type PrintOutputOptions = {
    * Where a hyperlink points under the output's link policy, in the
    * per-document file (`bound: false`) or inside the volume (`bound: true`).
    */
-  resolveLink: (url: string, doc: StoredDocument, bound: boolean) => string
+  resolveLink: (
+    url: string,
+    doc: StoredDocument,
+    bound: boolean,
+  ) => RewrittenLink
 }
 
 /**
@@ -389,6 +499,7 @@ export function writePrintOutputs(options: PrintOutputOptions): string[] {
     // expressed from that document's directory, as the site's are.
     localizeAssets(tree, (asset) => assetLink(asset, entry.doc))
     openDetails(tree)
+    dropLeadingBreaks(tree)
     if (page.wideTables) wrapWideTables(tree, page.wideTables.minColumns)
     rewritePageLinks(tree, links, (url) => resolveLink(url, entry.doc, false))
     const file = printFileName(entry.doc.id)
@@ -416,6 +527,7 @@ export function writePrintOutputs(options: PrintOutputOptions): string[] {
       // The volume is at the root, so a root-relative path is the path.
       localizeAssets(tree, (asset) => assetLink(asset))
       openDetails(tree)
+      dropLeadingBreaks(tree)
       if (page.wideTables) wrapWideTables(tree, page.wideTables.minColumns)
       rewritePageLinks(tree, links, (url) => resolveLink(url, entry.doc, true))
       namespaceIds(tree, volumePrefix(entry.doc.id))

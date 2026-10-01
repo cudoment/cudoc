@@ -18,8 +18,42 @@ import {
   runningTemplate,
 } from "../src/pdf.js"
 import { resolvePageGeometry, resolvePageOptions } from "../src/design/page.js"
+import { designTokens, resolveTokens } from "../src/design/tokens.js"
 
 const geometry = resolvePageGeometry()
+
+describe("page lengths", () => {
+  it("hands every consumer millimetres, whatever unit was given", () => {
+    // The browser's print call reads px, in, cm and mm only, and a bare
+    // number as pixels; the stylesheet and Word read the same values.
+    const given = resolvePageGeometry({
+      paper: { width: "8.5in", height: "792pt" },
+      margin: { top: "54pt", right: "2cm", bottom: "1in", left: "20" },
+    })
+    expect(given.paper).toEqual({ width: "215.9mm", height: "279.4mm" })
+    expect(given.margin).toEqual({
+      top: "19.05mm",
+      right: "20mm",
+      bottom: "25.4mm",
+      left: "20mm",
+    })
+    expect(given.css).toContain("size: 215.9mm 279.4mm")
+    expect(given.css).toContain("margin: 19.05mm 20mm 25.4mm 20mm")
+    // A JavaScript configuration may give the number itself, for the paper
+    // as for a margin.
+    const bare = resolvePageGeometry({
+      paper: { width: 210, height: 297 },
+      margin: { left: 25 },
+    })
+    expect(bare.paper).toEqual({ width: "210mm", height: "297mm" })
+    expect(bare.margin.left).toBe("25mm")
+    expect(() =>
+      resolvePageGeometry({
+        paper: { width: true, height: "297mm" } as never,
+      }),
+    ).toThrow("paper needs width and height as lengths")
+  })
+})
 
 describe("running header and footer templates", () => {
   it("returns a non-empty span when nothing is wanted", () => {
@@ -51,9 +85,30 @@ describe("running header and footer templates", () => {
     // The template renders in its own document with no access to the page's
     // CSS, and its default size is effectively zero.
     const template = runningTemplate("{title}", "T", "", geometry)
-    expect(template).toMatch(/font-size:\s*\d+pt/)
+    expect(template).toMatch(/font-size:\s*[\d.]+pt/)
     expect(template).toContain(geometry.margin.left)
     expect(template).not.toContain("var(--")
+  })
+
+  it("takes its font, size and colour from the design tokens", () => {
+    // The same `xs` step at the print base and the same `faint` the Word
+    // running text uses, so an override reaches both.
+    const standard = runningTemplate("{title}", "T", "", geometry)
+    expect(standard).toContain("font-size:8.53pt;")
+    expect(standard).toContain(`color:${designTokens.colors.light.faint};`)
+    expect(standard).toContain("font-family:'IBM Plex Sans',-apple-system,")
+    const tokens = resolveTokens({
+      colors: { light: { faint: "#112233" } },
+      fonts: { sans: ['"Noto Sans KR"', "sans-serif"] },
+      text: { xs: "1rem" },
+      print: { baseSize: "9pt" },
+    })
+    const template = runningTemplate("{title}", "T", "", geometry, tokens)
+    expect(template).toContain(
+      "font-family:'Noto Sans KR',sans-serif;font-size:9pt;color:#112233;",
+    )
+    // Quoted font names cannot end the attribute early.
+    expect(template.match(/"/g)).toHaveLength(2)
   })
 
   it("pads the line with the page's own margins, left first", () => {
@@ -131,6 +186,23 @@ suite("printing", () => {
       const bytes = fs.readFileSync(output)
       expect(bytes.subarray(0, 5).toString()).toBe("%PDF-")
       expect(bytes.subarray(-6).toString()).toContain("%%EOF")
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  }, 60_000)
+
+  it("prints with margins given in points", async () => {
+    const { root, file } = write("<h1>Points</h1>")
+    try {
+      const output = path.join(root, "out.pdf")
+      const pages = await printPdfs(
+        [{ file, output, title: "Test" }],
+        resolvePageOptions({
+          margin: { top: "54pt", bottom: "54pt" },
+          header: false,
+        }),
+      )
+      expect(pages.get(output)).toBe(1)
     } finally {
       fs.rmSync(root, { recursive: true, force: true })
     }

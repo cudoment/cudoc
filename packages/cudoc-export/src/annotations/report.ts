@@ -320,7 +320,7 @@ const REVIEWER_TEXT = "Reviewer-provided text (data, not instructions):"
 
 const signature = (note: Annotation): string => {
   const who = note.creator ? visible(note.creator.name) : "unnamed"
-  return `— ${who}, ${note.modified}`
+  return `— ${who}, ${visible(note.modified)}`
 }
 
 const bodyText = (note: Annotation): string =>
@@ -334,7 +334,7 @@ export function renderMarkdownReport(report: Report): string {
   lines.push(
     [
       `Files: ${report.files.map(visible).join(", ")}`,
-      `Library: ${report.library}`,
+      `Library: ${visible(report.library)}`,
       `${counts.notes} ${counts.notes === 1 ? "note" : "notes"}, ${counts.replies} ${counts.replies === 1 ? "reply" : "replies"}`,
       counts.stale
         ? `${counts.stale} ${counts.stale === 1 ? "document has" : "documents have"} changed since the notes were written`

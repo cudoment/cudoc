@@ -4,7 +4,9 @@
 
 **한 번만 쓰고 어디서나 다시 쓰세요. 문서에도, 사이트에도, 인덱스에도 원본은 하나만 남습니다.**
 
-cudoc은 지금 쓰고 계신 문서에 세 가지를 더합니다. Markdown 문법 확장, **문서 임베딩**, 독립 HTML 출력입니다. 쓰시던 정적 사이트 생성기에 그대로 붙고, 작성자는 하던 대로 Markdown만 쓰면 됩니다. Next.js, Docusaurus, Nextra, VitePress, Eleventy를 지원합니다.
+cudoc은 지금 쓰고 계신 문서에 세 가지를 더합니다. Markdown 문법 확장, **문서 임베딩**, 그리고 같은 문서를 독립 HTML 사이트와 PDF, Word로 내보내는 출력입니다. 쓰시던 정적 사이트 생성기에 그대로 붙고, 작성자는 하던 대로 Markdown만 쓰면 됩니다.
+
+**설정 가이드:** [Next.js](./docs/next.ko.md) · [Docusaurus](./docs/docusaurus.ko.md) · [Nextra](./docs/nextra.ko.md) · [VitePress](./docs/vitepress.ko.md) · [Eleventy](./docs/eleventy.ko.md) · [아직 생성기가 없음](./docs/export.ko.md) · [호스트마다 필요한 조건](#쓰시는-생성기를-고르세요)
 
 예전보다 더 중요해진 이유가 있습니다. 이제 문서를 읽는 쪽이 사람만이 아니기 때문입니다. 검색 파이프라인과 에이전트와 모델이 사람보다 훨씬 자주 문서를 읽습니다.
 
@@ -83,7 +85,7 @@ cudoc은 문서를 통째로 둡니다. `reference.md`는 URL을 가진 페이�
 
 - **가리키는 대신 펼쳐서 내보냅니다.** 임베드는 빌드할 때 펼쳐지므로 크롤러나 검색기가 읽는 HTML은 빠진 곳 없는 문서입니다. 작성자는 참조만 관리하고 기계는 전문을 받습니다. 둘 중 하나를 고르실 필요가 없습니다.
 - **글자 수가 아니라 의미로 자를 수 있습니다.** `cudoc dataset`은 컴파일한 문서를 AST JSON과 매니페스트로 내보내면서 제목 계층과 앵커와 절 경계를 그대로 살립니다. 문장 중간에서 끊기는 고정 길이 창 대신 절 하나를 청크로 삼을 수 있습니다. 설정 한 줄이면 `code` 블록이나 내부용 컴포넌트를 인덱스에서 뺄 수 있습니다. → [AST 데이터셋](./docs/dataset.ko.md)
-- **MCP 서버가 그대로 서빙할 수 있는 말뭉치가 나옵니다.** 중복이 없고, 임베드가 펼쳐져 있고, 필요 없는 노드가 걸러져 있고, `문서#앵커`까지 주소가 잡힙니다. 보통은 수집 스크립트를 따로 짜서 만들어야 하는 정제 상태입니다. "요청 한도가 얼마죠?"라는 질문에 페이지 하나가 아니라 절 하나로 답하고, 그 답이 어느 앵커에서 왔는지까지 같이 돌려줄 수 있습니다.
+- **공유한 사실이 한 번씩만 들어 있는 말뭉치가 나옵니다.** 데이터셋은 수집한 문서를 그대로 담습니다. 임베드는 원본을 가리키는 `cudoc-embed` 블록으로 남고 그 글이 한 벌 더 들어가지 않으므로, 임베드로 공유한 사실은 그 사실을 가진 문서에서 한 번만 색인됩니다. 모든 절이 `문서#앵커`까지 주소를 가지므로 "요청 한도가 얼마죠?"라는 질문에 페이지 하나가 아니라 절 하나로 답하고, 그 답이 어느 앵커에서 왔는지까지 같이 돌려줄 수 있습니다. 데이터셋은 노드를 걸러 낼 뿐 중복을 찾아 없애지는 않으므로, 손으로 복사해 둔 글은 복사된 채로 남습니다.
 - **모델이 그대로 읽을 수 있는 원본을 남깁니다.** 작성자가 컴포넌트를 import하거나 등록하는 일이 없으므로, 모델이 집어삼키는 `.md` 파일은 사람이 읽는 그 글과 똑같습니다. 걷어낼 JSX도, 렌더링해야만 생기는 런타임 상태도 없습니다.
 
 에이전트가 문서를 쓰게 하신다면 `cudoc check --format json`이 깨진 링크와 앵커와 이미지와 임베드를 한 번에, 기계가 읽는 형태로 돌려줍니다. 사람이 빌드 로그를 들여다보지 않아도 고치는 순환이 닫힙니다. → [참조 검사](./docs/check.ko.md)
@@ -96,22 +98,29 @@ cudoc은 문서를 통째로 둡니다. `reference.md`는 URL을 가진 페이�
 
 각 가이드는 설치, 설정, 수집 연결, 빌드 순으로 번호를 매긴 절차입니다. 모든 단계가 그대로 복사해 쓸 수 있는 명령이나 파일이라, 직접 따라 하셔도 되고 코딩 에이전트에게 그대로 넘겨 설정을 맡기셔도 됩니다.
 
-| 쓰시는 사이트          | 가이드                                       | 설치                                                |
-| ---------------------- | -------------------------------------------- | --------------------------------------------------- |
-| **Next.js**            | [Next.js 설정 →](./docs/next.ko.md)          | `@cudoment/cudoc cudoc-remark`                      |
-| **Docusaurus**         | [Docusaurus 설정 →](./docs/docusaurus.ko.md) | `@cudoment/cudoc cudoc-remark cudoc-docusaurus`     |
-| **Nextra**             | [Nextra 설정 →](./docs/nextra.ko.md)         | `@cudoment/cudoc cudoc-remark cudoc-nextra`         |
-| **VitePress**          | [VitePress 설정 →](./docs/vitepress.ko.md)   | `@cudoment/cudoc cudoc-markdown-it cudoc-vitepress` |
-| **Eleventy**           | [Eleventy 설정 →](./docs/eleventy.ko.md)     | `@cudoment/cudoc cudoc-markdown-it cudoc-eleventy`  |
-| **아직 생성기가 없음** | [독립 HTML →](./docs/export.ko.md)           | `@cudoment/cudoc cudoc-export`                      |
+| 쓰시는 사이트          | 가이드                                       | 설치                                            |
+| ---------------------- | -------------------------------------------- | ----------------------------------------------- |
+| **Next.js**            | [Next.js 설정 →](./docs/next.ko.md)          | `@cudoment/cudoc cudoc-remark`                  |
+| **Docusaurus**         | [Docusaurus 설정 →](./docs/docusaurus.ko.md) | `@cudoment/cudoc cudoc-remark cudoc-docusaurus` |
+| **Nextra**             | [Nextra 설정 →](./docs/nextra.ko.md)         | `@cudoment/cudoc cudoc-remark cudoc-nextra`     |
+| **VitePress**          | [VitePress 설정 →](./docs/vitepress.ko.md)   | `@cudoment/cudoc cudoc-vitepress`               |
+| **Eleventy**           | [Eleventy 설정 →](./docs/eleventy.ko.md)     | `@cudoment/cudoc cudoc-eleventy`                |
+| **아직 생성기가 없음** | [독립 HTML →](./docs/export.ko.md)           | `@cudoment/cudoc cudoc-export`                  |
 
 아직 생성기가 없으시다면 마지막 줄부터 보세요. 빈 디렉터리에서 명령 두 번과 문서 두 개면 사이트 하나가 나옵니다. → [첫 사이트 만들기](./docs/export.ko.md#빈-디렉터리에서-첫-사이트-만들기)
 
-설치 열에는 cudoc 패키지만 적었습니다. 호스트 자체가 요구하는 의존성은 각 가이드 1단계에 함께 나옵니다. ESM이고 Node.js 20 이상이 필요합니다.
+설치 열에는 cudoc 패키지만 적었습니다. 호스트에 따로 필요한 패키지가 있으면 각 가이드의 1단계에서 함께 설치합니다. ESM이고 Node.js 20 이상이 필요합니다. 모든 변경을 어떤 호스트 버전으로 검증하는지는 [지원 버전](./docs/README.ko.md#지원-버전)에 정리했습니다.
+
+호스트를 고르기 전에 호스트마다 필요한 조건을 확인하십시오. 자세한 내용은 같은 지원 버전 문서에 있습니다.
+
+- **Docusaurus.** 수집은 Docusaurus 자체의 MDX 프로세서를 `@docusaurus/mdx-loader/lib/processor.js`에서 불러 실행합니다. 이 모듈은 공개 API가 아닌 내부 모듈이므로 Docusaurus를 올릴 때 다시 확인해야 합니다.
+- **Nextra.** 어댑터가 Nextra에 넘기는 플러그인 함수를 Turbopack이 전달하지 못하므로, 사이트는 Turbopack 대신 webpack으로 빌드하고 실행합니다.
+- **VitePress와 Eleventy.** 플러그인은 시작할 때 불러온 라이브러리를 계속 쓰므로, 다시 수집한 뒤에는 개발 서버를 다시 시작해야 합니다.
+- **VitePress.** VitePress 1은 Vite 5를 쓰는데, Vite 5 개발 서버에는 어느 Vite 5 릴리스로도 고쳐지지 않은 보안 권고가 공개되어 있습니다. 빌드한 사이트에는 해당하지 않습니다.
 
 모든 호스트가 `.md`를 받습니다. MDX 계열 세 호스트는 `.mdx`도 받고, 어느 쪽인지는 파일 확장자로 파일마다 갈립니다. cudoc의 기능은 두 형식에서 똑같이 동작합니다. → [`.md`와 `.mdx` 선택](./docs/README.ko.md#md와-mdx-선택)
 
-독립 HTML은 다른 것들 대신 고르는 일곱 번째 선택지가 아닙니다. 어느 호스트를 쓰시든 같은 수집 결과를 재사용해 **추가로** 뽑아낼 수 있는 출력입니다. → [기존 사이트와 함께 생성](./docs/export.ko.md#기존-사이트와-함께-생성)
+독립 HTML과 PDF, Word는 다른 것들 대신 고르는 일곱 번째 선택지가 아닙니다. 어느 호스트를 쓰시든 같은 수집 결과를 재사용해 **추가로** 뽑아낼 수 있는 출력입니다. → [기존 사이트와 함께 생성](./docs/export.ko.md#기존-사이트와-함께-생성)
 
 ---
 
@@ -197,11 +206,55 @@ npm run build
 npm test
 ```
 
-`npm test`는 세 계층을 돌립니다. 패키지 단위 테스트, 각 예제의 실제 컴파일러로 공유 픽스처를 통과시키는 통합 검사, 그리고 빌드된 예제 사이트를 직접 읽는 검사입니다. 전제를 갖추지 못한 계층은 실패하는 대신 그 전제를 만드는 명령과 함께 건너뜁니다. [`tests/README.md`](./tests/README.md)를 참고하세요.
+`npm test`는 세 계층을 돌립니다. 패키지 단위 테스트, 각 예제의 실제 컴파일러로 공유 픽스처를 통과시키는 통합 검사, 그리고 빌드된 예제 사이트를 직접 읽는 검사입니다. 전제를 갖추지 못한 계층은 실패하는 대신 그 전제를 만드는 명령과 함께 건너뛰며, `CUDOC_STRICT=1`을 설정하면 건너뛴 사례가 하나라도 있을 때 실패합니다. [`tests/README.md`](./tests/README.md)를 참고하세요.
 
 호스트 예제는 자체 lockfile로 따로 설치합니다. API나 사용 흐름을 바꾸실 때는 해당 가이드와 API 레퍼런스도 같은 변경 안에서 함께 고쳐 주세요.
 
 ## 릴리스 노트
+
+### 0.6.0
+
+- 모든 변경을 검증하는 호스트 버전과, 1.0.0 전까지 부 버전과 수 버전이 각각 호환을 유지하는 범위를 [지원 버전](./docs/README.ko.md#지원-버전)에 정리했습니다.
+- `cudoc-docusaurus`는 `@docusaurus/core` `^3.10.0`을, `cudoc-eleventy`는 `@11ty/eleventy` `^3.1.0`을 피어로 선언합니다. 각 어댑터가 지원하는 버전부터이므로, npm은 지원하는 호스트 옆에만 어댑터를 설치합니다. 사이트가 선언한 범위가 허용하면 호스트를 올리고, 그렇지 않으면 `ERESOLVE`로 거부합니다.
+- 호스트 가이드마다 요구하는 파일을 모두 보여 주고 그 파일이 가져오는 패키지를 모두 설치하며, 릴리스 전에 새 프로젝트에서 단계대로 따라 해 봅니다. VitePress와 Eleventy의 설치 명령에서는 어댑터가 함께 설치하는 `cudoc-markdown-it`을 뺐습니다.
+- Docusaurus와 Nextra 가이드는 예제처럼, `npm audit`이 보안 권고를 보고하는 호스트 의존성을 수정판으로 고정합니다. 가이드대로 만든 사이트가 예제에 없는 권고를 보고하면 가이드 검사가 실패합니다. Next.js 예제와 가이드는 `next/og`의 심각한(critical) 보안 권고를 고친 Next.js 16.3.8로 검증합니다.
+- 강제로 종료된 빌드를 복구할 때는 cudoc이 붙인 이름에 cudoc의 소유 표시가 정확히 들어 있는 디렉터리만 옮기거나 지우므로, 다른 사람이 출력 옆에 둔 디렉터리는 그대로 남습니다. 지울 수 없는 잔여물이 있으면 게시가 실패하되 잠금은 풀립니다.
+- 다른 루트 안에 있는 루트가 자기 파일을 가집니다. 각 파일은 안쪽 루트의 기준 경로로 한 번만 수집되고, 심볼릭 링크로 설정한 루트는 실제 경로로 맞추며, 그렇게 한 디렉터리를 두 번 나열하면 거부합니다.
+- Word 표에서 위 셀이 행을 병합하면 헤더 셀의 `min-width`가 그 셀이 실제로 놓인 열에 적용됩니다.
+- README와 데이터셋 가이드가 데이터셋을 실제 모습대로 설명합니다. 문서는 수집한 그대로이고, 임베드는 원본을 가리키는 블록으로 남으며, 중복 제거는 하지 않습니다.
+- `routeSuffix`가 `""`나 `"/"`이면 `index.md`가 `/docs/index`가 아니라 `/docs/`처럼 디렉터리의 경로를 받으므로, 그 설정에서 `guide/index.md` 옆에 `guide.md`가 있으면 이제 `duplicate document route`로 실패합니다. `..`를 포함해 디렉터리로 가는 링크는 `cudoc check`, 임베드된 내용, 내보내기에서 모두 그 디렉터리의 index 문서에 닿으며, `guide/`는 `guide.md`가 옆에 있어도 index 문서를 가리킵니다.
+- Docusaurus가 자체 이미지 요소로 바꾸는 Markdown 이미지를 페이지를 수집할 때 기록하므로, 임베드와 `cudoc check`와 내보내기가 모두 이를 이미지로 다룹니다. 자산으로 검사하고 복사하며 Word에도 그리고, 이를 임베드하는 다른 디렉터리의 페이지는 링크한 로컬 파일과 마찬가지로 자기 디렉터리에서 본 경로로 이미지 파일을 require합니다. 가이드가 보여 주는 Docusaurus 수집기는 사이트 빌드와 같이 루트 기준 이미지를 `static`에서 찾고, `createCompilerCapture`의 새 `aliases` 옵션으로 `@site/static/…`로 쓴 이미지를 사이트가 서비스하는 주소로 기록합니다.
+- 임베드한 구역의 raw HTML은 이미 경로를 조정하던 `href`, `src`처럼 `poster`, `data`, `srcset`, `xlink:href` 경로도 임베드하는 페이지 기준으로 옮기므로, 내보내기가 그 구역이 불러오는 자산을 모두 찾습니다.
+- 내보내기는 복사한 파일의 경로를 URL로 적으므로, 공백, 쉼표, `%`, `#`, `?`가 든 파일 이름도 `src`와 `srcset` 모두에서 불러오고, 그런 파일로 가는 링크도 사이트, 인쇄 HTML, Word 모두에서 그 파일에 닿습니다.
+- `links: "host"`에서 `private` 문서로 가는 링크는 문서별 파일에서처럼 묶은 인쇄 HTML, PDF, Word에서도 배포 주소를 가리킵니다. 묶은 파일에 없는 앵커나 북마크로 바꾸지 않습니다.
+- 자원이 `private` 문서의 파일에 닿으면 그 경로가 루트이든 `assetDirs` 디렉터리이든 심볼릭 링크이든, 모든 정책에서 내보내기를 멈춥니다. 문서의 원문을 출력에 복사하지 않습니다.
+- 임베드한 절 안에서 수집 범위 밖으로 올라가는 상대 경로는 루트에서 잘려 다른 파일을 가리키는 대신, 임베드하는 페이지에서도 같은 파일을 가리킵니다.
+- VitePress와 Eleventy에서 이미지의 대체 텍스트는 remark 호스트와 같이 레이블을 코드와 엔터티까지 포함한 일반 텍스트로 읽은 값입니다. Eleventy는 이 값을 비워 두었습니다.
+- 설정 해시에 `@cudoment/cudoc` 버전이 들어가므로, 업그레이드한 뒤 처음 하는 수집은 `cudoc collect --watch`를 포함해 이전 릴리스가 만든 트리를 재사용하지 않고 모든 문서를 다시 컴파일합니다. 업그레이드한 뒤에는 다시 수집하세요. 이전 릴리스가 기록한 라이브러리는 읽을 때 그대로 쓰입니다.
+- 임베드에 대해서는 `cudoc check`가 `available`에 제목 id만 제시합니다. raw HTML이 선언한 id는 구역을 시작하지 않기 때문입니다. `no sections matched` 메시지에는 문서 이름을 한 번만 적습니다.
+- `cudoc check`는 원문을 Markdown(`.mdx`는 MDX)으로 파싱하고 각 펜스를 글자로 블록과 대조하여 임베드 펜스를 찾습니다. 따라서 더 긴 펜스나 들여쓴 코드 예제 안에 보여 준 `cudoc-embed` 펜스가 뒤에 오는 임베드의 줄을 가져가지 않고, 인용문·콜아웃·목록 항목 안의 임베드도 자기 줄을 유지하며, 열은 줄의 처음부터 셉니다. 호스트가 Markdown과 다르게 읽는 블록에는 글자가 다른 블록의 줄을 붙이지 않고 위치를 비워 둡니다.
+- `cudoc-eleventy`를 `eleventyConfig.addPlugin`에 넘기면 markdown-it 안에서 실패하지 않고, `createMarkdownRenderer`를 `setLibrary`에 넘기라고 안내합니다.
+- `cudoc check`는 `collect`가 쓴 라이브러리를 읽기만 하고 아무것도 쓰지 않으므로, 검사가 `embeds.json`을 다시 만들거나 지우지 않습니다. 수집한 뒤에 실행하세요.
+- 라이브러리와 준비된 임베드를 함께 게시하므로, 수집이나 감시 회차가 실패해도 마지막으로 성공한 한 쌍이 그대로 남습니다. 두 번째로 쓰려는 프로세스는 출력을 쥐고 있는 프로세스를 밝히며 거부되고, 비정상 종료한 실행이 남긴 잠금은 복구됩니다.
+- `cudoc collect`가 준비할 수 없는 임베드를 파일과 블록 번호와 함께 한 메시지에 모두 적고, cudoc 자체 오류는 스택 없이 출력합니다.
+- `cudoc check`가 자기 자신을 포함하는 임베드를 보고하고(`cyclic-embed`), 원시 HTML에 선언된 id를 앵커로 인정하며, 잘못된 `%`가 든 링크를 멈추지 않고 보고하고, 임베드 원본을 빌드와 똑같이 해석하며, 원본에 적은 절 옆의 `select`도 빌드와 똑같이 적용하고, 임베드의 사본을 `replace` 규칙이 다시 쓴 뒤의 모습으로 읽으므로 실제로 복사되는 내용을 검사하고 빌드가 실패하는 곳에서 함께 실패합니다.
+- VitePress와 Eleventy에서 front matter가 있는 문서에 대해 `cudoc collect`가 보고하는 진단이 본문 기준 줄이 아니라 파일 기준 줄을 가리킵니다.
+- VitePress와 Eleventy에서 `\r\n` 줄 끝으로 저장한 문서도 `\n`으로 저장한 문서와 똑같이 수집하고 임베드하고 치환합니다. 이전에는 수집이 `cannot map processed Markdown back to source`로 멈췄지만, 이제 위치와 절 범위가 markdown-it이 읽는 텍스트가 아니라 파일 자체의 텍스트를 가리키고, 라이브러리를 기준으로 렌더링하는 페이지도 그 문서와 대응시킵니다. Eleventy 사이트도 이런 페이지를 다른 템플릿 엔진이 고쳐 쓴 것으로 보고 거부하지 않습니다. `cudoc-markdown-it`은 markdown-it이 읽는 방식대로 읽은 원문과, 그 offset을 원문 기준으로 되돌리는 함수를 함께 돌려주는 `markdownItText`를 export합니다.
+- id가 같은 제목 두 개가 임베드될 때 각자 자기 절을 가지며, 중복은 여전히 보고됩니다. 그런 id에 쓴 `replace` 규칙은 첫 번째 절을 두 번 치환하지 않고 거부됩니다.
+- 제목이 다른 블록 안에 있는 절에 쓴 `replace` 규칙은 그 절의 원문을 따로 읽었을 때의 글자를 치환합니다. 목록 항목의 표시와 들여쓰기는 떼어 내므로 목록 항목 안의 절은 모든 호스트에서 수집한 구조대로 치환됩니다. 바깥 블록의 일부가 원문에 남는 경우(인용문이나 콜아웃의 `>`, 각주의 들여쓰기, 마지막 절 뒤에 오는 컴포넌트나 `:::` 컨테이너의 닫는 줄)에는 규칙이 일치하든 안 하든 이유를 알리는 메시지와 함께 거부합니다. `cudoc check`는 그 경우를 `unreplaceable-embed-section`으로 보고하며, 규칙 없이 임베드하면 그 절은 그대로 들어갑니다.
+- 임베드된 내용 안에서 앵커나 쿼리만 적은 링크가 그 내용을 가져온 문서를 가리킵니다.
+- `cudoc collect --watch`가 디렉터리의 이름이 바뀌거나 삭제될 때도 다시 수집하며, 감시기 오류로 프로세스를 끝내지 않고 그 오류를 `onError`에 넘깁니다.
+- VitePress와 Eleventy에서 cudoc이 바꾸지 않는 것은 호스트가 직접 렌더링합니다. 코드 강조, `<script setup>`과 `<style>` 블록, 이모지, `[[toc]]`, 코드 그룹, 사이트 자체 컨테이너가 여기에 속하며, 컨테이너 안의 내용은 cudoc이 그대로 읽습니다. 다른 제목에 적힌 id와 같은 값으로 slug되는 제목은 번호를 붙여 구분하고, `[[toc]]`는 cudoc이 정한 id로 연결됩니다. VitePress `rewrites`가 동작하고, `<!--@include-->`와 임베드를 함께 쓰는 페이지는 명확한 메시지와 함께 실패하며, 진단은 출력되거나 `onDiagnostic`으로 전달됩니다.
+- Docusaurus가 cudoc이 정한 제목 id를 그대로 유지하므로 `(#v1.2)`가 그곳에서도 `v1.2`로 남습니다. Nextra는 여전히 모든 id를 슬러그로 바꾸며, 영문 소문자·숫자·하이픈으로 된 id는 모든 호스트에서 같습니다.
+- 어댑터가 스스로 정해야 하는 옵션(Docusaurus와 Nextra의 `host`, `headingIds`, `toc`, markdown-it의 `components`)을 무시하지 않고 거부합니다.
+- 0.5에서 올릴 때는 다음 호출이 바뀝니다. `createHostPlugins(options, adapter, host)`는 세 번째 인자로 호스트(`"docusaurus"` 또는 `"nextra"`)를 반드시 받습니다. `/transforms/table-cell-list/index`처럼 `/transforms/table-cell-list`와 `/transforms/table-column-layout` 아래의 경로는 더 이상 해석되지 않습니다. `render` 없이 호출한 `tokensToAst`는 callout이 아닌 컨테이너를 callout으로 읽지 않고 오류를 발생시킵니다. `readPreparedEmbeds`는 호출 사이에 공유하는 캐시 객체 하나를 반환하므로 블록을 고치기 전에 복사해야 합니다. 인쇄 파이프라인은 자산을 `data.cudocAsset`이 아니라 `AssetMark` 목록인 `data.cudocAssets`로 표시합니다. 묶은 파일 안에서 문서의 앵커는 `cudoc-` 뒤에 `idToken(id)`를 붙인 값이므로, id에 `/`가 든 문서로 가는 인쇄 HTML 링크가 바뀝니다. `#cudoc-guide%2Fstart`는 `#cudoc-guide_2f_start`가 됩니다.
+- `@cudoment/cudoc/transforms/table-cell-list`와 `/transforms/table-column-layout`이 명시된 진입점이 되었고, `cudoc-remark`는 `remark-gfm`, `remark-mdx`, `remark-parse`를 설치하지 않으며, 타입 선언에 필요한 타입 패키지가 의존성에 들어가고(markdown-it 어댑터의 `@types/markdown-it`은 선택적 피어로 남습니다), 모든 패키지가 `./package.json`을 내보내며, `snapshotSource`는 더 이상 `@cudoment/cudoc/node/library`에서 내보내지 않습니다.
+- `pt`로 적거나 단위 없이 밀리미터로 적은 용지와 여백 길이가 PDF에서도 Word와 같은 크기로 인쇄됩니다. ASCII 밖의 제목 id도 묶은 파일 안에서 연결되고, 묶은 다른 문서로 가는 링크는 `linkUrls`에서 배포 주소를 인쇄하면서도 목차 쪽 번호를 어긋나게 하지 않으며, `srcset`, `poster`, `<object>`, SVG 이미지 자산도 복사되고, `srcset`은 브라우저처럼 읽으므로 data URL은 쉼표를 그대로 지키고 빈 후보는 건너뛰며, Word 링크는 퍼센트 인코딩된 앵커를 디코딩해 제목의 북마크에 닿습니다.
+- Word가 MDX 속 HTML 표의 행 병합을 브라우저가 그리는 대로 행 그룹 안에서 `rowspan="0"`까지 포함해 옮기고, 최상위 순서 목록의 시작 번호, 작업 체크 상자, 셀 안의 줄바꿈도 옮기며, 각주에서 빼는 표를 보고하고, `javascript:` 링크 대상을 버립니다.
+- `CAUTION` callout이 Word에서처럼 HTML과 PDF에서도 위험 색으로 그려지고, PDF 머리글과 바닥글이 글꼴, 크기, 색을 디자인 토큰에서 가져옵니다.
+- 가로 쪽을 받는 넓은 표 바로 옆에 직접 넣은 페이지 나누기가 사이에 HTML 주석이 있든 없든 PDF와 Word에 빈 쪽을 남기지 않으며, 문서를 여는 나누기는 두 형식 모두 버리므로 문서 시작 북마크와 첫 블록의 세로 쪽이 유지됩니다.
+- 검토 메모는 ISO 8601 날짜만 받아 UTC로 저장합니다. 손상된 저장본, 잘못된 공유 링크, 크기 제한을 넘는 파일은 패널을 멈추지 않고 메시지를 보여 줍니다.
+- `CUDOC_SKIP_BROWSER_DOWNLOAD=0`이나 `false`는 브라우저 설치를 건너뛰지 않고 설치합니다. Playwright 자체 변수처럼 값을 그대로 비교하므로 `FALSE`는 건너뜁니다.
 
 ### 0.5.0
 

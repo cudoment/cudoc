@@ -54,14 +54,16 @@ Prefixes below are relative to `@cudoment/cudoc` unless a full package name is s
 | `/query`, `/sections`                                              | Section selection and query helpers                             | [Sections](./document.md#sections-and-queries)                 |
 | `/dataset`                                                         | Immutable projection                                            | [Projection](./document.md#projection)                         |
 | `/node/library`                                                    | Collect and load complete libraries                             | [Collection](./node.md#collection)                             |
+| `/node/roots`                                                      | Source roots and library paths, without a compiler              | [Collection](./node.md#collection)                             |
 | `/node/resolve-embed`                                              | Parse and resolve embed requests                                | [Embedding](./node.md#embedding)                               |
 | `/node/prepare-embeds`                                             | Prepare/read build-time embed data                              | [Preparation](./node.md#prepared-embeds)                       |
 | `/node/watch`                                                      | Repeated, incremental collection                                | [Watching](./node.md#watching)                                 |
 | `/node/dataset`                                                    | Generate filtered AST directories                               | [Datasets](./node.md#datasets)                                 |
 | `/node/check`, `/node/report`                                      | Whole-library reference checking and its rendering              | [Reference checking](./node.md#reference-checking)             |
+| `/node/local-target`                                               | Resolve a local link or image to a document, file or URL        | [Reference checking](./node.md#reference-checking)             |
 | `/node/storage`                                                    | Filesystem and staged output helpers                            | [Storage](./node.md#storage)                                   |
 | `/embed`, `/node/export-ast`, `/node/load-ast-file`, `/node/paths` | Individual AST snapshots and path helpers                       | [Individual snapshots](./node.md#individual-ast-snapshots)     |
-| `/transforms/*`                                                    | Low-level syntax transforms                                     | [Core helpers](./document.md#core-helpers)                     |
+| `/transforms/table-cell-list`, `/transforms/table-column-layout`   | Low-level syntax transforms                                     | [Core helpers](./document.md#core-helpers)                     |
 | `/styles.css`                                                      | Theme-aware callout and badge stylesheet                        | [Host stylesheet](./document.md#host-stylesheet)               |
 | `/paged`                                                           | Page-break constants the paginated writers share                | [Paginated output](./adapters.md#paginated-output)             |
 | `cudoc-remark` and its subpaths                                    | remark integration, capture, TOC and embed runtime              | [remark](./adapters.md#remark)                                 |
@@ -72,7 +74,7 @@ Prefixes below are relative to `@cudoment/cudoc` unless a full package name is s
 | `cudoc-export`                                                     | Site, PDF and Word builders, and the design tokens              | [Export](./adapters.md#export)                                 |
 | `cudoc-export/docx`, `/pdf`, `/print`                              | The Word writer, the PDF printer and the print-ready HTML       | [Paginated output](./adapters.md#paginated-output)             |
 
-`/embed` is an individual-snapshot Node barrel. It does **not** re-export the document-library or fenced-embed APIs. Import those from their listed `node/*` paths. `/sections` exports `collectSections`; `/query` also includes the lower-level lookup helpers.
+Every package also exports `./package.json`, so tools can read a package's manifest through its export map. `/embed` is an individual-snapshot Node barrel. It does **not** re-export the document-library or fenced-embed APIs. Import those from their listed `node/*` paths. `/sections` exports `collectSections`; `/query` also includes the lower-level lookup helpers.
 
 ## Processing flow
 

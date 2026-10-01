@@ -103,13 +103,16 @@ describe("cross-host parity", () => {
 
   it("compiles the fixture with every installed host", () => {
     expect(results.size).toBe(available.length)
-    const missing = HOST_CASES.filter((h) => h.unavailable).map(
-      (h) => `${h.name} (${h.unavailable})`,
-    )
-    if (missing.length)
-      console.warn(`parity compared ${results.size} hosts; skipped ${missing}`)
     expect(results.size).toBeGreaterThan(1)
   })
+
+  // A host that is not installed is a skipped case, not a smaller comparison,
+  // so a strict run names it instead of passing on the hosts that were there.
+  const missing = HOST_CASES.filter((h) => h.unavailable).map(
+    (h) => `${h.name} (${h.unavailable})`,
+  )
+  if (missing.length)
+    it.skip(`needs every host installed: ${missing.join("; ")}`, () => {})
 
   for (const field of [
     "headings",

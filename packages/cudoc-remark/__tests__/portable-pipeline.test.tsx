@@ -49,14 +49,26 @@ it.each(["docusaurus", "nextra"])(
   "keeps %s defaults component-free",
   async (host) => {
     const module = await evaluate(
-      "## Heading (#heading) (@New)\n\n> [!NOTE] Title\n> Body",
+      "# Guide (#guide)\n\n## Heading (#heading) (@New)\n\n## Version (#v1.2)\n\n> [!NOTE] Title\n> Body",
       {
         ...runtime,
-        remarkPlugins: createHostPlugins({}, `cudoc-${host}`),
+        remarkPlugins: createHostPlugins(
+          {},
+          `cudoc-${host}`,
+          host as "docusaurus" | "nextra",
+        ),
       },
     )
     const html = renderToStaticMarkup(runtime.jsx(module.default, {}))
+    // An id Docusaurus's slugger keeps stays on the heading, and so does the
+    // page title's. One it would change is handed over as `{#id}` text, which
+    // Docusaurus reads out in its own heading plugin; plain MDX does not run
+    // that, and the integration tier compiles with Docusaurus itself.
+    expect(html).toContain('id="guide"')
     expect(html).toContain('id="heading"')
+    expect(html).not.toContain("{#guide}")
+    expect(html).not.toContain("{#heading}")
+    expect(html).toContain(host === "docusaurus" ? "{#v1.2}" : 'id="v1.2"')
     expect(html).toContain('data-callout="note"')
   },
 )

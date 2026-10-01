@@ -10,6 +10,7 @@ import fs from "node:fs"
 import path from "node:path"
 import { safePath } from "./storage.js"
 import { candidateFiles, type ResolvedRoot } from "./roots.js"
+import { EXTERNAL_URL, decodeComponent } from "./references.js"
 
 export type LocalTargetRoots = {
   /**
@@ -49,7 +50,7 @@ const containedPath = (root: string, relative: string) => {
 
 /** A fragment, a scheme or a protocol-relative URL: nothing on this disk. */
 export const externalUrl = (url: string): boolean =>
-  /^(?:#|[a-z][\w+.-]*:|\/\/)/i.test(url)
+  url.startsWith("#") || EXTERNAL_URL.test(url)
 
 /**
  * Whether a root-relative URL falls under one of the configured external
@@ -90,7 +91,7 @@ export function resolveLocalTarget(
   if (externalUrl(url) || isExternalPath(url, roots.externalPaths))
     return { kind: "external", url }
   const [, pathname, suffix] = url.match(/^([^?#]*)(.*)$/)!
-  const decoded = decodeURIComponent(pathname)
+  const decoded = decodeComponent(pathname)
   const relative = path.posix.normalize(
     decoded.startsWith("/")
       ? decoded.slice(1)
@@ -124,4 +125,55 @@ export function resolveLocalTarget(
     }
   }
   return { kind: "missing", relative, suffix }
+}
+
+/**
+ * The candidates of a `srcset`, read as the HTML standard reads them: a URL
+ * runs to the next white space, so a comma inside it, as in a data URL,
+ * belongs to it, and commas the URL ends with are separators; the descriptors
+ * run to the next comma outside parentheses. Empty candidates, left by a
+ * stray comma, are skipped as browsers skip them.
+ */
+export const parseSrcSet = (
+  value: string,
+): { url: string; descriptor: string }[] => {
+  const candidates: { url: string; descriptor: string }[] = []
+  // ASCII white space only: a no-break or ideographic space is part of a URL.
+  const space = (character: string | undefined) =>
+    character === " " ||
+    character === "\t" ||
+    character === "\n" ||
+    character === "\f" ||
+    character === "\r"
+  let index = 0
+  while (index < value.length) {
+    while (
+      index < value.length &&
+      (space(value[index]) || value[index] === ",")
+    )
+      index++
+    const start = index
+    while (index < value.length && !space(value[index])) index++
+    let url = value.slice(start, index)
+    let descriptor = ""
+    if (url.endsWith(",")) url = url.replace(/,+$/, "")
+    else {
+      const from = index
+      let inParens = false
+      while (index < value.length) {
+        const character = value[index]!
+        if (character === "(") inParens = true
+        else if (character === ")") inParens = false
+        else if (character === "," && !inParens) break
+        index++
+      }
+      descriptor = value
+        .slice(from, index)
+        .split(/[\t\n\f\r ]+/)
+        .filter(Boolean)
+        .join(" ")
+    }
+    if (url) candidates.push({ url, descriptor })
+  }
+  return candidates
 }

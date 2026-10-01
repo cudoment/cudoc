@@ -1,6 +1,6 @@
 # @cudoment/cudoc
 
-Markdown document semantics, compilation, AST queries, cross-document embedding and dataset projection.
+Markdown document semantics, compilation, AST queries, cross-document embedding, reference checking, dataset projection and the `cudoc` command line.
 
 ESM · Node.js 20+
 
@@ -23,9 +23,10 @@ The root and query APIs provide reusable AST operations. Import compilation from
 
 Choose `host`, `cudoc` or `both` independently for `headingAnchor`, `badge`, `tableCellList`, `callout` and `link`. The representative callout is `> [!NOTE] Title`. Authors do not register cudoc React components in the recommended setup. Syntax-only rendering needs no stored JSON; cross-document embedding requires document collection.
 
-- [Usage guide](https://github.com/cudoment/cudoc/tree/main/README.md#getting-started) · [한국어 가이드](https://github.com/cudoment/cudoc/tree/main/README.ko.md#시작하기)
+- [Usage guide](https://github.com/cudoment/cudoc/tree/main/README.md#pick-your-site-generator) · [한국어 가이드](https://github.com/cudoment/cudoc/tree/main/README.ko.md#쓰시는-생성기를-고르세요)
 - [Markdown syntax](https://github.com/cudoment/cudoc/tree/main/docs/syntax.md)
 - [Embedding](https://github.com/cudoment/cudoc/tree/main/docs/embedding.md)
+- [Reference checking](https://github.com/cudoment/cudoc/tree/main/docs/check.md)
 - [Standalone HTML alongside a host](https://github.com/cudoment/cudoc/tree/main/docs/export.md#export-alongside-an-existing-site)
 - [API reference](https://github.com/cudoment/cudoc/tree/main/docs/api-reference/README.md)
 - [Runnable examples](https://github.com/cudoment/cudoc/tree/main/examples/README.md)

@@ -89,7 +89,30 @@ export type DocumentData = {
     badge?: string
     explicitId?: boolean
   }
+  /** The Markdown image a host plugin made this component out of. */
+  cudocImage?: CapturedImage
   [key: string]: unknown
+}
+
+/**
+ * A Markdown image as the author wrote it, kept on the component a host
+ * plugin replaced it with. Docusaurus turns every image into an `<img>`
+ * whose `src` requires the file through its bundler; the site renders that,
+ * and everything that renders or checks the stored tree without the host
+ * reads this instead.
+ */
+export type CapturedImage = {
+  url: string
+  alt: string | null
+  title: string | null
+}
+
+/** The image a component stands for, when capture recorded one. */
+export function capturedImage(node: DocumentNode): CapturedImage | undefined {
+  const image = node.data?.cudocImage
+  return image && typeof image === "object" && typeof image.url === "string"
+    ? image
+    : undefined
 }
 export type DocumentNode = {
   type: string
@@ -138,6 +161,20 @@ export const visibleHeadingText = (node: DocumentNode): string =>
   ).trim()
 export const nodeText = (node: DocumentNode): string =>
   node.value ?? node.children?.map(nodeText).join("") ?? ""
+/**
+ * A document id spelled so it can sit inside an HTML id and a URL fragment
+ * alike: ASCII letters, digits and hyphens as they are, every other
+ * character as `_`, its code point in hex, and `_`. There is no `%`, so a
+ * fragment matches its element whether or not the browser decodes it, which
+ * a percent-encoded prefix never does for `guide/개요`; and distinct ids stay
+ * distinct.
+ */
+export const idToken = (id: string): string =>
+  id.replace(
+    /[^A-Za-z0-9-]/gu,
+    (character) => `_${character.codePointAt(0)!.toString(16)}_`,
+  )
+
 export const isCudoc = (mode: SyntaxMode) => mode !== "host"
 export const isHost = (mode: SyntaxMode) => mode !== "cudoc"
 
@@ -561,7 +598,11 @@ export function normalizeDocument(
     if (
       node.type === "tableCell" &&
       isCudoc(syntax.tableCellList) &&
-      node.position
+      // A position without offsets — a host may record lines only — has no
+      // slice to read markers from; slicing with undefined would read the
+      // whole document as the cell.
+      typeof node.position?.start.offset === "number" &&
+      typeof node.position.end.offset === "number"
     ) {
       const raw = source
         .slice(node.position.start.offset, node.position.end.offset)

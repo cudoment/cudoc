@@ -54,14 +54,16 @@ Next.js에는 전용 어댑터 패키지가 없습니다. `@next/mdx`가 remark 
 | `/query`, `/sections`                                              | 섹션 선택과 쿼리                                 | [섹션](./document.ko.md#섹션과-쿼리)                          |
 | `/dataset`                                                         | 불변 필터링                                      | [필터링](./document.ko.md#필터링)                             |
 | `/node/library`                                                    | 전체 라이브러리 수집과 로딩                      | [수집](./node.ko.md#수집)                                     |
+| `/node/roots`                                                      | 컴파일러 없이 쓰는 소스 루트와 라이브러리 경로   | [수집](./node.ko.md#수집)                                     |
 | `/node/resolve-embed`                                              | 임베드 요청 해석과 처리                          | [임베드](./node.ko.md#임베드)                                 |
 | `/node/prepare-embeds`                                             | 빌드 전 임베드 데이터 준비·읽기                  | [준비](./node.ko.md#준비된-임베드)                            |
 | `/node/watch`                                                      | 반복되는 증분 수집                               | [감시](./node.ko.md#감시)                                     |
 | `/node/dataset`                                                    | 필터링한 AST 디렉터리 생성                       | [데이터셋](./node.ko.md#데이터셋)                             |
 | `/node/check`, `/node/report`                                      | 라이브러리 전체 참조 검사와 출력 서식            | [참조 검사](./node.ko.md#참조-검사)                           |
+| `/node/local-target`                                               | 로컬 링크·이미지를 문서, 파일, URL로 해석        | [참조 검사](./node.ko.md#참조-검사)                           |
 | `/node/storage`                                                    | 파일시스템과 임시 디렉터리 기반 출력             | [저장](./node.ko.md#저장)                                     |
 | `/embed`, `/node/export-ast`, `/node/load-ast-file`, `/node/paths` | 개별 AST 스냅샷과 경로                           | [개별 스냅샷](./node.ko.md#개별-ast-스냅샷)                   |
-| `/transforms/*`                                                    | 하위 문법 변환                                   | [코어 도우미](./document.ko.md#코어-도우미)                   |
+| `/transforms/table-cell-list`, `/transforms/table-column-layout`   | 하위 문법 변환                                   | [코어 도우미](./document.ko.md#코어-도우미)                   |
 | `/styles.css`                                                      | 테마를 인식하는 알림과 배지 스타일               | [호스트 스타일시트](./document.ko.md#호스트-스타일시트)       |
 | `/paged`                                                           | 쪽을 나누는 작성기가 공유하는 페이지 나누기 상수 | [페이지를 나누는 출력](./adapters.ko.md#페이지를-나누는-출력) |
 | `cudoc-remark`와 하위 경로                                         | remark 연동, 캡처, TOC, 임베드 런타임            | [remark](./adapters.ko.md#remark)                             |
@@ -72,7 +74,7 @@ Next.js에는 전용 어댑터 패키지가 없습니다. `@next/mdx`가 remark 
 | `cudoc-export`                                                     | 사이트·PDF·Word 생성기와 디자인 토큰             | [내보내기](./adapters.ko.md#내보내기)                         |
 | `cudoc-export/docx`, `/pdf`, `/print`                              | Word 작성기, PDF 인쇄기, 인쇄용 HTML             | [페이지를 나누는 출력](./adapters.ko.md#페이지를-나누는-출력) |
 
-`/embed`는 개별 스냅샷을 위한 Node 모음입니다. 문서 라이브러리나 코드 블록 임베드 API를 재수출하지 않습니다. 해당 API는 표에 적힌 `node/*`에서 가져옵니다. `/sections`는 `collectSections`를 제공하며 `/query`에는 하위 조회 도우미도 포함됩니다.
+모든 패키지는 `./package.json`도 export하므로, 도구가 export 맵을 통해 패키지 manifest를 읽을 수 있습니다. `/embed`는 개별 스냅샷을 위한 Node 모음입니다. 문서 라이브러리나 코드 블록 임베드 API를 재수출하지 않습니다. 해당 API는 표에 적힌 `node/*`에서 가져옵니다. `/sections`는 `collectSections`를 제공하며 `/query`에는 하위 조회 도우미도 포함됩니다.
 
 ## 처리 흐름
 

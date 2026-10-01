@@ -3,8 +3,12 @@ import type { Root } from "mdast"
 import { fromHtml } from "hast-util-from-html"
 import { parse as parseYaml } from "yaml"
 import { collectSections, type SectionSelection } from "../sections.js"
-import { nodeText, visibleHeadingText, type DocumentNode } from "../document.js"
-import { compileDocument } from "../markdown.js"
+import {
+  idToken,
+  nodeText,
+  visibleHeadingText,
+  type DocumentNode,
+} from "../document.js"
 import {
   findHeadingByAnchorId,
   findParentHeading,
@@ -12,6 +16,15 @@ import {
 } from "../internal/core/query/sections.js"
 import type { Library, StoredDocument } from "./library.js"
 import { sourceFileOf } from "./roots.js"
+import { parseSrcSet } from "./local-target.js"
+import { transformedSection } from "./replace.js"
+import {
+  EXTERNAL_URL,
+  decodeComponent,
+  declaredIds,
+  documentIndex,
+  idsInNode,
+} from "./references.js"
 
 export type Replacement = {
   find: string
@@ -299,8 +312,15 @@ export function resolveDocumentReference(
 ): { document: StoredDocument; anchor?: string } {
   const hash = reference.indexOf("#")
   const pathname = hash < 0 ? reference : reference.slice(0, hash)
-  const anchor =
-    hash < 0 ? undefined : decodeURIComponent(reference.slice(hash + 1))
+  let anchor: string | undefined
+  try {
+    anchor =
+      hash < 0 ? undefined : decodeURIComponent(reference.slice(hash + 1))
+  } catch {
+    throw new Error(
+      `cudoc: embed source has a malformed percent-escape: ${reference}`,
+    )
+  }
   if (/^[a-z][\w+.-]*:/i.test(pathname) || pathname.includes("\\"))
     throw new Error(
       `cudoc: embed source must be a local document: ${reference}`,
@@ -314,92 +334,12 @@ export function resolveDocumentReference(
   ).replace(/\.mdx?$/i, "")
   if (id === ".." || id.startsWith("../"))
     throw new Error(`cudoc: embed source escapes root: ${reference}`)
-  const document = library.documents.find((d) => d.id === id)
+  const document = documentIndex(library).byId.get(id)
   if (!document)
     throw new Error(
       `cudoc: missing document ${reference} referenced from ${from}`,
     )
   return { document, anchor }
-}
-
-function replaceSource(
-  source: string,
-  rules: Replacement[],
-  documentId: string,
-): string {
-  return rules.reduce((value, rule, index) => {
-    try {
-      return rule.regex
-        ? value.replace(new RegExp(rule.find, rule.flags ?? "g"), rule.replace)
-        : value.split(rule.find).join(rule.replace)
-    } catch (cause) {
-      throw new Error(
-        `cudoc: invalid replacement ${index + 1} in ${documentId}`,
-        { cause },
-      )
-    }
-  }, source)
-}
-
-function transformedSection(
-  document: StoredDocument,
-  anchor: string | undefined,
-  tree: Root,
-  rules: Replacement[],
-  library: Library,
-  includeChildren = true,
-): Root {
-  if (!rules.length) return structuredClone(tree)
-  if (!document.source)
-    throw new Error(
-      `cudoc: rebuild ${document.id} with source snapshots before replacing Markdown`,
-    )
-  const range = anchor ? document.source.sections[anchor] : undefined
-  if (anchor && !range)
-    throw new Error(
-      `cudoc: missing source range for ${document.id}#${anchor}; rebuild documents`,
-    )
-  const end = range
-    ? includeChildren
-      ? range.end
-      : (range.ownEnd ?? range.end)
-    : undefined
-  const original = range
-    ? document.source.text.slice(range.start, end)
-    : document.source.text
-  const dependencies = range?.dependencies
-    .filter(([start, stop]) => start < range.start || stop > end!)
-    .map(([start, end]) => document.source.text.slice(start, end))
-    .join("\n\n")
-  const source =
-    replaceSource(original, rules, document.id) +
-    (dependencies ? `\n\n${dependencies}` : "")
-  const options = { ...library.options, format: document.source.format }
-  if (
-    !library.compiler &&
-    options.host &&
-    !["markdown", "next", "html"].includes(options.host)
-  )
-    throw new Error(
-      `cudoc: replacing ${options.host} Markdown requires the original host compiler`,
-    )
-  try {
-    return library.compiler
-      ? library.compiler(source, {
-          id: document.id,
-          filePath:
-            (library.roots &&
-              sourceFileOf(library.roots, document.sourcePath)) ??
-            document.sourcePath,
-          options,
-        }).tree
-      : compileDocument(source, options).tree
-  } catch (cause) {
-    throw new Error(
-      `cudoc: replaced Markdown could not compile in ${document.id} at source offset ${range?.start ?? 0}`,
-      { cause },
-    )
-  }
 }
 
 const visitNodes = (node: DocumentNode, fn: (node: DocumentNode) => void) => {
@@ -415,60 +355,279 @@ const htmlAttribute = (value: string, quote: string): string => {
     ? String(element.properties.dataValue ?? value)
     : value
 }
-const idsInNode = (node: DocumentNode): string[] => {
-  const ids: string[] = []
-  const id = node.data?.hProperties?.id
-  if (typeof id === "string") ids.push(id)
-  if (node.type === "html" && node.value) {
-    const tree = fromHtml(node.value, { fragment: true })
-    const walk = (value: typeof tree | (typeof tree.children)[number]) => {
-      if (value.type === "element" && typeof value.properties.id === "string")
-        ids.push(value.properties.id)
-      if ("children" in value) value.children.forEach(walk)
-    }
-    walk(tree)
-  }
-  return ids
+/**
+ * A relative module an attribute's expression requires first thing, after any
+ * webpack loaders: Docusaurus writes a Markdown image, and a link to a local
+ * file, as `require("<loaders>!./<path from the page's directory>").default`.
+ * Only an expression that starts with the call is read, so text that merely
+ * looks like one inside an authored string is left alone. The string runs to
+ * its own closing quote, so the other quote may be in a name.
+ */
+const REQUIRED_MODULE =
+  /^(\s*require\(\s*(["'])(?:(?:(?!\2)[^\\\n]|\\[\s\S])*!)?)(\.{1,2}\/(?:(?!\2)[^\\\n]|\\[\s\S])*)(\2\s*\))/
+
+/**
+ * The directory a document's file sits in, which is what a relative module
+ * path starts from; the library path's own directory when the library was
+ * loaded without its roots, which is the file's only where every root's base
+ * mirrors its directory.
+ */
+const fileDirectory = (library: Library, document: StoredDocument): string =>
+  path.dirname(
+    (library.roots?.length
+      ? sourceFileOf(library.roots, document.sourcePath)
+      : undefined) ?? path.join("/", document.sourcePath),
+  )
+
+/**
+ * `to` from `from`, both relative library paths that may climb above the
+ * root, worked out on the paths alone: resolved against the working
+ * directory, a climb above it would be clamped again.
+ */
+const climbingRelative = (from: string, to: string): string => {
+  const depth =
+    [...from.split("/"), ...to.split("/")].filter((part) => part === "..")
+      .length + 1
+  const base = `/${Array.from({ length: depth }, (_, i) => `_${i}`).join("/")}`
+  return path.posix.relative(
+    path.posix.join(base, from),
+    path.posix.join(base, to),
+  )
 }
+
+/** What a JavaScript string literal holds between its quotes, escapes read. */
+const stringValue = (written: string): string =>
+  written.replace(
+    /\\(?:u\{([0-9a-fA-F]+)\}|u([0-9a-fA-F]{4})|x([0-9a-fA-F]{2})|(\r\n|[\s\S]))/g,
+    (
+      _match: string,
+      braced?: string,
+      unicode?: string,
+      hex?: string,
+      other = "",
+    ) => {
+      const code = braced ?? unicode ?? hex
+      if (code) {
+        const point = parseInt(code, 16)
+        // Past the last code point the escape is not JavaScript at all.
+        return point > 0x10ffff ? _match : String.fromCodePoint(point)
+      }
+      // A backslash before a line break continues the string on the next line.
+      if (/^(?:\r\n|[\n\r\u2028\u2029])$/.test(other)) return ""
+      const named: Record<string, string> = {
+        n: "\n",
+        r: "\r",
+        t: "\t",
+        b: "\b",
+        f: "\f",
+        v: "\v",
+        "0": "\0",
+      }
+      return named[other] ?? other
+    },
+  )
+
+/** `value` written between `quote`s as a JavaScript string literal. */
+const stringLiteral = (value: string, quote: string): string =>
+  value.replace(/[\\\n\r\u2028\u2029"']/g, (character) => {
+    if (character === "\\") return "\\\\"
+    if (character === "\n") return "\\n"
+    if (character === "\r") return "\\r"
+    if (character === "\u2028") return "\\u2028"
+    if (character === "\u2029") return "\\u2029"
+    return character === quote ? `\\${character}` : character
+  })
+
+/**
+ * Re-expresses the modules a JSX element's attributes require from the
+ * directory of the document the copy lands in: a page in another directory
+ * would resolve the path from its own. The path is read as the string it is
+ * and written back as one, so a directory named with a quote or a backslash
+ * still gives an expression that parses.
+ */
+const moveRequiredModules = (
+  node: DocumentNode,
+  from: string,
+  to: string,
+): void => {
+  if (!Array.isArray(node.attributes)) return
+  for (const attribute of node.attributes as {
+    type?: string
+    value?: { type?: string; value?: string } | string | null
+  }[]) {
+    const value = attribute.value
+    if (
+      attribute.type !== "mdxJsxAttribute" ||
+      typeof value !== "object" ||
+      value?.type !== "mdxJsxAttributeValueExpression" ||
+      typeof value.value !== "string"
+    )
+      continue
+    value.value = value.value.replace(
+      REQUIRED_MODULE,
+      (match, head: string, quote: string, module: string, tail: string) => {
+        // A query the host appended stays as written: it is not part of
+        // the path, and joining it would normalize its slashes too.
+        const [, file = "", query = ""] = /^([^?]*)(.*)$/s.exec(
+          stringValue(module),
+        )!
+        const relative = path.relative(to, path.join(from, file))
+        // Another drive has no relative path; the copy keeps the original.
+        if (path.isAbsolute(relative)) return match
+        const moved = relative.split(path.sep).join("/")
+        return `${head}${stringLiteral(`./${moved}${query}`, quote)}${tail}`
+      },
+    )
+  }
+}
+
+/** The raw HTML attributes that name a path: a link and every resource. */
+const REBASED_ATTRIBUTES = new Set([
+  "href",
+  "src",
+  "poster",
+  "data",
+  "xlink:href",
+])
+
+/**
+ * One attribute of a tag, read in order after the tag name as HTML reads it:
+ * what separates it from the one before, white space or a stray `/` and
+ * nothing at all after a quoted value, its name, and a value quoted either
+ * way, which may span lines, or bare, which runs to white space or `>`.
+ */
+const ATTRIBUTE =
+  /([\s/]*)([^\s"'>/=]+)(?:(\s*=\s*)(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/y
+
+/**
+ * The tag with the values `rewrite` returns in place of the ones it has, the
+ * attributes it returns nothing for left exactly as written. The attributes
+ * are walked in order, so text inside one value is never read as another.
+ */
+const rewriteAttributes = (
+  tag: string,
+  rewrite: (name: string, value: string) => string | undefined,
+): string => {
+  const opening = /^<\/?[^\s/>]+/.exec(tag)
+  if (!opening) return tag
+  let result = opening[0]
+  let index = opening[0].length
+  for (;;) {
+    ATTRIBUTE.lastIndex = index
+    const match = ATTRIBUTE.exec(tag)
+    if (!match) break
+    index = ATTRIBUTE.lastIndex
+    const [whole, space, name, equals, double, single, bare] = match
+    const written = double ?? single ?? bare
+    const delimiter = single === undefined ? '"' : "'"
+    const replacement =
+      written === undefined
+        ? undefined
+        : rewrite(name!.toLowerCase(), htmlAttribute(written, delimiter))
+    result +=
+      replacement === undefined
+        ? whole
+        : `${space}${name}${equals}${delimiter}${replacement
+            .replace(/&/g, "&amp;")
+            .replace(
+              new RegExp(delimiter, "g"),
+              delimiter === '"' ? "&quot;" : "&#39;",
+            )}${delimiter}`
+  }
+  return result + tag.slice(index)
+}
+
 function rebase(
   tree: Root,
   document: StoredDocument,
   library: Library,
   prefix: string,
+  destination: StoredDocument | undefined,
+  moved: WeakSet<object>,
 ) {
   const ids = new Set<string>()
   visitNodes(tree as unknown as DocumentNode, (node) => {
     idsInNode(node).forEach((id) => ids.add(id))
   })
+  // Worked out once, and only when the copy has an element to move.
+  let directories: { from: string; to: string } | undefined
   const sourceUrl = (url: string): string => {
-    if (/^(?:[a-z][\w+.-]*:|\/\/)/i.test(url)) return url
+    if (EXTERNAL_URL.test(url)) return url
     if (url.startsWith("#")) {
-      let id = url.slice(1)
-      try {
-        id = decodeURIComponent(id)
-      } catch {
-        /* Preserve malformed URL. */
-      }
+      const id = decodeComponent(url.slice(1))
       return ids.has(id) ? `#${prefix}${id}` : `${document.route}${url}`
     }
     const match = url.match(/^([^?#]*)(.*)$/)!
-    const absolute = path.posix.normalize(
-      match[1].startsWith("/")
-        ? match[1]
-        : `/${path.posix.join(path.posix.dirname(document.sourcePath), match[1])}`,
+    // No path means the page the link sits on, which in a copy is the
+    // document it was copied from, not the directory that document is in.
+    if (!match[1]) return `${document.route}${match[2]}`
+    const joined = match[1].startsWith("/")
+      ? match[1]
+      : path.posix.join(path.posix.dirname(document.sourcePath), match[1])
+    // A relative path that climbs out of the collection names no library
+    // path, and clamped at the root it would name another file. It is spelled
+    // from the page the copy lands on instead, which reaches the same place:
+    // from the files' own directories when the library has its roots, and
+    // from the library paths otherwise.
+    if (joined === ".." || joined.startsWith("../")) {
+      if (!destination) return url
+      // A directory keeps its trailing slash, which names its index.
+      const slash = /(?:^|\/)\.{0,2}$/.test(match[1]) ? "/" : ""
+      if (!library.roots?.length)
+        return `${climbingRelative(path.posix.dirname(destination.sourcePath), joined) || "."}${slash}${match[2]}`
+      directories ??= {
+        from: fileDirectory(library, document),
+        to: fileDirectory(library, destination),
+      }
+      const relative = path.relative(
+        directories.to,
+        path.join(directories.from, decodeComponent(match[1])),
+      )
+      // Written back as a URL path: only what would end or change one is
+      // escaped, as the path was decoded to reach the file.
+      return `${
+        relative
+          .split(path.sep)
+          .map((part) => part.replace(/[%\s#?]/g, encodeURIComponent))
+          .join("/") || "."
+      }${slash}${match[2]}`
+    }
+    let absolute = path.posix.normalize(
+      joined.startsWith("/") ? joined : `/${joined}`,
     )
-    const target = library.documents.find(
-      (d) =>
-        `/${d.sourcePath}` === absolute ||
-        `/${d.id}` === absolute ||
-        `/${d.id}/` === absolute,
-    )
+    // `.` and `..` name a directory, as a browser reads them.
+    if (/(?:^|\/)\.\.?$/.test(match[1]) && !absolute.endsWith("/"))
+      absolute += "/"
+    const target = documentIndex(library).byPath.get(absolute)
     return `${target?.route ?? absolute}${match[2]}`
   }
+  // Every candidate of a responsive image is a path of its own; the width or
+  // density after it stays as written.
+  const sourceSrcSet = (value: string): string =>
+    parseSrcSet(value)
+      .map(({ url, descriptor }) =>
+        [sourceUrl(url), descriptor].filter(Boolean).join(" "),
+      )
+      .join(", ")
   visitNodes(tree as unknown as DocumentNode, (node) => {
     const id = node.data?.hProperties?.id
     if (typeof id === "string") node.data!.hProperties!.id = `${prefix}${id}`
     if (typeof node.url === "string") node.url = sourceUrl(node.url)
+    // An image a host made a component of is still an image of the source.
+    const image = node.data?.cudocImage
+    if (image && typeof image.url === "string")
+      node.data!.cudocImage = { ...image, url: sourceUrl(image.url) }
+    // Once per element, however deeply the copy was nested: an inner embed
+    // already moved it from its own source to `destination`.
+    if (destination && Array.isArray(node.attributes) && !moved.has(node)) {
+      moved.add(node)
+      directories ??= {
+        from: fileDirectory(library, document),
+        to: fileDirectory(library, destination),
+      }
+      if (directories.from !== directories.to)
+        moveRequiredModules(node, directories.from, directories.to)
+    }
     if (
       [
         "linkReference",
@@ -486,22 +645,22 @@ function rebase(
         (tag) =>
           tag.startsWith("<!--")
             ? tag
-            : tag.replace(
-                /(\s(href|src|id)\s*=\s*)(?:(["'])(.*?)\3|([^\s>]+))/gi,
-                (_match, before, attribute, quote, quoted, unquoted) => {
-                  const delimiter = quote ?? '"'
-                  const value = htmlAttribute(quoted ?? unquoted, delimiter)
-                  const replacement =
-                    attribute.toLowerCase() === "id"
-                      ? `${prefix}${value}`
-                      : sourceUrl(value)
-                  return `${before}${delimiter}${replacement.replace(/&/g, "&amp;").replace(new RegExp(delimiter, "g"), delimiter === '"' ? "&quot;" : "&#39;")}${delimiter}`
-                },
+            : rewriteAttributes(tag, (name, value) =>
+                name === "id"
+                  ? `${prefix}${value}`
+                  : name === "srcset"
+                    ? sourceSrcSet(value)
+                    : REBASED_ATTRIBUTES.has(name)
+                      ? sourceUrl(value)
+                      : undefined,
               ),
       )
     const attrs = node.data?.hProperties
-    for (const key of ["href", "src"])
+    for (const key of ["href", "src", "poster", "data", "xLinkHref"])
       if (typeof attrs?.[key] === "string") attrs[key] = sourceUrl(attrs[key])
+    for (const key of ["srcSet", "srcset"])
+      if (typeof attrs?.[key] === "string")
+        attrs[key] = sourceSrcSet(attrs[key])
   })
 }
 
@@ -740,11 +899,11 @@ export function resolveEmbed(
   const spec = parseEmbedSpec(JSON.stringify(input))
   let occurrence = 0
   const reserved = new Set<string>()
-  const destination = library.documents.find((d) => d.id === context.documentId)
+  const destination = documentIndex(library).byId.get(context.documentId)
+  // Elements whose required modules already start from `destination`.
+  const moved = new WeakSet<object>()
   if (destination)
-    visitNodes(destination.tree as unknown as DocumentNode, (node) => {
-      idsInNode(node).forEach((id) => reserved.add(id))
-    })
+    for (const id of declaredIds(destination.tree)) reserved.add(id)
   const active: string[] = []
   // Every document a block read, so a later preparation can tell whether the
   // block is still current; `*` when an extractor ran, which may read anything.
@@ -818,7 +977,7 @@ export function resolveEmbed(
           do {
             prefix = `${context.prefix ?? "embed"}-${++occurrence}-`
           } while (sectionIds.some((id) => reserved.has(`${prefix}${id}`)))
-          rebase(section, document, library, prefix)
+          rebase(section, document, library, prefix, destination, moved)
           sectionIds.forEach((id) => reserved.add(`${prefix}${id}`))
           children.push(...section.children)
         }
@@ -844,7 +1003,7 @@ export function resolveEmbed(
   const result = expand(spec, context.documentId)
   result.data = {
     ...result.data,
-    cudocEmbedPrefix: `cudoc-${encodeURIComponent(context.documentId)}-${context.prefix ?? "embed"}-`,
+    cudocEmbedPrefix: `cudoc-${idToken(context.documentId)}-${context.prefix ?? "embed"}-`,
     cudocDependencies: [...dependencies].sort(),
   }
   return result
@@ -854,7 +1013,7 @@ export function resolveDocumentEmbeds(
   library: Library,
   documentId: string,
 ): Root {
-  const document = library.documents.find((d) => d.id === documentId)
+  const document = documentIndex(library).byId.get(documentId)
   if (!document) throw new Error(`cudoc: missing document ${documentId}`)
   const tree = structuredClone(document.tree)
   let index = 0

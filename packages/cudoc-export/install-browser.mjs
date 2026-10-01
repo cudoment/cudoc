@@ -20,8 +20,13 @@ import { spawnSync } from "node:child_process"
 const SKIP = ["CUDOC_SKIP_BROWSER_DOWNLOAD", "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD"]
 const CHANNEL = "chromium-headless-shell"
 
+// A value is compared exactly as Playwright compares the value of its own
+// variable: `0` and `false` ask for the download rather than skipping it, and
+// any other value that is not empty skips it, `FALSE` included.
+const requested = (value) => Boolean(value) && !["0", "false"].includes(value)
+
 for (const name of SKIP)
-  if (process.env[name]) {
+  if (requested(process.env[name])) {
     console.log(`cudoc-export: ${name} is set, skipping the browser download.`)
     process.exit(0)
   }

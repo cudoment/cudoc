@@ -7,26 +7,36 @@
 ## 1단계 — 설치
 
 ```sh
-npm install @cudoment/cudoc cudoc-markdown-it cudoc-vitepress
+npm install @cudoment/cudoc cudoc-vitepress
 ```
 
-VitePress는 remark가 아니라 markdown-it을 쓰므로 `cudoc-remark`를 사용하지 않습니다.
+VitePress는 remark가 아니라 markdown-it을 쓰므로 `cudoc-remark`를 사용하지 않습니다. 공용 markdown-it 계층인 `cudoc-markdown-it`은 `cudoc-vitepress`와 함께 설치됩니다.
 
-## 2단계 — 플러그인 등록
+## 2단계 — Markdown 옵션을 공용 모듈에 두기
+
+사이트와 수집기는 같은 옵션으로 Markdown을 렌더링해야 하므로, 두 곳이 함께 가져오는 모듈 하나에 옵션을 둡니다. 두 번째 파일은 `docs/.vitepress/config.mjs`에 병합하고, 사이트의 제목, 테마 설정과 다른 설정은 그대로 두십시오.
+
+```js
+// markdown.mjs
+import cudoc from "cudoc-vitepress"
+
+export const syntax = { headingAnchor: "both", callout: "both" }
+
+/** The `markdown` options of the site, and of the collector's renderer. */
+export const markdown = (library) => ({
+  config(md) {
+    md.use(cudoc, { syntax, library })
+  },
+})
+```
 
 ```js
 // docs/.vitepress/config.mjs
 import { defineConfig } from "vitepress"
-import cudoc from "cudoc-vitepress"
+import { markdown } from "../../markdown.mjs"
 
 export default defineConfig({
-  markdown: {
-    config(md) {
-      md.use(cudoc, {
-        syntax: { headingAnchor: "both", callout: "both" },
-      })
-    },
-  },
+  markdown: markdown(),
 })
 ```
 
@@ -37,6 +47,7 @@ export default defineConfig({
 테마 진입점에서 가져옵니다. `docs/.vitepress/theme/index.js`를 만들거나 기존 파일을 확장하십시오.
 
 ```js
+// docs/.vitepress/theme/index.js
 import DefaultTheme from "vitepress/theme"
 import "@cudoment/cudoc/styles.css"
 export default DefaultTheme
@@ -46,24 +57,52 @@ export default DefaultTheme
 
 ## 4단계 — 수집기 추가
 
-[예제 수집기](../examples/vitepress/collect.mjs)를 사이트 루트에 `collect.mjs`로 복사하십시오. 실제 VitePress 렌더러를 같은 cudoc 옵션으로 구성하고, `createDocumentCompiler(md)`를 수집에 넘긴 뒤 임베드를 준비합니다.
+사이트 루트에 `collect.mjs`를 만드십시오. 같은 옵션으로 실제 VitePress 렌더러를 만들고, `createDocumentCompiler(md)`를 [`collectDocuments`](./api-reference/node.ko.md#감시)에 넘깁니다. `collectDocuments`는 라이브러리와 준비된 임베드를 함께 쓰므로, 실행이 실패하면 이전 두 결과가 그대로 남습니다. `sourceRoot`와 렌더러의 디렉터리는 `vitepress build`에 넘기는 디렉터리이며, 여기서는 `docs`입니다.
+
+```js
+// collect.mjs
+import path from "node:path"
+import { createMarkdownRenderer, disposeMdItInstance } from "vitepress"
+import { createDocumentCompiler } from "cudoc-vitepress"
+import { collectDocuments } from "@cudoment/cudoc/node/watch"
+import { markdown, syntax } from "./markdown.mjs"
+
+// The renderer the site builds with. It needs no library: collection
+// resolves embeds from the documents it collects.
+const md = await createMarkdownRenderer(path.resolve("docs"), markdown())
+await collectDocuments({
+  sourceRoot: "docs",
+  outDir: ".cudoc/documents",
+  host: "vitepress",
+  routeSuffix: ".html",
+  syntax,
+  compiler: createDocumentCompiler(md),
+  // Change it whenever markdown.mjs or the VitePress version changes.
+  compilerId: "vitepress-v1",
+})
+disposeMdItInstance()
+```
 
 ## 5단계 — 렌더러에 라이브러리 연결
 
-```js
-import { loadLibrary } from "@cudoment/cudoc/node/library"
+그러면 `docs/.vitepress/config.mjs`는 다음과 같으며, 사이트의 다른 설정은 그대로 둡니다.
 
-// markdown.config(md) 안에서:
-md.use(cudoc, {
-  syntax: { headingAnchor: "both", callout: "both" },
-  library: loadLibrary(".cudoc/documents"),
-  outDir: ".cudoc/documents",
+```js
+// docs/.vitepress/config.mjs
+import { defineConfig } from "vitepress"
+import { loadLibrary } from "@cudoment/cudoc/node/library"
+import { markdown } from "../../markdown.mjs"
+
+export default defineConfig({
+  markdown: markdown(loadLibrary(".cudoc/documents")),
 })
 ```
 
-**수집과 렌더링은 모든 Markdown 옵션에서 일치해야 합니다.** 한쪽을 바꾸면 다른 쪽도 바꾸시고, 관련 설정이 바뀌면 `compilerId`를 올리십시오.
+**수집과 렌더링은 모든 Markdown 옵션에서 일치해야 합니다.** 두 곳 모두 `markdown.mjs`에서 옵션을 가져오므로 구조상 자연히 일치합니다. 이 구조를 유지하시고, 관련 설정이 바뀌면 `compilerId`를 바꾸십시오.
 
 ## 6단계 — 빌드 전마다 수집 실행
+
+`package.json`에 스크립트를 추가합니다.
 
 ```json
 {
@@ -76,14 +115,25 @@ md.use(cudoc, {
 }
 ```
 
-원본 문서를 고치신 뒤에는 수집을 다시 실행하고(`cudoc collect --watch`나 [`watchDocuments`](./api-reference/node.ko.md#감시)가 변경마다 이를 대신합니다) **개발 서버도 재시작**하셔야 합니다. 플러그인은 설정을 평가할 때 불러온 라이브러리를 계속 들고 있어서, 다시 불러오기 전까지는 원문이 오래되었다고 보고합니다.
+`cudoc check`는 수집기가 게시한 라이브러리를 읽기만 하고 수집은 하지 않으므로 `collect` 다음에 실행하며, 설정 파일에는 그 라이브러리의 위치와 사이트가 루트 기준 이미지를 제공하는 디렉터리, 즉 VitePress의 `public` 디렉터리만 적으면 됩니다.
+
+```js
+// cudoc.config.mjs
+export default {
+  sourceRoot: "docs",
+  outDir: ".cudoc/documents",
+  check: { assetDirs: ["docs/public"] },
+}
+```
+
+원본 문서를 고치신 뒤에는 수집을 다시 실행하고(수집기의 설정으로 호출한 [`watchDocuments`](./api-reference/node.ko.md#감시)가 변경마다 이를 대신하며, `compiler`를 포함해 수집기의 설정 전체를 담은 설정 파일을 주면 `cudoc collect --watch`도 그렇게 합니다) **개발 서버도 재시작**하셔야 합니다. 플러그인은 설정을 평가할 때 불러온 라이브러리를 계속 들고 있어서, 다시 불러오기 전까지는 원문이 오래되었다고 보고합니다. → [참조 검사](./check.ko.md)
 
 ## 7단계 — 독립 HTML도 내보내기 (선택)
 
 ```sh
 npm install cudoc-export
 npx cudoc-export build docs --library .cudoc/documents --out-dir shared-html \
-  --links host --host-url https://docs.example.com/project/
+  --links host --host-url https://docs.example.com/project/ --asset-dir docs/public
 ```
 
 VitePress 빌드 결과와 수집 데이터는 변경되지 않습니다. → [독립 HTML](./export.ko.md)
@@ -110,6 +160,16 @@ VitePress 빌드 결과와 수집 데이터는 변경되지 않습니다. → [�
 ## VitePress에서 알아 둘 점
 
 **경로에 `.html`이 붙습니다.** 수집기는 VitePress의 기본값 `cleanUrls: false`에 맞춰 `routeSuffix: ".html"`을 씁니다. URL 동작이나 `base`, 리라이트, 커스텀 경로를 바꾸시면 수집 경로도 바꾸셔야 합니다.
+
+**리라이트한 페이지도 임베드를 유지합니다.** 문서는 `rewrites`나 동적 라우트가 다른 경로로 제공하더라도 읽어 들인 파일 기준으로 식별되므로, 경로가 바뀐 페이지도 수집된 문서 기준으로 임베드를 해석합니다. 다만 그 문서로 가는 링크는 수집된 경로를 쓰므로, 리라이트하는 경로는 수집기의 `routes`로 알려 주십시오.
+
+**include하는 페이지에는 임베드를 넣지 마십시오.** `<!--@include: ...-->`로 다른 파일을 끌어오는 페이지도 평소처럼 렌더링되지만, 임베드까지 있으면 그 사실을 알리는 오류와 함께 렌더링이 멈춥니다. 수집은 include한 내용 없이 파일을 읽으므로 임베드를 페이지와 대응시킬 수 없기 때문입니다. 임베드는 아무것도 include하지 않는 페이지에 두십시오.
+
+**VitePress의 렌더링은 그대로 유지됩니다.** 코드 블록의 문법 강조, 줄 번호, 복사 버튼과 스니펫 import가 그대로 동작하고, `<script setup>`과 `<style>` 블록은 여전히 페이지 컴포넌트로 들어가며, `[[toc]]`, `::: code-group`, `::: raw`, 이모지는 VitePress가 렌더링하는 그대로 나옵니다. 컨테이너 안의 내용은 cudoc이 그대로 읽으므로, 코드 그룹이나 `::: raw` 안의 제목 앵커와 임베드도 밖에서와 똑같이 동작합니다. cudoc은 자신이 정규화하는 부분만 바꿉니다.
+
+**목차와 임베드된 제목.** 기본 테마의 개요는 브라우저에서 렌더링된 제목으로 만들어지므로 임베드로 들어온 제목도 나열합니다. 페이지 안의 `[[toc]]`는 VitePress 자체 토큰으로 렌더링되므로 페이지 자신의 제목만 나열합니다.
+
+**빌드 중 경고.** 등록하지 않은 콜아웃 타입이나 id가 같은 두 제목 같은 진단은 VitePress가 페이지를 렌더링할 때 페이지와 줄을 알리는 경고로 출력됩니다. 플러그인이 수집한 라이브러리를 가지고 있으면 줄은 파일 첫 줄부터, 그렇지 않으면 frontmatter 다음 줄부터 셉니다. 직접 처리하시려면 플러그인 옵션에 `onDiagnostic(diagnostic, documentId)`를 넘기십시오. → [markdown-it 내부 동작](./api-reference/adapters.ko.md#markdown-it)
 
 **Markdown만 다룹니다.** `.md`를 작성하십시오. React `.mdx`는 처리되지 않습니다. → [`.md`와 `.mdx` 선택](./README.ko.md#md와-mdx-선택)
 
