@@ -1,6 +1,7 @@
-// A page to send for review: the standalone page with the review-note
-// runtime inside it. The reader leaves notes, saves a copy or a share token,
-// and the author turns what comes back into a report with
+// A page to send for review: the standalone page, theme menu included,
+// with the review-note runtime inside it. The reader leaves notes, saves a
+// copy or a share token, and the author maps what comes back to the source
+// with
 //   npx cudoc-export annotations <notes> --library .cudoc/annotate-library
 // Built by `npm run showcase` into annotate-output/; review-samples/ holds a
 // returned notes file and the report made from it.
@@ -15,7 +16,6 @@ const {
   toc,
   outDir,
   libraryDir,
-  themeSwitch,
   ...shared
 } = showcase
 

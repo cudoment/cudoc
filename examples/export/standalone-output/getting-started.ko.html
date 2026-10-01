@@ -1,4 +1,4 @@
-<!doctype html><html lang="ko" data-cudoc-ui="{&#x22;theme&#x22;:&#x22;테마&#x22;,&#x22;system&#x22;:&#x22;시스템&#x22;,&#x22;light&#x22;:&#x22;라이트&#x22;,&#x22;dark&#x22;:&#x22;다크&#x22;}"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;; connect-src &#x27;none&#x27;"><meta name="viewport" content="width=device-width,initial-scale=1"><title>시작하기 · Northlight Weather API</title><style>
+<!doctype html><html lang="ko" data-cudoc-ui="{&#x22;theme&#x22;:&#x22;테마&#x22;,&#x22;light&#x22;:&#x22;라이트&#x22;,&#x22;dark&#x22;:&#x22;다크&#x22;}"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;; connect-src &#x27;none&#x27;"><meta name="viewport" content="width=device-width,initial-scale=1"><title>시작하기 · Northlight Weather API</title><style>
 :root {
   color-scheme: light dark;
 
@@ -928,11 +928,17 @@ footer {
 /* Linked after the built-in stylesheet on the site, and carried inside the
    page on a standalone one. Everything that should reach the PDF and Word
    as well goes in the configuration's tokens instead. */
-header {
-  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIzIiB2aWV3Qm94PSIwIDAgMTIgMyI+PHJlY3Qgd2lkdGg9IjYiIGhlaWdodD0iMyIgZmlsbD0iIzE1NWU3NSIvPjxyZWN0IHg9IjYiIHdpZHRoPSI2IiBoZWlnaHQ9IjMiIGZpbGw9IiM2N2U4ZjkiLz48L3N2Zz4K");
-  background-repeat: repeat-x;
-  background-position: bottom;
-  background-size: auto 3px;
+
+/* The handbook's mark before the site title: a picture the stylesheet
+   loads, copied beside it on the site and written into a standalone page. */
+header > :first-child::before {
+  content: "";
+  display: inline-block;
+  width: 1.375rem;
+  height: 1.375rem;
+  margin-right: var(--space-2);
+  vertical-align: -0.3em;
+  background: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48cmVjdCB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHJ4PSI2IiBmaWxsPSIjMTU1ZTc1Ii8+PGNpcmNsZSBjeD0iMTUuNSIgY3k9IjguNSIgcj0iMy41IiBmaWxsPSIjNjdlOGY5Ii8+PHBhdGggZD0iTTcgMTguNWEzLjUgMy41IDAgMCAxLS4zLTcgNC42IDQuNiAwIDAgMSA4LjguOSAzIDMgMCAxIDEgLjUgNi4xeiIgZmlsbD0iI2Y4ZmFmYyIvPjwvc3ZnPgo=") center / contain no-repeat;
 }
 </style><script>"use strict";
 (() => {
@@ -960,7 +966,7 @@ header {
   }
   apply(stored());
   var STRINGS = (() => {
-    const fallback = root.lang.toLowerCase().startsWith("ko") ? { theme: "\uD14C\uB9C8", system: "\uC2DC\uC2A4\uD15C", light: "\uB77C\uC774\uD2B8", dark: "\uB2E4\uD06C" } : { theme: "Theme", system: "System", light: "Light", dark: "Dark" };
+    const fallback = root.lang.toLowerCase().startsWith("ko") ? { theme: "\uD14C\uB9C8", light: "\uB77C\uC774\uD2B8", dark: "\uB2E4\uD06C" } : { theme: "Theme", light: "Light", dark: "Dark" };
     try {
       const given = JSON.parse(root.dataset.cudocUi ?? "{}");
       const strings = { ...fallback };
@@ -973,7 +979,6 @@ header {
     }
   })();
   var ICONS = {
-    system: ["M3 5h18v12H3z", "M8 21h8", "M12 17v4"],
     light: [
       "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z",
       "M12 2v2",
@@ -1005,7 +1010,9 @@ header {
     }
     return svg;
   }
-  var MODES = ["system", "light", "dark"];
+  var CHOICES = ["light", "dark"];
+  var dark = window.matchMedia?.("(prefers-color-scheme: dark)");
+  var current = () => stored() ?? (dark?.matches ? "dark" : "light");
   function mount() {
     const header = document.querySelector("body > header");
     if (!header || header.querySelector(".theme-switch")) return;
@@ -1013,24 +1020,27 @@ header {
     control.className = "theme-switch";
     const select = document.createElement("select");
     select.setAttribute("aria-label", STRINGS.theme);
-    for (const mode of MODES) {
+    for (const mode of CHOICES) {
       const option = document.createElement("option");
       option.value = mode;
       option.textContent = STRINGS[mode];
       select.append(option);
     }
     const render = () => {
-      const mode = stored() ?? "system";
+      const mode = current();
       select.value = mode;
       control.querySelector("svg")?.remove();
       control.prepend(icon(mode));
       control.title = `${STRINGS.theme}: ${STRINGS[mode]}`;
     };
     select.addEventListener("change", () => {
-      const choice = select.value === "system" ? void 0 : select.value;
+      const choice = select.value;
       remember(choice);
       apply(choice);
       render();
+    });
+    dark?.addEventListener?.("change", () => {
+      if (!stored()) render();
     });
     window.addEventListener("storage", (event) => {
       if (event.key === KEY || event.key === null) {

@@ -24,7 +24,7 @@
   }
   apply(stored());
   var STRINGS = (() => {
-    const fallback = root.lang.toLowerCase().startsWith("ko") ? { theme: "\uD14C\uB9C8", system: "\uC2DC\uC2A4\uD15C", light: "\uB77C\uC774\uD2B8", dark: "\uB2E4\uD06C" } : { theme: "Theme", system: "System", light: "Light", dark: "Dark" };
+    const fallback = root.lang.toLowerCase().startsWith("ko") ? { theme: "\uD14C\uB9C8", light: "\uB77C\uC774\uD2B8", dark: "\uB2E4\uD06C" } : { theme: "Theme", light: "Light", dark: "Dark" };
     try {
       const given = JSON.parse(root.dataset.cudocUi ?? "{}");
       const strings = { ...fallback };
@@ -37,7 +37,6 @@
     }
   })();
   var ICONS = {
-    system: ["M3 5h18v12H3z", "M8 21h8", "M12 17v4"],
     light: [
       "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z",
       "M12 2v2",
@@ -69,7 +68,9 @@
     }
     return svg;
   }
-  var MODES = ["system", "light", "dark"];
+  var CHOICES = ["light", "dark"];
+  var dark = window.matchMedia?.("(prefers-color-scheme: dark)");
+  var current = () => stored() ?? (dark?.matches ? "dark" : "light");
   function mount() {
     const header = document.querySelector("body > header");
     if (!header || header.querySelector(".theme-switch")) return;
@@ -77,24 +78,27 @@
     control.className = "theme-switch";
     const select = document.createElement("select");
     select.setAttribute("aria-label", STRINGS.theme);
-    for (const mode of MODES) {
+    for (const mode of CHOICES) {
       const option = document.createElement("option");
       option.value = mode;
       option.textContent = STRINGS[mode];
       select.append(option);
     }
     const render = () => {
-      const mode = stored() ?? "system";
+      const mode = current();
       select.value = mode;
       control.querySelector("svg")?.remove();
       control.prepend(icon(mode));
       control.title = `${STRINGS.theme}: ${STRINGS[mode]}`;
     };
     select.addEventListener("change", () => {
-      const choice = select.value === "system" ? void 0 : select.value;
+      const choice = select.value;
       remember(choice);
       apply(choice);
       render();
+    });
+    dark?.addEventListener?.("change", () => {
+      if (!stored()) render();
     });
     window.addEventListener("storage", (event) => {
       if (event.key === KEY || event.key === null) {
