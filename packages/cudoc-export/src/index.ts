@@ -258,12 +258,12 @@ export type SiteOptions = DocumentOptions & {
   /**
    * Links to files that are neither documents nor in the output: a link
    * whose target exists under `root`, in the library's coordinates, becomes
-   * `url` followed by that path. `relative` only.
+   * `url` followed by that path, under `relative` and `host` alike.
    */
   sourceLinks?: { root: string; url: string }
   /**
    * Directories copied into the output as they are. A link into `from`
-   * points at its copy under `to`. `relative` only.
+   * points at its copy under `to`. A site with `relative` links only.
    */
   mounts?: { from: string; to: string }[]
   /** Design token overrides, read by every output format. */
@@ -328,6 +328,8 @@ export type StagingContext = {
   linkTarget: (url: string, doc: StoredDocument) => LinkTarget
   /** A root-relative output path seen from a document's own file, or from the root. */
   assetLink: (asset: string, from?: StoredDocument) => string
+  /** A document's site page, root-relative: what the volume links when it does not bind the document. */
+  pagePath: (id: string) => string
   resolveAsset: (url: string, doc: StoredDocument) => string | null
 }
 
@@ -660,6 +662,17 @@ export function buildSite(input: InternalOptions) {
       )
     return { from: fs.realpathSync.native(mount.from), to }
   })
+  // A mount is a folder published beside a site's pages and reached by a
+  // relative link: a single page carries what it shows, and a host link
+  // names the host, which has no copy of the folder.
+  if (mountList.length && singlePages)
+    throw new Error(
+      "cudoc-export: mounts publish folders beside a site's pages; a single page carries what it shows, so mounts need mode site or annotate with the hosted target",
+    )
+  if (mountList.length && links !== "relative")
+    throw new Error(
+      `cudoc-export: mounts are reached by relative links; links: "${links}" leaves them unlinked`,
+    )
   if (
     !Array.isArray(externalPaths) ||
     externalPaths.some((prefix) => typeof prefix !== "string" || !prefix)
@@ -691,6 +704,34 @@ export function buildSite(input: InternalOptions) {
       throw new Error(
         "cudoc-export: site output overlaps source, library, asset or mounted directory",
       )
+  }
+  // A mount is copied whole: over a root it would publish documents the
+  // navigation leaves out, and its copies would collide with the assets the
+  // pages carry. Two mounts may not share files or folders either.
+  const inputs = [
+    ...roots.map((root) => root.dir),
+    libraryDir,
+    ...assetDirs,
+  ].map(realPath)
+  for (const [index, mount] of mountList.entries()) {
+    if (
+      inputs.some(
+        (dir) => contained(dir, mount.from) || contained(mount.from, dir),
+      )
+    )
+      throw new Error(
+        `cudoc-export: mount ${mount.from} overlaps a source, library or asset directory; mount a folder outside them`,
+      )
+    for (const other of mountList.slice(index + 1))
+      if (
+        contained(other.from, mount.from) ||
+        contained(mount.from, other.from) ||
+        contained(other.to, mount.to) ||
+        contained(mount.to, other.to)
+      )
+        throw new Error(
+          `cudoc-export: mounts ${mount.from} → ${mount.to} and ${other.from} → ${other.to} overlap`,
+        )
   }
   if (existingLibrary && Object.keys(options).length)
     throw new Error(
@@ -851,6 +892,14 @@ export function buildSite(input: InternalOptions) {
   const allowedCssDirs = [...roots.map((root) => root.dir), ...assetDirs]
   const files = new Set<string>()
   const dependencies: SiteDependency[] = []
+  /** In one order wherever they are shown: by document, kind and address. */
+  const sortedDependencies = () =>
+    [...dependencies].sort(
+      (a, b) =>
+        a.document.localeCompare(b.document, "en") ||
+        a.kind.localeCompare(b.kind, "en") ||
+        a.url.localeCompare(b.url, "en"),
+    )
   const depend = (dependency: SiteDependency) => {
     if (
       !dependencies.some(
@@ -926,41 +975,37 @@ export function buildSite(input: InternalOptions) {
                 }
               : {}),
           }
-        if (hosted)
-          return {
-            kind: "local",
-            suffix: "",
-            hosted: url.startsWith("/")
-              ? hostedRoute(url, deployment!)
-              : new URL(url, hostedRoute(doc.route, deployment!)).href,
-          }
         // Under hyperlink removal nothing is resolved or copied for a link.
         if (links === "none") return { kind: "local", suffix: "" }
         const located = resources.locate(url, doc)
         if (located.kind === "external") return { kind: "external", url }
-        // A mount takes a link into its directory, whether the file is in a
-        // root or found through sourceLinks.
         const onDisk =
           located.kind === "resolved"
             ? located.source
             : sourceBase && !located.relative.startsWith("../")
               ? safePathOrUndefined(sourceBase.root, located.relative)
               : undefined
-        if (onDisk && fs.existsSync(onDisk)) {
-          const copy = mounted(onDisk)
+        const present =
+          onDisk !== undefined && fs.existsSync(onDisk) ? onDisk : undefined
+        // A mount takes a link into its directory, whether the file is in a
+        // root or found through sourceLinks. Mounts need relative links, so
+        // a hosted link never reaches this.
+        if (present && !hosted) {
+          const copy = mounted(present)
           if (copy) {
-            resources.check(onDisk, url, doc.id)
+            resources.check(present, url, doc.id)
             return { kind: "local", asset: copy, suffix: located.suffix }
           }
         }
+        // A file the collection leaves out is in the repository under every
+        // policy that keeps links: the host does not serve it either.
         if (
           located.kind === "missing" &&
           sourceBase &&
-          onDisk &&
-          fs.existsSync(onDisk) &&
-          within(onDisk, sourceBase.root)
+          present &&
+          within(present, sourceBase.root)
         ) {
-          resources.check(onDisk, url, doc.id)
+          resources.check(present, url, doc.id)
           return {
             kind: "external",
             url: `${sourceBase.url}${located.relative
@@ -969,6 +1014,14 @@ export function buildSite(input: InternalOptions) {
               .join("/")}${located.suffix}`,
           }
         }
+        if (hosted)
+          return {
+            kind: "local",
+            suffix: "",
+            hosted: url.startsWith("/")
+              ? hostedRoute(url, deployment!)
+              : new URL(url, hostedRoute(doc.route, deployment!)).href,
+          }
         const copied = resources.resolve(url, doc, "link")
         if (copied && singlePages)
           depend({ kind: "file", document: doc.id, url })
@@ -1027,8 +1080,16 @@ export function buildSite(input: InternalOptions) {
           case "document": {
             // A private target always has `hosted`: under the other
             // policies a link to one fails before it gets here.
-            if (!bound || !volumeMembers.has(target.id))
+            if (!bound)
               return target.hosted ?? fromId(doc.id, `${target.id}.pdf`)
+            // A published document the volume does not bind, a translation
+            // or a home the navigation leaves out, has its own PDF only when
+            // the run writes documents; its site page is always written.
+            if (!volumeMembers.has(target.id))
+              return (
+                target.hosted ??
+                `${urlPath(outputPath(target.id))}${target.suffix}`
+              )
             const href = `#${volumeId(target.id)}${target.anchor ? `-${decodeComponent(target.anchor)}` : ""}`
             // The document's own print names the page on the host, and with
             // `page.linkUrls` prints that address beside the link. The volume
@@ -1542,7 +1603,19 @@ export function buildSite(input: InternalOptions) {
               htmlAttributes: themeAttribute(ui),
               ui,
               headerLinks: shellLinks(code),
-              languages: [],
+              // Each language's own home, generated or written.
+              languages:
+                locales && plan.codes.length > 1
+                  ? locales.list.map((locale) => ({
+                      label: locale.label,
+                      lang: locale.code,
+                      href:
+                        locale.code === code
+                          ? ""
+                          : homeHref(landing, locale.code),
+                      current: locale.code === code,
+                    }))
+                  : [],
               navigation: drawNav(
                 plan.navigation.entries.get(code) ?? [],
                 landing,
@@ -1580,7 +1653,7 @@ export function buildSite(input: InternalOptions) {
 
       if (strict && dependencies.length)
         throw new Error(
-          `cudoc-export: strict: the pages need what is outside them:\n${dependencies
+          `cudoc-export: strict: the pages need what is outside them:\n${sortedDependencies()
             .map((d) => `  ${d.document}: ${d.kind} ${d.url}`)
             .join("\n")}`,
         )
@@ -1599,6 +1672,7 @@ export function buildSite(input: InternalOptions) {
           calloutTypes: library.options.calloutTypes,
           linkTarget,
           assetLink,
+          pagePath: outputPath,
           resolveAsset: (url, doc) => {
             const located = resources.locate(url, doc)
             return located.kind === "resolved" ? located.source : null
@@ -1613,12 +1687,7 @@ export function buildSite(input: InternalOptions) {
     libraryDir: path.resolve(libraryDir),
     files: [...files].sort(),
     diagnostics: plan.diagnostics,
-    dependencies: [...dependencies].sort(
-      (a, b) =>
-        a.document.localeCompare(b.document, "en") ||
-        a.kind.localeCompare(b.kind, "en") ||
-        a.url.localeCompare(b.url, "en"),
-    ),
+    dependencies: sortedDependencies(),
     omitted: plan.omitted,
   })
   // The publish is asynchronous exactly when the staging hook is, and the

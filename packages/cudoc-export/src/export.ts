@@ -94,13 +94,18 @@ const docxLink =
       case "fragment":
         return { anchor: bookmarkName(doc.id, decodeComponent(target.anchor)) }
       case "document":
-        // A private target always has `hosted`, as in the print HTML.
-        if (
-          bound &&
-          context.documents.some((entry) => entry.doc.id === target.id)
-        )
+        // A private target always has `hosted`, as in the print HTML. The
+        // volume bookmarks only what it binds; a translation or a home it
+        // leaves out is linked at its site page, which every run writes.
+        if (bound && context.order.includes(target.id))
           return {
             anchor: bookmarkName(target.id, decodeComponent(target.anchor)),
+          }
+        if (bound)
+          return {
+            href:
+              target.hosted ??
+              `${urlPath(context.pagePath(target.id))}${target.suffix}`,
           }
         return {
           href: target.hosted ?? context.assetLink(`${target.id}.docx`, doc),
@@ -320,9 +325,13 @@ async function writePdfOutputs(
             output: path.join(scratch, "front.pdf"),
             title: context.title,
           })
+          // Only the volume's own documents: a translation or a page left
+          // out of the volume is printed alone but not bound.
           measured = {
             front,
-            documents: [...counts.values()].reduce((sum, n) => sum + n, 0),
+            documents: context.order
+              .filter((id) => counts.has(id))
+              .reduce((sum, id) => sum + counts.get(id)!, 0),
           }
           fillVolumePageNumbers(
             volumeFile,

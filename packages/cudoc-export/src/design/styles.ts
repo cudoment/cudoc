@@ -296,7 +296,8 @@ nav a[aria-current="page"] {
   flex: 1;
   min-width: 0;
 }
-.nav-group summary > span {
+.nav-group summary > span,
+.nav-group summary > a {
   padding: var(--space-2) var(--space-3) var(--space-2) var(--space-1);
 }
 .nav-group ul {
@@ -408,6 +409,12 @@ hr {
   margin: var(--space-8) 0;
   border: 0;
   border-top: 1px solid var(--line);
+}
+/* A rule already separates what follows it; the heading after one draws no second. */
+hr + h2 {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
 }
 img {
   max-width: 100%;

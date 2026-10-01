@@ -123,9 +123,10 @@ for (const host of BUILT_HOSTS.filter((h) => h.name !== "export")) {
     describe("mode: standalone", () => {
       let result: SiteResult
       let page: ReturnType<typeof parse>
+      let outDir: string
 
       beforeAll(() => {
-        const outDir = path.join(temporary, `${host.name}-standalone`)
+        outDir = path.join(temporary, `${host.name}-standalone`)
         result = buildSite({
           sourceRoot: path.join(site, host.sourceDir),
           library: libraryDir,
@@ -137,14 +138,26 @@ for (const host of BUILT_HOSTS.filter((h) => h.name !== "export")) {
         )
       })
 
-      it("carries its stylesheet and images, and writes nothing beside its pages", () => {
-        expect(page.querySelectorAll("link")).toHaveLength(0)
-        expect(page.querySelector("head style")?.text).toContain("--canvas")
+      it("carries its stylesheet in every page, and writes nothing beside its pages", () => {
+        expect(result.files.length).toBeGreaterThan(1)
         expect(result.files.every((file) => file.endsWith(".html"))).toBe(true)
-        for (const img of page.querySelectorAll("img"))
-          expect(img.getAttribute("src"), `${host.name}: image`).toMatch(
-            /^(?:data:|https?:)/,
+        // The example documents carry no images; the unit tier inlines them.
+        for (const file of result.files) {
+          const written = parse(
+            fs.readFileSync(path.join(outDir, file), "utf8"),
           )
+          expect(
+            written.querySelectorAll("link"),
+            `${host.name}: ${file}`,
+          ).toHaveLength(0)
+          expect(
+            written.querySelectorAll("head style"),
+            `${host.name}: ${file}`,
+          ).toHaveLength(1)
+          expect(written.querySelector("head style")!.text).toContain(
+            "--canvas",
+          )
+        }
         expect(
           result.dependencies.filter((need) => need.kind !== "remote"),
           `${host.name}: what a page needs beside it`,
