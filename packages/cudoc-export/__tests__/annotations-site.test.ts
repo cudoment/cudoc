@@ -1,5 +1,5 @@
 /**
- * What `annotations: true` adds to a site, and that the default output is
+ * What `mode: "annotate"` adds to the pages, and that the default output is
  * untouched. The cases that need the bundled runtime skip when the package
  * has not been built, naming the command that builds it.
  */
@@ -12,7 +12,7 @@ import { createHash } from "node:crypto"
 import { fromHtml } from "hast-util-from-html"
 import { toHtml } from "hast-util-to-html"
 import { parse } from "node-html-parser"
-import { buildSite, buildExport } from "../src/index.js"
+import { buildSite, buildExport, type SiteOptions } from "../src/index.js"
 import {
   ANNOTATION_SCRIPT,
   ANNOTATION_STYLESHEET,
@@ -131,7 +131,14 @@ if (!runtimeBuilt)
 const sha256 = (file: string) =>
   createHash("sha256").update(fs.readFileSync(file)).digest("hex")
 
-const site = (annotations?: boolean | string) => {
+type Review = Pick<SiteOptions, "mode" | "annotate"> & Record<string, unknown>
+
+const HOSTED: Review = {
+  mode: "annotate",
+  annotate: { target: "hosted", reviewId: "demo" },
+}
+
+const site = (review?: Review) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cudoc-ann-site-"))
   const sourceRoot = path.join(root, "docs")
   fs.mkdirSync(path.join(sourceRoot, "guide"), { recursive: true })
@@ -153,10 +160,8 @@ const site = (annotations?: boolean | string) => {
         sourceRoot,
         outDir,
         title: "Demo",
-        ...(annotations === undefined
-          ? {}
-          : { annotations: annotations as boolean }),
-      }),
+        ...review,
+      } as SiteOptions),
     read: (file: string) => fs.readFileSync(path.join(outDir, file), "utf8"),
     cleanup: () => fs.rmSync(root, { recursive: true, force: true }),
   }
@@ -182,12 +187,22 @@ describe("buildSite with annotations", () => {
     }
   })
 
-  it("rejects a value that is not a boolean before writing anything", () => {
-    const s = site("yes")
+  it("names the replacement of the retired option before writing anything", () => {
+    const s = site({ annotations: true })
     try {
       expect(() => s.build()).toThrow(
-        /cudoc-export: annotations must be true or false/,
+        /annotations was replaced by mode: "annotate"/,
       )
+      expect(fs.existsSync(s.outDir)).toBe(false)
+    } finally {
+      s.cleanup()
+    }
+  })
+
+  it("needs a review id for a hosted review, whose host other sites share", () => {
+    const s = site({ mode: "annotate", annotate: { target: "hosted" } })
+    try {
+      expect(() => s.build()).toThrow(/needs annotate.reviewId/)
       expect(fs.existsSync(s.outDir)).toBe(false)
     } finally {
       s.cleanup()
@@ -209,9 +224,9 @@ describe("buildSite with annotations", () => {
   })
 
   withRuntime(
-    "ships the runtime, tags every page and pins the document version",
+    "ships the runtime beside a hosted review, tags every page and pins the document version",
     () => {
-      const s = site(true)
+      const s = site(HOSTED)
       try {
         s.build()
         const home = s.read("index.html")
@@ -242,6 +257,7 @@ describe("buildSite with annotations", () => {
         expect(main.getAttribute("data-cudoc-generator")).toMatch(
           /^cudoc-export \d/,
         )
+        expect(main.getAttribute("data-cudoc-site")).toBe("demo")
         expect(home).toMatch(
           /<p data-cudoc-block="start:[0-9a-f]{8}">Run the installer/,
         )
@@ -271,7 +287,7 @@ describe("buildSite with annotations", () => {
   withRuntime(
     "stamps the same version hash the library manifest records",
     () => {
-      const s = site(true)
+      const s = site({ mode: "annotate" })
       try {
         const result = s.build()
         const manifest = JSON.parse(
@@ -291,9 +307,9 @@ describe("buildSite with annotations", () => {
   )
 
   withRuntime(
-    "accepts the option next to a reused library and lists the files it wrote",
+    "accepts the mode next to a reused library and lists the files it wrote",
     async () => {
-      const s = site(true)
+      const s = site(HOSTED)
       try {
         const first = s.build()
         const second = path.join(s.root, "again")
@@ -302,14 +318,14 @@ describe("buildSite with annotations", () => {
             sourceRoot: s.sourceRoot,
             outDir: second,
             library: first.libraryDir,
-            annotations: true,
+            ...HOSTED,
           }),
         ).not.toThrow()
         const result = await buildExport({
           sourceRoot: s.sourceRoot,
           outDir: path.join(s.root, "export"),
           library: first.libraryDir,
-          annotations: true,
+          ...HOSTED,
         })
         expect(result.files.html).toContain(ANNOTATION_SCRIPT)
         expect(result.files.html).toContain(ANNOTATION_STYLESHEET)
@@ -319,13 +335,76 @@ describe("buildSite with annotations", () => {
     },
   )
 
+  withRuntime(
+    "writes the runtime into each page for a file review, and nothing beside them",
+    () => {
+      const s = site({ mode: "annotate" })
+      try {
+        const result = s.build()
+        for (const file of ["index.html", "guide/setup.html"]) {
+          const html = s.read(file)
+          expect(html).not.toContain(`src="${ANNOTATION_SCRIPT}"`)
+          expect(html).not.toContain("<link")
+          expect(html).toContain("</style><style>")
+          expect(html.match(/<script>/g)).toHaveLength(1)
+          expect(html).toMatch(/data-cudoc-site="[0-9a-f]{16}"/)
+        }
+        // Single pages: no runtime files, no shared stylesheet, no print copies.
+        expect(result.files.sort()).toEqual(["guide/setup.html", "index.html"])
+        expect(fs.readdirSync(s.outDir).sort()).toEqual([
+          ".cudoc-output",
+          "guide",
+          "index.html",
+        ])
+      } finally {
+        s.cleanup()
+      }
+    },
+  )
+
+  withRuntime("names the GitHub inbox on a hosted page, and only there", () => {
+    const s = site({
+      mode: "annotate",
+      annotate: {
+        target: "hosted",
+        reviewId: "demo",
+        inbox: { github: { repo: "owner/name", template: "review.yml" } },
+      },
+    })
+    try {
+      s.build()
+      const main = parse(s.read("index.html")).querySelector("main")!
+      expect(JSON.parse(main.getAttribute("data-cudoc-inbox")!)).toEqual({
+        github: { repo: "owner/name", template: "review.yml" },
+      })
+    } finally {
+      s.cleanup()
+    }
+    const file = site({
+      mode: "annotate",
+      annotate: {
+        inbox: { github: { repo: "owner/name", template: "review.yml" } },
+      },
+    })
+    try {
+      expect(() => file.build()).toThrow(
+        /annotate.inbox applies to target "hosted"/,
+      )
+    } finally {
+      file.cleanup()
+    }
+  })
+
   withRuntime("ships a runtime that touches neither markup nor network", () => {
     // The W3C context identifier and the SVG namespace are URLs by
-    // definition and are never fetched.
+    // definition and are never fetched; the GitHub address is where a
+    // reader may choose to open the new-issue page, a navigation the reader
+    // starts, never a request the page makes.
     const script = fs
       .readFileSync(annotationRuntimeFiles().script, "utf8")
       .replaceAll("http://www.w3.org/ns/anno.jsonld", "")
       .replaceAll("http://www.w3.org/2000/svg", "")
+      .replaceAll("https://github.com/", "")
     for (const forbidden of [
       "innerHTML",
       "insertAdjacentHTML",

@@ -16,6 +16,7 @@ import {
   type Library,
 } from "@cudoment/cudoc/node/library"
 import {
+  LIMITS,
   ANNOTATION_CONTEXT,
   collection,
   type Annotation,
@@ -365,6 +366,35 @@ describe("renderJsonReport and the command", () => {
     expect(missing.output).toMatch(/nope\.json/)
     expect(runAnnotationsCommand([]).exitCode).toBe(1)
     expect(runAnnotationsCommand([jsonFile, "--bogus"]).exitCode).toBe(1)
+  })
+
+  it("reads a saved page larger than a notes file, and still limits the notes in it", () => {
+    const notes = collection(
+      [note({ exact: "Intro paragraph.", heading: "home" })],
+      "t",
+    )
+    // A standalone page carries its images, so a saved copy is far larger
+    // than the 2 MiB a notes file may be.
+    const padding = `<img src="data:image/png;base64,${"A".repeat(LIMITS.fileBytes + 1024)}">`
+    const page = (block: string) =>
+      `<!doctype html><html><body><main>${padding}</main><script type="application/json" id="cudoc-annotations-data">${block}</script></body></html>`
+    const large = path.join(root, "large.annotated.html")
+    fs.writeFileSync(large, page(jsonForScript(notes)))
+    expect(fs.statSync(large).size).toBeGreaterThan(LIMITS.fileBytes)
+    expect(readNotesFile(large).items).toHaveLength(1)
+    // The notes block itself keeps the notes file's limit.
+    const crowded = path.join(root, "crowded.annotated.html")
+    fs.writeFileSync(
+      crowded,
+      page(`${jsonForScript(notes)}${" ".repeat(LIMITS.fileBytes)}`),
+    )
+    expect(() => readNotesFile(crowded)).toThrow(
+      /the notes in .* are larger than 2097152 bytes/,
+    )
+    // A notes file is not a page, whatever it begins with.
+    const json = path.join(root, "large.json")
+    fs.writeFileSync(json, page(jsonForScript(notes)))
+    expect(() => readNotesFile(json)).toThrow(/is larger than 2097152 bytes/)
   })
 
   it("reads share tokens as the panel writes them, with or without the address", () => {

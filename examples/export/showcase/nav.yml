@@ -1,0 +1,14 @@
+# The site's navigation, which is also what it publishes: the overview and
+# the guide by file, the reference folder with everything in it except its
+# drafts, and a link out. Korean pages draw the same list from the `.ko.md`
+# translations, and leave out what has none.
+items:
+  - index.md
+  - getting-started.md
+  - folder: reference
+    title: { en: Reference, ko: 레퍼런스 }
+    exclude: [draft-*.md]
+    order: [endpoints, limits, errors]
+  - release-notes.md
+  - title: { en: Status page, ko: 상태 페이지 }
+    url: https://status.northlight.example/

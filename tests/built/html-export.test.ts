@@ -13,7 +13,7 @@ import path from "node:path"
 import { describe, it, expect, beforeAll, afterAll } from "vitest"
 import { parse } from "node-html-parser"
 import { loadLibrary } from "@cudoment/cudoc/node/library"
-import { buildSite } from "cudoc-export"
+import { buildSite, type SiteResult } from "cudoc-export"
 import { BUILT_HOSTS, example, snapshot } from "./outputs.js"
 
 const DEPLOYMENT = "https://docs.example.com/project/"
@@ -119,6 +119,61 @@ for (const host of BUILT_HOSTS.filter((h) => h.name !== "export")) {
         })
       })
     }
+
+    describe("mode: standalone", () => {
+      let result: SiteResult
+      let page: ReturnType<typeof parse>
+      let outDir: string
+
+      beforeAll(() => {
+        outDir = path.join(temporary, `${host.name}-standalone`)
+        result = buildSite({
+          sourceRoot: path.join(site, host.sourceDir),
+          library: libraryDir,
+          outDir,
+          mode: "standalone",
+        })
+        page = parse(
+          fs.readFileSync(path.join(outDir, "portable.html"), "utf8"),
+        )
+      })
+
+      it("carries its stylesheet in every page, and writes nothing beside its pages", () => {
+        expect(result.files.length).toBeGreaterThan(1)
+        expect(result.files.every((file) => file.endsWith(".html"))).toBe(true)
+        // The example documents carry no images; the unit tier inlines them.
+        for (const file of result.files) {
+          const written = parse(
+            fs.readFileSync(path.join(outDir, file), "utf8"),
+          )
+          expect(
+            written.querySelectorAll("link"),
+            `${host.name}: ${file}`,
+          ).toHaveLength(0)
+          expect(
+            written.querySelectorAll("head style"),
+            `${host.name}: ${file}`,
+          ).toHaveLength(1)
+          expect(written.querySelector("head style")!.text).toContain(
+            "--canvas",
+          )
+        }
+        expect(
+          result.dependencies.filter((need) => need.kind !== "remote"),
+          `${host.name}: what a page needs beside it`,
+        ).toEqual([])
+      })
+
+      it("renders the same document as the site", () => {
+        expect(
+          page.querySelector("[data-callout]")?.getAttribute("data-callout"),
+        ).toBe("warning")
+        expect(page.querySelectorAll("main table")).toHaveLength(2)
+        expect(
+          page.querySelectorAll("em").some((node) => node.text === "adapted"),
+        ).toBe(true)
+      })
+    })
 
     it("left the library, the sources and the host build unchanged", () => {
       expect(snapshot(libraryDir), `${host.name}: shared library`).toEqual(

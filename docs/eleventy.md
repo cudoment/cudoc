@@ -146,7 +146,7 @@ Root-relative images, such as `/img/logo.png`, are looked up under `docs`. If yo
 
 After editing a source document, run collection again — [`watchDocuments`](./api-reference/node.md#watching) called with the collector's configuration does that on every change, and so does `cudoc collect --watch` given a configuration file that holds the collector's whole configuration, `compiler` included — **and restart the dev server**: the plugin holds the library it loaded when the configuration was evaluated, and reports a stale source until it is reloaded. Front matter does not count: Eleventy hands the renderer the page without it, and a page whose text after the front matter is what was collected is current. → [Reference checking](./check.md)
 
-## Step 8 — Optionally export standalone HTML
+## Step 8 — Optionally export HTML
 
 ```sh
 npm install cudoc-export
@@ -154,7 +154,7 @@ npx cudoc-export build docs --library .cudoc/documents --out-dir shared-html \
   --links host --host-url https://docs.example.com/project/
 ```
 
-Your Eleventy build and its collected data are not modified. → [Standalone HTML](./export.md)
+Your Eleventy build and its collected data are not modified. → [Export](./export.md)
 
 ---
 

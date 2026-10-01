@@ -234,7 +234,7 @@ export default {
 
 `cudoc check`는 깨진 링크와 앵커, 이미지, 임베드를 한 번에 전부 보고하고 종료 코드를 0이 아닌 값으로 냅니다. 사이트가 생성되기 전에 빌드가 멈춥니다. → [참조 검사](./check.ko.md)
 
-## 7단계 — 독립 HTML도 내보내기 (선택)
+## 7단계 — HTML로도 내보내기 (선택)
 
 방금 수집한 라이브러리를 재사용해 전달용 HTML 묶음을 만듭니다.
 
@@ -244,7 +244,7 @@ npx cudoc-export build docs --library .cudoc/documents --out-dir shared-html \
   --links host --host-url https://docs.example.com/project/ --asset-dir static
 ```
 
-Docusaurus 빌드 결과와 수집 데이터는 변경되지 않습니다. → [독립 HTML](./export.ko.md)
+Docusaurus 빌드 결과와 수집 데이터는 변경되지 않습니다. → [내보내기](./export.ko.md)
 
 ---
 

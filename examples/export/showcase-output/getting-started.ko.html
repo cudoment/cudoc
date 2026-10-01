@@ -1,0 +1,36 @@
+<!doctype html><html lang="ko" data-cudoc-ui="{&#x22;theme&#x22;:&#x22;테마&#x22;,&#x22;light&#x22;:&#x22;라이트&#x22;,&#x22;dark&#x22;:&#x22;다크&#x22;}"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;; connect-src &#x27;none&#x27;"><meta name="viewport" content="width=device-width,initial-scale=1"><title>시작하기 · Northlight Weather API</title><link rel="stylesheet" href="cudoc.css"><link rel="stylesheet" href="cudoc-css/1-brand.css"><script src="cudoc-theme.js"></script></head><body><a class="skip" href="#main-content">본문으로 건너뛰기</a><header><a href="index.ko.html">Northlight Weather API</a><div class="header-end"><nav class="header-links"><a href="https://github.com/cudoment/cudoc">GitHub</a></nav><nav class="languages" aria-label="언어"><ul><li><a href="getting-started.html" hreflang="en" lang="en">English</a></li><li><span aria-current="true" lang="ko">한국어</span></li></ul></nav></div></header><div class="layout"><nav class="sidebar" aria-label="문서"><p class="nav-title">문서</p><ul><li><a href="index.ko.html">Northlight 날씨 API</a></li><li><a href="getting-started.ko.html" aria-current="page">시작하기</a></li><li class="nav-external"><a href="https://status.northlight.example/">상태 페이지</a></li></ul></nav><main id="main-content"><h1 id="getting-started">시작하기</h1>
+<p>키를 발급받고 요청을 한 번 보내면 첫 응답을 확인할 수 있습니다. 모든 호출은
+헤더에 키를 담은 HTTPS 요청이며, 설치할 SDK는 없습니다.</p>
+<h2 id="key">키 발급</h2>
+<p>키는 프로젝트마다 발급되며, 프로젝트가 읽을 수 있는 관측소 범위를 가집니다.</p>
+<table>
+<thead>
+<tr>
+<th>종류</th>
+<th>접두사</th>
+<th>용도</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>운영</td>
+<td><code>nlk_live_</code></td>
+<td>실제 관측소를 읽고 프로젝트 요금제의 사용량에 포함됩니다.</td>
+</tr>
+<tr>
+<td>테스트</td>
+<td><code>nlk_test_</code></td>
+<td>가상 관측소 <code>TEST-01</code>만 읽으며 사용량 제한을 받지 않습니다.</td>
+</tr>
+</tbody>
+</table>
+<aside class="cudoc-callout cudoc-callout-important" data-callout="important">
+<p class="cudoc-callout-title">키를 브라우저에 두지 마세요</p>
+<p>키는 프로젝트의 모든 권한을 가집니다. 자체 백엔드에서 Northlight를 호출하고
+결과만 전달하세요.</p>
+</aside>
+<h2 id="request">요청 보내기</h2>
+<p><code>Authorization</code> 헤더에 키를 담고 관측소 코드로 요청합니다.</p>
+<pre><code class="hljs language-sh">curl -H <span class="hljs-string">"Authorization: Bearer <span class="hljs-variable">$NORTHLIGHT_KEY</span>"</span> \
+  <span class="hljs-string">"https://api.northlight.example/v1/weather/current?station=OSL-01"</span></code></pre>
+<p>응답 필드와 오류 코드는 영어 <a href="reference/endpoints.html">레퍼런스</a>에 있습니다.</p><footer>Northlight Weather API</footer></main><nav class="toc" aria-label="이 페이지 목차"><p class="nav-title">이 페이지 목차</p><ul><li data-depth="2"><a href="#key">키 발급</a></li><li data-depth="2"><a href="#request">요청 보내기</a></li></ul></nav></div></body></html>

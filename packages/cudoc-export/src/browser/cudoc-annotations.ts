@@ -50,6 +50,7 @@ import {
   STRINGS,
   UI_ID,
   Ui,
+  selfContained,
   type Handlers,
   type Lang,
   type Layout,
@@ -103,6 +104,41 @@ function writePreference(key: string, value: string): void {
   }
 }
 
+/** Elements a press on which is a control, not the start of a selection. */
+const CONTROLS =
+  'button, select, input, textarea, label, summary, [role="button"], [contenteditable="true"]'
+
+/** GitHub answers an address it finds too long with 414; this stays well below it. */
+const GITHUB_URL_CHARS = 6000
+
+type Inbox = { repo: string; template: string; field: string }
+
+/** The inbox the builder wrote on the page, or none when it is absent or malformed. */
+function readInbox(value: string | undefined): Inbox | undefined {
+  if (!value) return undefined
+  try {
+    const parsed = JSON.parse(value) as {
+      github?: { repo?: unknown; template?: unknown; field?: unknown }
+    }
+    const github = parsed.github
+    if (
+      !github ||
+      typeof github.repo !== "string" ||
+      !/^[\w.-]+\/[\w.-]+$/.test(github.repo) ||
+      typeof github.template !== "string" ||
+      !/^[\w.-]+\.ya?ml$/.test(github.template)
+    )
+      return undefined
+    const field =
+      typeof github.field === "string" && /^[\w-]+$/.test(github.field)
+        ? github.field
+        : "notes"
+    return { repo: github.repo, template: github.template, field }
+  } catch {
+    return undefined
+  }
+}
+
 function start(): void {
   const main = document.querySelector<HTMLElement>("main[data-cudoc-document]")
   if (!main) return
@@ -111,6 +147,7 @@ function start(): void {
   const sourceHash = main.dataset.cudocSourceHash ?? ""
   const site = main.dataset.cudocSite ?? ""
   const generator = main.dataset.cudocGenerator ?? "cudoc-export"
+  const inbox = readInbox(main.dataset.cudocInbox)
   // The panel speaks English until the reader picks a language; the
   // document's language says nothing about the reader's. Both choices are
   // remembered per browser, not per document.
@@ -279,7 +316,7 @@ function start(): void {
           type: "text/html",
         }),
       )
-      ui.notify(t.saveCopyHint)
+      ui.notify(selfContained() ? t.saveCopyHintSelf : t.saveCopyHint)
     },
     onToken: async () => {
       const token = await encodeToken(items, generator)
@@ -301,6 +338,34 @@ function start(): void {
         // The textarea is on screen; copying by hand works everywhere.
       }
     },
+    ...(inbox
+      ? {
+          onGithub: async () => {
+            if (!items.length) {
+              ui.notify(t.githubEmpty)
+              return
+            }
+            const token = await encodeToken(items, generator)
+            const page = document.title || documentId
+            const url =
+              `https://github.com/${inbox.repo}/issues/new` +
+              `?template=${encodeURIComponent(inbox.template)}` +
+              `&title=${encodeURIComponent(`Review notes: ${page}`)}` +
+              `&${encodeURIComponent(inbox.field)}=${encodeURIComponent(`#cudoc-notes=${token}`)}`
+            // GitHub publishes no limit and answers a long address with 414,
+            // so the notes travel as a file well before that.
+            if (url.length > GITHUB_URL_CHARS) {
+              handlers.onDownload()
+              ui.notify(t.githubTooLong)
+              return
+            }
+            // Nothing is marked as sent: opening the page is not submitting it.
+            ui.confirmGithub(() => {
+              window.open(url, "_blank", "noopener,noreferrer")
+            })
+          },
+        }
+      : {}),
     onImport: async (file) => {
       try {
         const loaded = await readNotesFile(file)
@@ -451,15 +516,112 @@ function start(): void {
       )
     })
   }
-  // A click inside the layer (the note button, the composer, the panel)
-  // is not a change of selection.
+  const hideNote = () => {
+    pending = undefined
+    ui.hideNoteButton()
+  }
+  // A press anywhere but on the note button or in the composer dismisses
+  // the button at once, before the selection it belonged to changes. Only a
+  // press that started in the document's text and made a selection of its
+  // own brings it back on release: a control such as the theme select, an
+  // image or anything else that leaves the old selection in place must not
+  // bring the button back beside it.
+  let pressInText = false
+  let pressSelected = false
+  let selectionAtPress: unknown[] = []
+  let lastPointer = "mouse"
+  /** Where the selection starts and ends, to tell whether a press moved it. */
+  const selectionPoints = (): unknown[] => {
+    const selection = document.getSelection()
+    return selection
+      ? [
+          selection.anchorNode,
+          selection.anchorOffset,
+          selection.focusNode,
+          selection.focusOffset,
+        ]
+      : []
+  }
+  document.addEventListener(
+    "pointerdown",
+    (event) => {
+      lastPointer = event.pointerType || "mouse"
+      const target = event.target as Element | null
+      if (ui.ownsFloating(target)) return
+      hideNote()
+      pressInText =
+        !!target &&
+        main.contains(target) &&
+        !target.closest(CONTROLS) &&
+        !ui.root.contains(target)
+      pressSelected = false
+      selectionAtPress = selectionPoints()
+    },
+    true,
+  )
+  // A press that starts a selection; a press on an image starts a drag.
+  document.addEventListener(
+    "selectstart",
+    () => {
+      pressSelected = true
+    },
+    true,
+  )
   document.addEventListener("mouseup", (event) => {
-    if (ui.root.contains(event.target as Node)) return
+    if (ui.ownsFloating(event.target as Node) || !pressInText) return
+    pressInText = false
+    const moved = selectionPoints().some(
+      (point, index) => point !== selectionAtPress[index],
+    )
+    if (!pressSelected && !moved) return
     setTimeout(onSelection, 0)
+  })
+  // The selection is the truth: when it collapses or leaves the document,
+  // the button goes, however that happened. A touch selection ends with the
+  // handles rather than a release in the text, so there the button follows
+  // the selection once it settles.
+  let settle: number | undefined
+  document.addEventListener("selectionchange", () => {
+    const selection = document.getSelection()
+    if (
+      !selection ||
+      selection.isCollapsed ||
+      !selection.anchorNode ||
+      !main.contains(selection.anchorNode)
+    ) {
+      if (settle) window.clearTimeout(settle)
+      if (!ui.composerOpen) hideNote()
+      return
+    }
+    if (lastPointer === "touch" || lastPointer === "pen") {
+      if (settle) window.clearTimeout(settle)
+      settle = window.setTimeout(onSelection, 350)
+    }
   })
   document.addEventListener("keyup", (event) => {
     if (event.shiftKey || event.key.startsWith("Arrow"))
       setTimeout(onSelection, 0)
+  })
+  document.addEventListener("keydown", (event) => {
+    if (!ui.noteButtonShown) return
+    if (event.key === "Escape") {
+      hideNote()
+      return
+    }
+    // From a keyboard selection, Tab goes to the button first.
+    if (
+      event.key === "Tab" &&
+      !event.shiftKey &&
+      !ui.ownsFloating(document.activeElement)
+    ) {
+      event.preventDefault()
+      ui.focusNoteButton()
+    }
+  })
+  // Focus may move to the button or into the composer; anywhere else
+  // dismisses the button.
+  document.addEventListener("focusin", (event) => {
+    if (ui.noteButtonShown && !ui.ownsFloating(event.target as Node)) hideNote()
   })
 
   // Hovered block → gutter "+" → composer. The button sits in the margin

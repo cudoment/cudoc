@@ -18,7 +18,11 @@ resolveRoots(options: { sourceRoot?: string; roots?: SourceRoot[] }): ResolvedRo
 documentIdOf(roots: ResolvedRoot[], file: string): string | undefined
 libraryPathOf(roots: ResolvedRoot[], file: string): string | undefined
 sourceFileOf(roots: ResolvedRoot[], libraryPath: string): string | undefined
+globToRegExp(pattern: string): RegExp
+globMatcher(patterns: readonly string[] | undefined, option: string): (libraryPath: string) => boolean
 ```
+
+`globToRegExp` compiles one pattern of the glob dialect `exclude` and `private` use, from [glob.ts](../../packages/cudoc/src/node/glob.ts): `*` and `?` within a segment, `**` for any number of segments, and a pattern without `/` matching a file or directory name anywhere; a trailing `**` also matches the directory itself. `globMatcher` tests a library path against a list of them and names `option` when a pattern is not a non-empty string. `cudoc-export` reads a navigation folder's `exclude` with the same dialect.
 
 `BuildDocumentsOptions` extends `DocumentOptions`:
 
@@ -101,7 +105,7 @@ Offsets use JavaScript string indexing into the file's own text, `\r\n` line end
 
 ## Embedding
 
-Source/import: [resolve-embed.ts](../../packages/cudoc/src/node/resolve-embed.ts), `@cudoment/cudoc/node/resolve-embed`.
+Source/import: [resolve-embed.ts](../../packages/cudoc/src/node/resolve-embed.ts), `@cudoment/cudoc/node/resolve-embed`. Three helpers from [tree.ts](../../packages/cudoc/src/node/tree.ts) are exported beside `resolveTree`, so another consumer orders and names documents exactly as a tree does, as `cudoc-export`'s navigation does: `nfc(value)` normalizes to NFC, `documentName(id)` is an id's last segment or, for an `index`, its folder's name, and `compareNames(a, b)` orders text with letter case ignored, a run of digits read as its number (`Step 2` before `Step 10`) and code points otherwise, which puts Hangul syllables in dictionary order the same on every machine.
 
 ```ts
 type Replacement = { find: string; replace: string; regex?: boolean; flags?: string }

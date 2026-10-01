@@ -25,7 +25,7 @@ Run:
 npx cudoc collect --config cudoc.config.mjs
 ```
 
-This collects documents and prepares embeds. Then build or start your host using the same source directory and syntax settings. Configure the [Next.js](./next.md), [Docusaurus](./docusaurus.md), [Nextra](./nextra.md), [VitePress](./vitepress.md) or [Eleventy](./eleventy.md) integration to consume the collected results. [Standalone HTML](./export.md) performs these steps inside its build command.
+This collects documents and prepares embeds. Then build or start your host using the same source directory and syntax settings. Configure the [Next.js](./next.md), [Docusaurus](./docusaurus.md), [Nextra](./nextra.md), [VitePress](./vitepress.md) or [Eleventy](./eleventy.md) integration to consume the collected results. [HTML export](./export.md) performs these steps inside its build command.
 
 Documents in several directories, each served under its own path, are collected with `roots` instead of `sourceRoot`; `exclude` leaves files such as `**/AGENTS.md` out, and `private` marks documents that are collected and checked but never exported. [Collection](./api-reference/node.md#collection) describes the options and how ids are derived.
 
@@ -191,7 +191,7 @@ The page then shows this, each title linked to its document. Here ▾ marks a li
     • Partial refunds · Refund part of a payment.
 ```
 
-`./` is the folder the page is in, and the page itself, its `index.md`, is the folder rather than a line. A page that stands for a folder beside it, such as `checkout.md`, names that folder instead: `sources: [checkout/]`, since its own `./` is the folder it sits in and would list Checkout among its siblings. `checkout.md` takes the folder `checkout/` beside it, and `refunds/index.md` stands for its own folder. `order` puts Overview first, and the rest follow by title. A line with lines below it folds them in an HTML `details` element, so the tree opens and closes without a script on every host and in standalone HTML. The print HTML, the PDF and Word have nothing to fold and write the tree out as a nested list.
+`./` is the folder the page is in, and the page itself, its `index.md`, is the folder rather than a line. A page that stands for a folder beside it, such as `checkout.md`, names that folder instead: `sources: [checkout/]`, since its own `./` is the folder it sits in and would list Checkout among its siblings. `checkout.md` takes the folder `checkout/` beside it, and `refunds/index.md` stands for its own folder. `order` puts Overview first, and the rest follow by title. A line with lines below it folds them in an HTML `details` element, so the tree opens and closes without a script on every host and in exported HTML. The print HTML, the PDF and Word have nothing to fold and write the tree out as a nested list.
 
 ### Four common trees
 

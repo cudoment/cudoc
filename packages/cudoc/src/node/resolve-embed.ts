@@ -28,6 +28,11 @@ import {
   hierarchyOf,
   nfc,
 } from "./tree.js"
+/**
+ * How a tree names and sorts documents, for a consumer that lists documents
+ * the way a tree embed does, such as an export's navigation.
+ */
+export { compareNames, documentName, nfc } from "./tree.js"
 import { parseSrcSet } from "./local-target.js"
 import { transformedSection } from "./replace.js"
 import {

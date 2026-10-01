@@ -18,7 +18,11 @@ resolveRoots(options: { sourceRoot?: string; roots?: SourceRoot[] }): ResolvedRo
 documentIdOf(roots: ResolvedRoot[], file: string): string | undefined
 libraryPathOf(roots: ResolvedRoot[], file: string): string | undefined
 sourceFileOf(roots: ResolvedRoot[], libraryPath: string): string | undefined
+globToRegExp(pattern: string): RegExp
+globMatcher(patterns: readonly string[] | undefined, option: string): (libraryPath: string) => boolean
 ```
+
+`globToRegExp`는 `exclude`와 `private`가 쓰는 글롭 문법의 패턴 하나를 정규식으로 바꿉니다([glob.ts](../../packages/cudoc/src/node/glob.ts)). `*`와 `?`는 한 구간 안에서, `**`는 여러 구간에 걸쳐 맞고, `/`가 없는 패턴은 어디에 있든 그 이름의 파일이나 디렉터리에 맞습니다. 끝의 `**`는 그 디렉터리 자체에도 맞습니다. `globMatcher`는 라이브러리 경로를 패턴 목록과 비교하며, 비어 있지 않은 문자열이 아닌 패턴이 있으면 `option`의 이름을 들어 오류를 냅니다. `cudoc-export`도 내비게이션 폴더의 `exclude`를 같은 문법으로 읽습니다.
 
 `BuildDocumentsOptions`는 `DocumentOptions`를 확장합니다.
 
@@ -101,7 +105,7 @@ offset은 모든 호스트에서 `\r\n` 줄 끝을 포함한 파일 자체의 �
 
 ## 임베드
 
-소스·import: [resolve-embed.ts](../../packages/cudoc/src/node/resolve-embed.ts), `@cudoment/cudoc/node/resolve-embed`.
+소스·import: [resolve-embed.ts](../../packages/cudoc/src/node/resolve-embed.ts), `@cudoment/cudoc/node/resolve-embed`. [tree.ts](../../packages/cudoc/src/node/tree.ts)의 도우미 세 개도 `resolveTree`와 함께 export하므로, 다른 소비자도 트리와 똑같은 순서와 이름으로 문서를 다룰 수 있습니다. `cudoc-export`의 내비게이션도 이 함수를 씁니다. `nfc(value)`는 NFC로 정규화하고, `documentName(id)`는 id의 마지막 구간을, `index`라면 그 폴더의 이름을 돌려줍니다. `compareNames(a, b)`는 대소문자를 무시하고, 이어진 숫자는 수로 읽으며(`Step 2`가 `Step 10`보다 앞), 나머지는 코드 포인트 순으로 비교합니다. 그래서 어느 컴퓨터에서든 한글 음절이 사전 순서로 정렬됩니다.
 
 ```ts
 type Replacement = { find: string; replace: string; regex?: boolean; flags?: string }

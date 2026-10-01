@@ -138,7 +138,7 @@ export default {
 
 **수집된 경로를 App Router 경로에 맞추십시오.** `/help/guide`에서 제공되는 `guide.md`라면 `routes: { guide: "/help/guide" }`가 필요합니다.
 
-## 7단계 — 독립 HTML도 내보내기 (선택)
+## 7단계 — HTML로도 내보내기 (선택)
 
 ```sh
 npm install cudoc-export
@@ -146,7 +146,7 @@ npx cudoc-export build docs --library .cudoc/documents --out-dir shared-html \
   --links host --host-url https://docs.example.com/project/ --asset-dir public
 ```
 
-Next.js 빌드 결과와 수집 데이터는 변경되지 않습니다. → [독립 HTML](./export.ko.md)
+Next.js 빌드 결과와 수집 데이터는 변경되지 않습니다. → [내보내기](./export.ko.md)
 
 ---
 

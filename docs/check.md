@@ -57,7 +57,7 @@ Errors exit `1`. Warnings do not, unless you pass `--strict`. Without a collecte
 | `empty-embed-cell`            | warning  | A defined table column found nothing in one of its rows                                                  |
 | `imported-embed-component`    | error    | An embed copies a component its source file imports for itself                                           |
 | `unstable-anchor-link`        | warning  | A link depends on a generated anchor that document order can move                                        |
-| `unportable-embed-component`  | warning  | An embed copies a component that standalone HTML cannot render                                           |
+| `unportable-embed-component`  | warning  | An embed copies a component that HTML export cannot render                                               |
 | `unmatched-tree-order`        | warning  | A tree's `order` names no line of its first level                                                        |
 
 External URLs are out of scope. Checking whether `https://example.com` is reachable is a network job with different failure modes, and it belongs in a separate tool. A path on your own domain that another application serves, such as `/sdk/js/start` beside a documentation site, is out of scope too once you list its prefix in `externalPaths`; without that it is reported as a missing document, because the checker has no other way to know the page exists.
@@ -193,7 +193,7 @@ Provide the component through the host's shared components (`mdx-components.tsx`
 
 ## The unportable-component warning
 
-A component is fine in the document that owns it: the host that registers it renders it. An embed changes that. The copy lands in another document, and standalone HTML export then has to render a name it was never given.
+A component is fine in the document that owns it: the host that registers it renders it. An embed changes that. The copy lands in another document, and HTML export then has to render a name it was never given.
 
 `widget.mdx` holds a component. `guide.md` embeds that section:
 
@@ -219,13 +219,13 @@ guide.md
 
 It inspects what the embed would actually copy, not the whole source document. A `select` or `includeChildren: false` that leaves the component out keeps the warning quiet, so does a `replace` rule that rewrites the component into prose, and a `render: { type: table }` embed is skipped entirely, because only heading text travels. The checker compiles a rewritten copy with the standalone compiler, and one it cannot compile, such as Docusaurus MDX with a `{#id}` heading, is left unchecked rather than guessed at.
 
-There are two ways out. Keep embedded sections to Markdown, which is what makes a fact reusable in the first place. Or, if both standalone HTML and the component matter, give the exporter a renderer for each name:
+There are two ways out. Keep embedded sections to Markdown, which is what makes a fact reusable in the first place. Or, if both HTML export and the component matter, give the exporter a renderer for each name:
 
 ```js
 renderDocument(tree, { components: { Chart: (node) => "<figure>…</figure>" } })
 ```
 
-Silence it for a project that never exports standalone HTML:
+Silence it for a project that never exports HTML:
 
 ```js
 export default {

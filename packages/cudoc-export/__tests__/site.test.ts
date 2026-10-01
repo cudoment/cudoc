@@ -116,9 +116,14 @@ it("links to deployed host routes, preserves queries/fragments and copies public
   expect(hrefs).toContain("https://external.test/page")
   expect(hrefs).toContain("mailto:docs@example.com")
   expect(hrefs.some((href) => href?.includes("/project/project/"))).toBe(false)
-  expect(html.querySelector("nav.sidebar a")?.getAttribute("href")).toBe(
-    "https://docs.example.com/project/docs/custom",
-  )
+  // Generated navigation follows the same policy: the reference page's
+  // entry points at its deployed route.
+  expect(
+    html
+      .querySelectorAll("nav.sidebar a")
+      .find((a) => a.text === "Reference")
+      ?.getAttribute("href"),
+  ).toBe("https://docs.example.com/project/docs/custom")
   expect(html.querySelector("img")?.getAttribute("src")).toBe("img/icon.svg")
   expect(fs.existsSync(path.join(p.outDir, "img/icon.svg"))).toBe(true)
   expect(fs.readFileSync(path.join(p.library, "manifest.json"), "utf8")).toBe(

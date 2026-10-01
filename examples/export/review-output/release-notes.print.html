@@ -1,0 +1,84 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Release notes · Northlight Weather API</title><link rel="stylesheet" href="cudoc-print.css"></head><body class="cudoc-print"><div class="layout"><main id="main-content"><article class="cudoc-doc" id="cudoc-release-notes" data-document="cudoc-release-notes"><h1 id="release-notes">Release notes</h1>
+<p>Changes to the API, newest first. Dates are the day a change reached every
+region. Additive changes are listed for information; changes that alter an
+existing shape are announced under <a href="#upcoming">Upcoming changes</a> at least
+ninety days before they take effect.</p>
+<h2 id="upcoming">Upcoming changes</h2>
+<table>
+<thead>
+<tr>
+<th>Change</th>
+<th style="min-width: 8rem">Announced</th>
+<th style="min-width: 8rem">Effective</th>
+<th>Affects</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The <code>windMs</code> and <code>temperatureC</code> aliases leave current conditions; read <code>windSpeed</code>, <code>temperature</code> and <code>units</code>.</td>
+<td>2026-09-15</td>
+<td>2026-12-15</td>
+<td>Current conditions, history</td>
+</tr>
+<tr>
+<td>Weather alerts leave beta; <code>headline</code> becomes an object with one entry per language.</td>
+<td>2026-09-15</td>
+<td>2026-10-15</td>
+<td>Weather alerts</td>
+</tr>
+<tr>
+<td>Cursor expiry shortens from one hour to ten minutes.</td>
+<td>2026-07-02</td>
+<td>2026-10-01</td>
+<td>Station directory, history</td>
+</tr>
+</tbody>
+</table>
+<h2 id="r-2026-09-15">2026-09-15  <span class="cudoc-badge">Latest</span></h2>
+<ul>
+<li><code>fields</code> on the hourly forecast accepts <code>precipitation</code>, returning
+probability and expected amount, and <code>cloudCover</code>.
+→ <a href="reference/endpoints.pdf">Hourly forecast</a></li>
+<li><code>X-Limit-Hour</code> is now sent on every response, not only when the minute
+window is low.</li>
+<li>The hour window is charged in cost units; existing budgets were converted so
+that no client pays more than before.
+→ <a href="reference/limits.pdf">Request costs</a></li>
+<li>The weather alerts endpoint opens in beta for the Business and Enterprise
+plans. → <a href="reference/endpoints.pdf">Weather alerts</a></li>
+<li>The synthetic station <code>TEST-01</code> accepts <code>simulate</code> to reproduce any error
+code. → <a href="reference/errors.pdf">Error codes</a></li>
+</ul>
+<h2 id="r-2026-07-02">2026-07-02</h2>
+<ul>
+<li>Readings older than fifteen minutes carry <code>stale: true</code> instead of being
+withheld.</li>
+<li>The <code>station_retired</code> error replaces a generic <code>404</code> for stations that
+stopped reporting permanently.</li>
+<li>Observation history accepts <code>step=1d</code>, returning daily means with the
+minimum and maximum temperature.</li>
+<li>Station detail returns <code>timezone</code>, <code>sensors</code> and <code>since</code>.</li>
+</ul>
+<h2 id="r-2026-05-20">2026-05-20</h2>
+<ul>
+<li>Daily forecast endpoint added, up to seven days ahead.
+→ <a href="reference/endpoints.pdf">Daily forecast</a></li>
+<li>Every cached response carries an <code>ETag</code>, and a <code>304</code> answer counts against
+no window. → <a href="reference/limits.pdf">Caching</a></li>
+<li>The station directory paginates with <code>limit</code> up to 200 rows and a
+<code>page.next</code> cursor.</li>
+</ul>
+<h2 id="r-2026-04-10">2026-04-10</h2>
+<ul>
+<li>First public release of <code>/v1</code>: current conditions, hourly forecast,
+observation history and the station directory.</li>
+<li>Community, Team and Business plans; Enterprise by arrangement.</li>
+<li>Test keys and the synthetic station <code>TEST-01</code>.</li>
+</ul>
+<aside class="cudoc-callout cudoc-callout-success" data-callout="success">
+<p class="cudoc-callout-title">Deprecation policy</p>
+<p>A field or endpoint is announced here at least ninety days before it changes
+shape, and the previous behaviour stays available for that period. Beta
+endpoints carry a thirty-day notice instead and say so on their reference
+page.</p>
+</aside></article></main></div></body></html>
