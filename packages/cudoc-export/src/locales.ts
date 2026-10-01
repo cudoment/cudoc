@@ -19,7 +19,6 @@ export type UiStrings = {
   onThisPage: string
   language: string
   theme: string
-  system: string
   light: string
   dark: string
 }
@@ -31,7 +30,6 @@ const BUILT_IN: Record<string, UiStrings> = {
     onThisPage: "On this page",
     language: "Language",
     theme: "Theme",
-    system: "System",
     light: "Light",
     dark: "Dark",
   },
@@ -41,7 +39,6 @@ const BUILT_IN: Record<string, UiStrings> = {
     onThisPage: "이 페이지 목차",
     language: "언어",
     theme: "테마",
-    system: "시스템",
     light: "라이트",
     dark: "다크",
   },

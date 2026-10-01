@@ -262,7 +262,7 @@ type NavigationDiagnostic = {
 | `hostUrl`       | 선택적 `string`, `"host"`에서 필수                                 | 기본 경로를 포함한 HTTP(S) 절대 배포 URL. 인증정보·쿼리·프래그먼트를 허용하지 않으며 마지막 `/`를 정규화합니다.                                                                                                         |
 | `assetDirs`     | `string[]`, `[]`                                                   | 루트 다음 순서대로 탐색할 URL 루트 자산 디렉터리.                                                                                                                                                                       |
 | `renderOptions` | 선택적 `RenderOptions`                                             | HTML 컴포넌트 콜백과 코드 강조 재정의. [렌더링](./document.ko.md#컴포넌트와-렌더링) 참고.                                                                                                                               |
-| `themeSwitch`   | `boolean`, `false`                                                 | 머리글에 시스템·라이트·다크 중에서 색 구성을 고르는 메뉴를 더하고, 선택을 브라우저에 기억합니다. [테마 전환](#테마-전환) 참고.                                                                                          |
+| `themeSwitch`   | `boolean`, `false`                                                 | 머리글에 라이트와 다크 중에서 고르는 메뉴를 더합니다. 고르기 전에는 시스템 설정을 보여 주며, 선택을 브라우저에 기억합니다. [테마 전환](#테마-전환) 참고.                                                                |
 
 동기 생성기는 두 입력 경로를 제공합니다.
 
@@ -327,14 +327,7 @@ YAML 파일은 중복 키를 거부하며 읽고, 파일이나 그 항목의 오
 type LocaleOption =
   string | { label: string; suffix?: string; ui?: Partial<UiStrings> }
 type UiStrings = Record<
-  | "skip"
-  | "documents"
-  | "onThisPage"
-  | "language"
-  | "theme"
-  | "system"
-  | "light"
-  | "dark",
+  "skip" | "documents" | "onThisPage" | "language" | "theme" | "light" | "dark",
   string
 >
 ```
@@ -698,8 +691,10 @@ tokens: {
 ### 테마 전환
 
 `themeSwitch: true`(CLI `--theme-switch`)는 모든 페이지의 머리글에 테마 메뉴를
-더합니다. 모니터·해·달 아이콘 옆에 시스템·라이트·다크를 고르는 기본 `<select>`이므로,
-키보드 조작과 스크린 리더의 안내, 휴대전화 자체의 선택 화면을 브라우저가 제공합니다.
+더합니다. 해·달 아이콘 옆에 라이트·다크를 고르는 기본 `<select>`이므로, 키보드 조작과
+스크린 리더의 안내, 휴대전화 자체의 선택 화면을 브라우저가 제공합니다. 사용자가
+고르기 전에는 페이지가 시스템 설정을 따르고, 메뉴는 그 설정이 둘 중 어느 것인지
+보여 주며, 페이지를 연 채로 설정이 바뀌어도 따라갑니다.
 사이트에서는 출력 루트에 예약된 파일 하나 `cudoc-theme.js`를 패키지의
 `dist/browser/`에서 복사하고, 모든 페이지가 `<head>` 끝에서 `defer` 없는 평범한
 `<script src>`로 이 파일을 읽으므로, 기억된 선택이 본문이 그려지기 전에 적용됩니다.
@@ -707,10 +702,10 @@ tokens: {
 Content-Security-Policy 메타를 두 옵션 중 먼저 요청하는 쪽이 한 번만 넣습니다.
 스크립트는 `<html>`에 `data-theme="light"` 또는 `"dark"`를 설정하거나
 제거하고(스타일시트가 이에 응답하는 방식은 `siteStyles` 설명 참고), 선택을
-`localStorage["cudoc-theme"]`에 기억합니다(없으면 시스템, 저장은 주석과 같이 최선
+`localStorage["cudoc-theme"]`에 기억합니다(없으면 시스템 설정을 따름, 저장은 주석과 같이 최선
 노력, 다른 탭의 변경은 `storage` 이벤트로 따라감). 메뉴는 스크립트가 만들므로
 스크립트가 없는 페이지에는 메뉴도 없습니다. 메뉴의 문구는 빌더가 페이지 언어의
-`ui` 문구(`theme`, `system`, `light`, `dark`)로 `<html>`에 써 둔 `data-cudoc-ui`에서
+`ui` 문구(`theme`, `light`, `dark`)로 `<html>`에 써 둔 `data-cudoc-ui`에서
 읽고, 그 속성이 없으면 문서의 `lang`(`ko`면 한국어, 그 외 영어)을 따릅니다. 도구
 설명은 "<테마>: <모드>"입니다. 기본값은 꺼짐이며, 꺼진 출력은 스크립트 없이 시스템
 설정을 따릅니다.
@@ -765,9 +760,10 @@ SHA-256 앞 여덟 자리이며, 한 절에서 같은 텍스트가 반복되면 
 다 평문 작성 창을 엽니다. 메모 버튼은 선택 영역을 따릅니다. 메모 버튼이나 작성 창이
 아닌 곳을 누르면 그 즉시 사라지고(캡처 단계의 `pointerdown`), 손을 뗄 때 다시
 나타나는 것은 `main` 안에서, 그리고 조작 요소(`button`, `select`, `input`,
-`textarea`, `label`, `summary`, `[role=button]`, 편집 가능한 텍스트) 밖에서 시작한
-누름뿐입니다. 그래서 테마 메뉴나 details 요약을 써도 버튼이 이전 선택 영역 옆에 다시
-나타나지 않습니다. 선택 영역이 접히거나 `main`을 벗어나면 사라지고
+`textarea`, `label`, `summary`, `[role=button]`, 편집 가능한 텍스트) 밖에서 시작했고,
+새 선택을 시작했거나(`selectstart`) 이전 선택 영역을 바꾼 누름뿐입니다. 그래서 선택
+영역을 그대로 두는 테마 메뉴나 details 요약을 쓰거나 그림을 눌러도 버튼이 이전 선택
+영역 옆에 다시 나타나지 않습니다. 선택 영역이 접히거나 `main`을 벗어나면 사라지고
 (`selectionchange`), 터치나 펜으로 선택하면 선택 영역이 350ms 동안 움직이지 않을 때
 나타납니다. Escape로 사라지고, 키보드로 선택한 뒤 Tab을 누르면 버튼으로 초점이
 옮겨 가며, 초점이 다른 곳으로 옮겨 가면 사라집니다. 오른쪽 아래의 둥근 토글(말풍선 아이콘과 이 문서의 메모

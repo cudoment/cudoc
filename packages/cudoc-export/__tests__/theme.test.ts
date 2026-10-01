@@ -140,7 +140,7 @@ describe("buildSite with themeSwitch", () => {
           // The control's words, in the page's language, are the one data
           // attribute the theme adds.
           expect(html).toContain(
-            '<html lang="en" data-cudoc-ui="{&#x22;theme&#x22;:&#x22;Theme&#x22;,&#x22;system&#x22;:&#x22;System&#x22;,&#x22;light&#x22;:&#x22;Light&#x22;,&#x22;dark&#x22;:&#x22;Dark&#x22;}">',
+            '<html lang="en" data-cudoc-ui="{&#x22;theme&#x22;:&#x22;Theme&#x22;,&#x22;light&#x22;:&#x22;Light&#x22;,&#x22;dark&#x22;:&#x22;Dark&#x22;}">',
           )
           expect(html.match(/data-cudoc-/g)).toHaveLength(1)
         }

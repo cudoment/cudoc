@@ -122,16 +122,17 @@ suite("theme switch in the browser", () => {
   const choose = (mode: string) =>
     page.selectOption(".theme-switch select", mode)
 
-  it("chooses system, light or dark and remembers the choice", async () => {
+  it("chooses light or dark and remembers the choice", async () => {
     await open(home)
     await page.evaluate(() => localStorage.clear())
     await open(home)
+    // Nothing chosen: the page follows the system, and the select shows it.
     expect(await state()).toMatchObject({
-      label: "System",
-      title: "Theme: System",
+      label: "Light",
+      title: "Theme: Light",
       name: "Theme",
-      options: ["System", "Light", "Dark"],
-      icons: 3,
+      options: ["Light", "Dark"],
+      icons: 9,
       theme: null,
       canvas: designTokens.colors.light.canvas,
       stored: null,
@@ -160,13 +161,14 @@ suite("theme switch in the browser", () => {
       theme: "dark",
       canvas: designTokens.colors.dark.canvas,
     })
-    await choose("system")
+    await choose("light")
     expect(await state()).toMatchObject({
-      label: "System",
-      theme: null,
+      label: "Light",
+      theme: "light",
       canvas: designTokens.colors.light.canvas,
-      stored: null,
+      stored: "light",
     })
+    await page.evaluate(() => localStorage.clear())
   }, 60_000)
 
   it("follows the system when nothing is chosen, and a light choice beats a dark system", async () => {
@@ -174,9 +176,16 @@ suite("theme switch in the browser", () => {
     try {
       await open(home)
       expect(await state()).toMatchObject({
-        label: "System",
+        label: "Dark",
+        theme: null,
         canvas: designTokens.colors.dark.canvas,
+        stored: null,
       })
+      // The select follows the system as it changes, until a choice.
+      await page.emulateMedia({ colorScheme: "light" })
+      await expect.poll(async () => (await state()).label).toBe("Light")
+      await page.emulateMedia({ colorScheme: "dark" })
+      await expect.poll(async () => (await state()).label).toBe("Dark")
       await choose("light")
       expect(await state()).toMatchObject({
         label: "Light",
@@ -192,10 +201,10 @@ suite("theme switch in the browser", () => {
   it("labels the select in the document's language", async () => {
     await open(korean)
     expect(await state()).toMatchObject({
-      label: "시스템",
-      title: "테마: 시스템",
+      label: "라이트",
+      title: "테마: 라이트",
       name: "테마",
-      options: ["시스템", "라이트", "다크"],
+      options: ["라이트", "다크"],
     })
   }, 60_000)
 
@@ -210,7 +219,7 @@ suite("theme switch in the browser", () => {
       theme: "dark",
       canvas: designTokens.colors.dark.canvas,
     })
-    await choose("system")
+    await page.evaluate(() => localStorage.clear())
   }, 60_000)
 
   it("logged no errors along the way", () => {

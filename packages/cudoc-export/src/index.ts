@@ -282,9 +282,10 @@ export type SiteOptions = DocumentOptions & {
   assetDirs?: string[]
   renderOptions?: RenderOptions
   /**
-   * Add a header control that chooses the colour scheme, system, light or
-   * dark, remembered in the browser. Off by default: without it the
-   * stylesheet follows the system setting and no script is loaded.
+   * Add a header control that chooses light or dark, remembered in the
+   * browser, showing the system setting until the reader chooses. Off by
+   * default: without it the stylesheet follows the system setting and no
+   * script is loaded.
    */
   themeSwitch?: boolean
 }
@@ -1344,7 +1345,6 @@ export function buildSite(input: InternalOptions) {
           ? ` data-cudoc-ui="${escapeHtml(
               JSON.stringify({
                 theme: ui.theme,
-                system: ui.system,
                 light: ui.light,
                 dark: ui.dark,
               }),

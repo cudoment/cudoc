@@ -522,11 +522,26 @@ function start(): void {
   }
   // A press anywhere but on the note button or in the composer dismisses
   // the button at once, before the selection it belonged to changes. Only a
-  // press that started in the document's text brings it back on release: a
-  // control such as the theme select keeps the old selection, and the
-  // button must not reappear beside it.
+  // press that started in the document's text and made a selection of its
+  // own brings it back on release: a control such as the theme select, an
+  // image or anything else that leaves the old selection in place must not
+  // bring the button back beside it.
   let pressInText = false
+  let pressSelected = false
+  let selectionAtPress: unknown[] = []
   let lastPointer = "mouse"
+  /** Where the selection starts and ends, to tell whether a press moved it. */
+  const selectionPoints = (): unknown[] => {
+    const selection = document.getSelection()
+    return selection
+      ? [
+          selection.anchorNode,
+          selection.anchorOffset,
+          selection.focusNode,
+          selection.focusOffset,
+        ]
+      : []
+  }
   document.addEventListener(
     "pointerdown",
     (event) => {
@@ -539,12 +554,26 @@ function start(): void {
         main.contains(target) &&
         !target.closest(CONTROLS) &&
         !ui.root.contains(target)
+      pressSelected = false
+      selectionAtPress = selectionPoints()
+    },
+    true,
+  )
+  // A press that starts a selection; a press on an image starts a drag.
+  document.addEventListener(
+    "selectstart",
+    () => {
+      pressSelected = true
     },
     true,
   )
   document.addEventListener("mouseup", (event) => {
     if (ui.ownsFloating(event.target as Node) || !pressInText) return
     pressInText = false
+    const moved = selectionPoints().some(
+      (point, index) => point !== selectionAtPress[index],
+    )
+    if (!pressSelected && !moved) return
     setTimeout(onSelection, 0)
   })
   // The selection is the truth: when it collapses or leaves the document,
