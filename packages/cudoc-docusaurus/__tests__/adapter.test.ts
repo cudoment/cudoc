@@ -7,8 +7,23 @@ describe("cudocRemarkPlugins", () => {
   it("builds the shared plugin list", () => {
     // The arrangement itself is cudoc-remark's `createHostPlugins`, tested
     // there; this is the wiring around it.
-    expect(cudocRemarkPlugins()).toHaveLength(2)
-    expect(cudocRemarkPlugins({ promoteHeadingIds: false })).toHaveLength(1)
+    // The transforms, the id promotion, and the hand-over of every settled id
+    // in Docusaurus's own `{#id}` form.
+    expect(cudocRemarkPlugins()).toHaveLength(3)
+    expect(cudocRemarkPlugins({ promoteHeadingIds: false })).toHaveLength(2)
+  })
+
+  it("hands Docusaurus only the entry shapes its config validation accepts", () => {
+    // `beforeDefaultRemarkPlugins` takes a plugin or a `[plugin, options]`
+    // pair; a one-element array fails `docusaurus build` before any page.
+    for (const entry of cudocRemarkPlugins())
+      expect(
+        typeof entry === "function" ||
+          (Array.isArray(entry) &&
+            entry.length === 2 &&
+            typeof entry[0] === "function"),
+        String(entry),
+      ).toBe(true)
   })
 
   it("rejects removed options at the adapter entry point", () => {

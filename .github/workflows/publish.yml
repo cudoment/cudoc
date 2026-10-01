@@ -6,16 +6,52 @@ on:
 permissions:
   contents: read
 
+# Two runs at once would both see the same packages as unpublished.
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
 jobs:
+  verified:
+    name: Require a passing CI run for this commit
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    # The publish job repeats the unit tier and the packed install, but the
+    # host integrations, the built sites, the browser cases and the guides
+    # run only in CI. A release goes out only from a commit whose CI run on
+    # main finished with every one of those green.
+    steps:
+      # A dispatch can name any branch; only main is released, and a run
+      # from elsewhere fails here rather than finishing green with nothing
+      # published.
+      - name: Require main
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error title=Not main::Releases are dispatched from main; this run is on $GITHUB_REF."
+            exit 1
+          fi
+      - name: Find a successful CI run of this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          passed=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&event=push&status=success" --jq '.total_count')
+          if [ "$passed" = "0" ]; then
+            echo "::error title=CI has not passed on $GITHUB_SHA::Wait for the CI run of this commit on main to finish green, then dispatch again."
+            exit 1
+          fi
+          echo "CI passed on $GITHUB_SHA"
+
   check:
     name: Compare versions with npm
+    needs: verified
     runs-on: ubuntu-latest
     outputs:
       packages: ${{ steps.compare.outputs.packages }}
       any: ${{ steps.compare.outputs.any }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
       - id: compare
@@ -26,6 +62,8 @@ jobs:
     needs: check
     if: needs.check.outputs.any == 'true'
     runs-on: ubuntu-latest
+    outputs:
+      published: ${{ steps.publish.outputs.published }}
     permissions:
       contents: write # the tag and the GitHub release
       id-token: write # npm trusted publishing
@@ -33,18 +71,22 @@ jobs:
     env:
       CUDOC_SKIP_BROWSER_DOWNLOAD: "1"
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
           cache: npm
-      # Trusted publishing needs npm 11.5.1 or later.
-      - run: npm install -g npm@latest
+      # Trusted publishing needs npm 11.5.1 or later; the range keeps a new
+      # major from arriving in the middle of a release.
+      - run: npm install -g npm@^11.5.1
       - run: npm ci
       - run: npm run format:check
       - run: npm run build
+      - run: npm run typecheck
       - run: npm run test:run
+      # What a consumer receives: exports, declarations and dependencies.
+      - run: node tests/scripts/packed-consumers.mjs
       # Publishing needs no npm token: the registry trusts this workflow
       # through OIDC. That trust is configured per package on npm, and a
       # package without it fails with a 404 that does not say so, which is why
@@ -59,12 +101,14 @@ jobs:
 
       # Dependencies are published before the packages that depend on them, and
       # each package is tagged as soon as it lands. A run that stops halfway
-      # then leaves tags for exactly what reached the registry, so re-running
-      # picks up from there instead of guessing. The tag is also what a re-run
+      # then leaves tags for what reached the registry, so re-running picks up
+      # from there instead of guessing; a tag that failed after its publish is
+      # created by the release job instead. The tag is also what a re-run
       # trusts over the registry: npm's read replicas can lag a publish by
       # minutes, during which the comparison still lists a package that is
       # already there, and publishing it again would stop the run.
       - name: Publish and tag each unpublished package
+        id: publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -89,16 +133,17 @@ jobs:
                 echo "missing. npm returns 404 rather than 403 so that a stranger"
                 echo "cannot probe which package names exist."
                 echo
-                echo "Configure it on npm under the package's Settings, or under"
-                echo "the account's Packages page for a name that does not exist"
-                echo "yet, with:"
+                echo "Register it from a machine logged in to npm as the owner:"
                 echo
-                echo "- Organization or user: the account that owns \`$name\`"
-                echo "- Repository: \`$GITHUB_REPOSITORY\`"
-                echo "- Workflow: \`publish.yml\`"
+                echo "    npm trust github $name --repo $GITHUB_REPOSITORY --file publish.yml --allow-publish -y"
+                echo
+                echo "A name that is not on npm yet cannot be registered at all;"
+                echo "its first release goes out by hand with"
+                echo "\`npm publish --workspace $dir --access public\`, and the"
+                echo "workflow publishes every release after that."
                 echo
                 if [ -n "$published" ]; then
-                  echo "Already published and tagged in this run:$published"
+                  echo "Already published in this run:$published"
                   echo
                   echo "Re-running skips those and resumes here."
                 else
@@ -108,11 +153,41 @@ jobs:
               exit 1
             fi
             echo "::endgroup::"
-            gh release create "$tag" --target "$GITHUB_SHA" --title "$tag" --generate-notes
+            # The package is on npm whatever happens next. A release that
+            # fails here is created by the release job below, on this run or
+            # the next, so it does not stop the packages after this one.
+            if ! gh release create "$tag" --target "$GITHUB_SHA" --title "$tag" --generate-notes; then
+              echo "::warning title=$tag has no release yet::The release job creates it."
+            fi
             published="$published $tag"
+            # What reached npm, for the release job, even if a later package
+            # stops this step.
+            echo "published=$published" >> "$GITHUB_OUTPUT"
           done
           {
             echo "### Published"
             echo
             for tag in $published; do echo "- \`$tag\`"; done
           } >> "$GITHUB_STEP_SUMMARY"
+
+  release:
+    name: Create the releases npm has and GitHub does not
+    needs: [check, publish]
+    # Also when nothing was left to publish, or publishing stopped partway:
+    # a version already on npm is left out of the comparison, so a release
+    # that failed after its publish is created here or never.
+    if: ${{ !cancelled() && needs.check.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # the tag and the GitHub release
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      # Only a version npm records as published from this commit is tagged
+      # here; one from another commit fails the job naming that commit.
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          PUBLISHED: ${{ needs.publish.outputs.published }}
+        run: node scripts/untagged-releases.mjs

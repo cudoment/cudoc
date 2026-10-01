@@ -564,6 +564,48 @@ describe("node mapping", () => {
     }
   })
 
+  it("writes the image a host made a component of", async () => {
+    // Docusaurus turns an image into an `<img>` that requires the file; the
+    // capture keeps the image beside it, and Word writes that.
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "cudoc-docx-host-img-"))
+    try {
+      fs.writeFileSync(
+        path.join(root, "logo.png"),
+        Buffer.from(
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+          "base64",
+        ),
+      )
+      const tree = compile("# T\n\n![Logo](./logo.png)\n")
+      const paragraph = (tree.children as unknown as DocumentNode[]).find(
+        (node) => node.type === "paragraph",
+      )!
+      paragraph.children = [
+        {
+          type: "mdxJsxTextElement",
+          name: "img",
+          attributes: [],
+          children: [],
+          data: { cudocImage: { url: "./logo.png", alt: "Logo", title: null } },
+        },
+      ]
+      const reported: DocxDiagnostic[] = []
+      const { document: xml } = await archive(
+        [
+          document({
+            tree,
+            resolveImage: (url) => path.join(root, url.replace(/^\.\//, "")),
+          }),
+        ],
+        { onDiagnostic: (d) => reported.push(d) },
+      )
+      expect(xml).toContain("<w:drawing>")
+      expect(reported).toEqual([])
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+
   it("scales an embedded image to the page's height as well as its width", async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "cudoc-docx-tall-"))
     try {
@@ -656,6 +698,23 @@ After.
     expect((plain.match(/<w:sectPr>/g) ?? []).length).toBe(1)
   })
 
+  it("drops an authored break beside a landscape section, and only there", async () => {
+    // The section break starts a page already, so either break would leave a
+    // blank one.
+    const pageBreak = "```cudoc-pagebreak\n```\n\n"
+    const source = `# T\n\nIntro.\n\n${pageBreak}| A | B | C |\n| - | - | - |\n| 1 | 2 | 3 |\n\n${pageBreak}After.\n\n${pageBreak}End.\n`
+    const { document: xml } = await archive(
+      [document({ tree: compile(source) })],
+      { page: resolvePageOptions({ wideTables: { minColumns: 3 } }) },
+    )
+    expect((xml.match(/w:orient="landscape"/g) ?? []).length).toBe(1)
+    expect((xml.match(/<w:br w:type="page"\/>/g) ?? []).length).toBe(1)
+    const { document: portrait } = await archive([
+      document({ tree: compile(source) }),
+    ])
+    expect((portrait.match(/<w:br w:type="page"\/>/g) ?? []).length).toBe(3)
+  })
+
   it("keeps the first block and a nested table on the portrait page", async () => {
     const first = "| A | B | C |\n| - | - | - |\n| 1 | 2 | 3 |\n\nText.\n"
     const { document: xml } = await archive(
@@ -669,6 +728,36 @@ After.
       page: resolvePageOptions({ wideTables: { minColumns: 2 } }),
     })
     expect((cells.match(/w:orient="landscape"/g) ?? []).length).toBe(1)
+  })
+
+  it("ignores a break that opens a document, and keeps the start bookmark", async () => {
+    // A document starts on a page already, so a leading break would print a
+    // blank one. Dropped, the table after it is the document's first block
+    // and stays on the portrait page, and the start bookmark, which used to
+    // ride on the break paragraph and vanish with it beside a landscape
+    // section, lands on that table. Front matter or a comment before the
+    // break puts nothing on the page, so the break still opens the document.
+    const pageBreak = "```cudoc-pagebreak\n```\n\n"
+    const table = "| A | B | C |\n| - | - | - |\n| 1 | 2 | 3 |\n\nAfter.\n"
+    for (const lead of ["", "---\ntitle: T\n---\n\n", "<!-- draft -->\n\n"]) {
+      const { document: xml } = await archive(
+        [document({ tree: compile(`${lead}${pageBreak}${table}`) })],
+        { page: resolvePageOptions({ wideTables: { minColumns: 3 } }) },
+      )
+      expect(xml, lead).toContain(`w:name="${bookmarkName("guide", "")}"`)
+      expect(xml, lead).not.toContain('w:orient="landscape"')
+      expect(xml, lead).not.toContain('<w:br w:type="page"/>')
+    }
+    const { document: plain } = await archive([
+      document({ tree: compile(`${pageBreak}Text.\n`) }),
+    ])
+    expect(plain).not.toContain('<w:br w:type="page"/>')
+    expect(plain).toContain(`w:name="${bookmarkName("guide", "")}"`)
+    // A break after content is the author's, wherever the content came from.
+    const { document: after } = await archive([
+      document({ tree: compile(`Intro.\n\n${pageBreak}Text.\n`) }),
+    ])
+    expect(after).toContain('<w:br w:type="page"/>')
   })
 })
 
@@ -959,6 +1048,29 @@ describe("column widths", () => {
     expect(grid).toContain('<w:tcW w:type="dxa" w:w="3000"/>')
   })
 
+  it("holds the column a header cell stands in when a cell above spans rows", async () => {
+    // `Wide` is the first cell of its row but stands in the second column,
+    // because `Group` covers the first one from the row above.
+    const { document: xml } = await archive([
+      document({
+        tree: compile(
+          '# Spans\n\n<table>\n<tr><th rowspan="2">Group</th><th colspan="2">Pair</th></tr>\n<tr><th style="min-width: 300px">Wide</th><th>Other</th></tr>\n<tr><td>g</td><td>w</td><td>o</td></tr>\n</table>\n',
+          "mdx",
+        ),
+      }),
+    ])
+    const grid = xml.slice(xml.indexOf("<w:tbl>"), xml.indexOf("</w:tbl>"))
+    const widths = [...grid.matchAll(/<w:gridCol w:w="(\d+)"/g)].map((m) =>
+      Number(m[1]),
+    )
+    const content = resolvePageGeometry().twips.contentWidth
+    expect(widths).toEqual([
+      Math.floor((content - 4500) / 2),
+      4500,
+      Math.floor((content - 4500) / 2),
+    ])
+  })
+
   it("scales minimums down together when they exceed the page", async () => {
     const tree = compile("# T\n\n| A | B |\n| --- | --- |\n| a | b |\n")
     const table = (tree.children as unknown as DocumentNode[]).find(
@@ -976,5 +1088,185 @@ describe("column widths", () => {
     expect(widths[0]).toBe(widths[1])
     expect(widths[0]! + widths[1]!).toBeLessThanOrEqual(content)
     expect(widths[0]! + widths[1]!).toBeGreaterThan(content - 2)
+  })
+})
+
+describe("what the HTML shows that Word keeps too", () => {
+  it("merges a cell spanning rows and keeps the cells beside it in their columns", async () => {
+    const { document: xml } = await archive([
+      document({
+        tree: compile(
+          '# Spans\n\n<table>\n<tr><th>A</th><th>B</th><th>C</th></tr>\n<tr><td rowspan="2">tall</td><td>b1</td><td>c1</td></tr>\n<tr><td>b2</td><td>c2</td></tr>\n</table>\n',
+          "mdx",
+        ),
+      }),
+    ])
+    const rows = [...xml.matchAll(/<w:tr>(.*?)<\/w:tr>/g)].map((m) => m[1]!)
+    expect(rows).toHaveLength(3)
+    expect(rows[1]).toContain('<w:vMerge w:val="restart"/>')
+    // The row below opens with the merged continuation, then b2 and c2 in
+    // the second and third columns.
+    const cells = [...rows[2]!.matchAll(/<w:tc>(.*?)<\/w:tc>/g)].map(
+      (m) => m[1]!,
+    )
+    expect(cells).toHaveLength(3)
+    expect(cells[0]).toContain('<w:vMerge w:val="continue"/>')
+    expect(runs(cells[1]!)).toEqual(["b2"])
+    expect(runs(cells[2]!)).toEqual(["c2"])
+  })
+
+  it("spans rows to the end of the row group, as the browser does", async () => {
+    // `rowspan="0"` reaches the last row of its group, and a span longer than
+    // the group stops there: Chromium draws `A` two rows tall and `H` one row
+    // tall, and the rows of the next group start at the first column.
+    const { document: xml } = await archive([
+      document({
+        tree: compile(
+          '# Spans\n\n<table>\n<thead><tr><th rowspan="3">H</th><th>I</th></tr></thead>\n<tbody><tr><td rowspan="0">A</td><td>B</td></tr><tr><td>C</td></tr></tbody>\n<tbody><tr><td>D</td><td>E</td></tr></tbody>\n</table>\n',
+          "mdx",
+        ),
+      }),
+    ])
+    const rows = [...xml.matchAll(/<w:tr>(.*?)<\/w:tr>/g)].map((m) =>
+      [...m[1]!.matchAll(/<w:tc>(.*?)<\/w:tc>/g)].map((c) => c[1]!),
+    )
+    expect(
+      rows.map((cells) => cells.map((cell) => runs(cell).join(""))),
+    ).toEqual([
+      ["H", "I"],
+      ["A", "B"],
+      ["", "C"],
+      ["D", "E"],
+    ])
+    const merge = (cell: string) =>
+      cell.match(/<w:vMerge w:val="(\w+)"\/>/)?.[1] ?? "none"
+    expect(rows.map((cells) => cells.map(merge))).toEqual([
+      ["none", "none"],
+      ["restart", "none"],
+      ["continue", "none"],
+      ["none", "none"],
+    ])
+  })
+
+  it("counts an empty row in a span and ends a group at any other element", async () => {
+    // Measured in Chromium on tables built through the DOM, as an MDX page is:
+    // `A` reaches over the empty row, so `B` starts at the first column, and
+    // the caption between two rows ends the group `rowspan="0"` spans.
+    const rowsOf = async (table: string) => {
+      const { document: xml } = await archive([
+        document({ tree: compile(`# Spans\n\n${table}\n`, "mdx") }),
+      ])
+      return [...xml.matchAll(/<w:tr>(.*?)<\/w:tr>/g)].map((m) =>
+        [...m[1]!.matchAll(/<w:tc>(.*?)<\/w:tc>/g)].map(
+          (c) =>
+            `${runs(c[1]!).join("")}${c[1]!.match(/<w:vMerge w:val="(\w+)"\/>/)?.[1] ? ":merge" : ""}`,
+        ),
+      )
+    }
+    expect(
+      await rowsOf(
+        '<table>\n<tr><td rowspan="2">A</td><td>X</td></tr>\n<tr></tr>\n<tr><td>B</td><td>C</td></tr>\n</table>',
+      ),
+    ).toEqual([
+      ["A", "X"],
+      ["B", "C"],
+    ])
+    expect(
+      await rowsOf(
+        '<table>\n<tr><td rowspan="0">A</td><td>B</td></tr>\n<caption>Note</caption>\n<tr><td>C</td><td>D</td></tr>\n</table>',
+      ),
+    ).toEqual([
+      ["A", "B"],
+      ["C", "D"],
+    ])
+  })
+
+  it("pads a short row beside a cell spanning into it without adding a column", async () => {
+    // `C` covers the third column of the row below, which HTML leaves out;
+    // padding that row to the table's width must fill only the gap at `B`.
+    const { document: xml } = await archive([
+      document({
+        tree: compile(
+          '# Spans\n\n<table>\n<tr><td>A</td><td>B</td><td rowspan="2">C</td></tr>\n<tr><td>D</td></tr>\n</table>\n',
+          "mdx",
+        ),
+      }),
+    ])
+    const rows = [...xml.matchAll(/<w:tr>(.*?)<\/w:tr>/g)].map((m) => m[1]!)
+    const cells = [...rows[1]!.matchAll(/<w:tc>(.*?)<\/w:tc>/g)].map(
+      (m) => m[1]!,
+    )
+    expect(cells).toHaveLength(3)
+    expect(runs(cells[0]!)).toEqual(["D"])
+    expect(runs(cells[1]!)).toEqual([])
+    expect(cells[2]).toContain('<w:vMerge w:val="continue"/>')
+  })
+
+  it("numbers an ordered list from its own start and restarts every sublist", async () => {
+    const { document: xml, numbering } = await archive([
+      document({
+        tree: compile(
+          "# Lists\n\n3. Third\n4. Fourth\n\n- A\n  1. one\n  2. two\n- B\n  1. one again\n",
+        ),
+      }),
+    ])
+    expect(numbering).toMatch(/<w:lvl w:ilvl="0"[^>]*><w:start w:val="3"\/>/)
+    // The numbering instance each item's paragraph uses, by its text.
+    const instanceOf = new Map(
+      paragraphs(xml).flatMap((paragraph) => {
+        const id = paragraph.match(/<w:numId w:val="(\d+)"\/>/)?.[1]
+        return id ? [[runs(paragraph).join(""), id] as const] : []
+      }),
+    )
+    expect(instanceOf.get("one")).toBe(instanceOf.get("two"))
+    // A sublist under the next bullet counts from 1 again, on its own.
+    expect(instanceOf.get("one again")).not.toBe(instanceOf.get("one"))
+  })
+
+  it("marks a task item's state and keeps a line break written as HTML", async () => {
+    const { document: xml } = await archive([
+      document({ tree: compile("# Tasks\n\n- [x] Done\n- [ ] Open\n") }),
+      document({
+        id: "raw",
+        tree: {
+          type: "root",
+          children: [
+            {
+              type: "paragraph",
+              children: [
+                { type: "text", value: "first" },
+                { type: "html", value: "<br>" },
+                { type: "text", value: "second" },
+              ],
+            },
+          ],
+        } as unknown as Root,
+      }),
+    ])
+    const text = runs(xml).join("")
+    expect(text).toContain("☑ Done")
+    expect(text).toContain("☐ Open")
+    const line = paragraphs(xml).find((p) => p.includes(">first<"))!
+    expect(line).toMatch(/first<\/w:t><\/w:r><w:r><w:br\/><\/w:r>/)
+  })
+
+  it("reports a footnote table it drops and writes a script link as text", async () => {
+    const reported: DocxDiagnostic[] = []
+    const { document: xml } = await archive(
+      [
+        document({
+          tree: compile(
+            "# Notes\n\nSee [run](javascript:alert(1)) and the note.[^n]\n\n[^n]: Details:\n\n    | A |\n    | --- |\n    | 1 |\n",
+          ),
+        }),
+      ],
+      { onDiagnostic: (d) => reported.push(d) },
+    )
+    expect(reported.map((d) => d.code).sort()).toEqual([
+      "dropped-footnote-table",
+      "unsafe-link",
+    ])
+    expect(xml).not.toContain("javascript:")
+    expect(runs(xml).join("")).toContain("run")
   })
 })

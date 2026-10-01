@@ -8,6 +8,10 @@ import cudocEleventy, {
   createDocumentCompiler,
 } from "../src/index.js"
 import { collectSections } from "@cudoment/cudoc/query"
+import { buildDocuments } from "@cudoment/cudoc/node/library"
+import fs from "node:fs"
+import os from "node:os"
+import path from "node:path"
 
 /**
  * The plugins an Eleventy site adds for the native forms cudoc normalizes.
@@ -87,10 +91,221 @@ describe("actual Eleventy markdown-it renderer", () => {
     ).toThrow(/headingIds must be "host"/)
   })
 
-  it("requires Eleventy page data to identify a document with embeds", () => {
+  it("names setLibrary when it is handed to addPlugin", () => {
+    // `eleventyConfig.addPlugin(cudocEleventy)` calls it with the Eleventy
+    // configuration, which has no markdown-it rule chain to install into.
+    const eleventyConfig = { setLibrary() {}, addPlugin() {} }
+    expect(() => cudocEleventy(eleventyConfig as never)).toThrow(
+      /not an Eleventy plugin; pass createMarkdownRenderer\(options\) to eleventyConfig\.setLibrary/,
+    )
+  })
+
+  it("requires a library before a document with embeds renders", () => {
     const md = createMarkdownRenderer({ syntax: {} }, native)
     expect(() =>
-      md.render("```cudoc-embed\nsources: [other.md]\n```\n", {}),
+      md.render("```cudoc-embed\nsources: [other.md]\n```\n", page("guide")),
     ).toThrow(/provide library before rendering embeds/)
+  })
+
+  it("requires Eleventy page data to identify a document with embeds", () => {
+    const library = { documents: [], options: {}, configuration: "" }
+    const md = createMarkdownRenderer({ syntax: {}, library }, native)
+    expect(() =>
+      md.render("```cudoc-embed\nsources: [other.md]\n```\n", {}),
+    ).toThrow(/carries no Eleventy page data/)
+  })
+})
+
+describe("pages rendered against a collected library", () => {
+  const workspace = (files: Record<string, string>) => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "cudoc-eleventy-"))
+    const docs = path.join(root, "docs")
+    for (const [name, text] of Object.entries(files)) {
+      fs.mkdirSync(path.dirname(path.join(docs, name)), { recursive: true })
+      fs.writeFileSync(path.join(docs, name), text)
+    }
+    return { root, docs }
+  }
+
+  it("accepts the page without its front matter and refuses one whose text moved on", () => {
+    const guide =
+      "---\ntitle: Guide\n---\n\n# Guide\n\nIntro.\n\n```cudoc-embed\nsources: [reference.md#limits]\n```\n"
+    const { root, docs } = workspace({
+      "reference.md": "# Reference\n\n## Limits (#limits)\n\nSixty.\n",
+      "guide.md": guide,
+    })
+    try {
+      const collector = createMarkdownRenderer({ syntax: {} }, native)
+      const library = buildDocuments({
+        sourceRoot: docs,
+        outDir: path.join(root, "library"),
+        host: "eleventy",
+        compiler: createDocumentCompiler(collector),
+        compilerId: "eleventy-test",
+      })
+      const md = createMarkdownRenderer({ syntax: {}, library }, native)
+      const body = guide.slice(guide.indexOf("# Guide"))
+      expect(md.render(body, page("guide"))).toContain("Sixty.")
+      expect(() =>
+        md.render(body.replace("Intro.\n\n", ""), page("guide")),
+      ).toThrow(/stale collected source guide/)
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+})
+
+describe("pages whose front matter the host strips", () => {
+  it("accepts an empty front matter block and counts warning lines from the file", () => {
+    const guide =
+      "---\n---\n\n# Guide\n\n> [!BOGUS] Title\n> Body\n\n```cudoc-embed\nsources: [reference.md#limits]\n```\n"
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "cudoc-eleventy-"))
+    const docs = path.join(root, "docs")
+    fs.mkdirSync(docs)
+    fs.writeFileSync(
+      path.join(docs, "reference.md"),
+      "# Reference\n\n## Limits (#limits)\n\nSixty.\n",
+    )
+    fs.writeFileSync(path.join(docs, "guide.md"), guide)
+    try {
+      const library = buildDocuments({
+        sourceRoot: docs,
+        outDir: path.join(root, "library"),
+        host: "eleventy",
+        compiler: createDocumentCompiler(
+          createMarkdownRenderer({ syntax: {} }, native),
+        ),
+        compilerId: "eleventy-test",
+      })
+      const reported: string[] = []
+      const md = createMarkdownRenderer(
+        {
+          syntax: {},
+          library,
+          onDiagnostic: (diagnostic, id) =>
+            reported.push(
+              `${id}:${diagnostic.position?.start.line}:${diagnostic.code}`,
+            ),
+        },
+        native,
+      )
+      const body = guide.slice(guide.indexOf("# Guide"))
+      expect(md.render(body, page("guide"))).toContain("Sixty.")
+      // Line 6 of the file; the body the host renders starts on line 4.
+      expect(reported).toEqual(["guide:6:UNKNOWN_CALLOUT_TYPE"])
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+})
+
+describe("pages written with \\r\\n line endings", () => {
+  it("collects, embeds and counts warning lines as for \\n", () => {
+    // The host hands markdown-it the page as saved; markdown-it reads each
+    // `\r\n` as one `\n`, which the collected source does not.
+    const crlf = (text: string) => text.replace(/\n/g, "\r\n")
+    const guide = crlf(
+      "---\ntitle: Guide\n---\n\n# Guide\n\n> [!BOGUS] Title\n> Body\n\n```cudoc-embed\nsources: [reference.md#limits]\nreplace:\n  - find: Sixty\n    replace: Ninety\n```\n",
+    )
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "cudoc-eleventy-"))
+    const docs = path.join(root, "docs")
+    fs.mkdirSync(docs)
+    fs.writeFileSync(
+      path.join(docs, "reference.md"),
+      crlf(
+        "# Reference\n\n## Limits (#limits)\n\nSixty.\n\n## Next\n\nLater.\n",
+      ),
+    )
+    fs.writeFileSync(path.join(docs, "guide.md"), guide)
+    try {
+      const library = buildDocuments({
+        sourceRoot: docs,
+        outDir: path.join(root, "library"),
+        host: "eleventy",
+        compiler: createDocumentCompiler(
+          createMarkdownRenderer({ syntax: {} }, native),
+        ),
+        compilerId: "eleventy-test",
+      })
+      const reference = library.documents.find((d) => d.id === "reference")!
+      const limits = reference.source.sections.limits!
+      expect(reference.source.text.slice(limits.start, limits.end)).toBe(
+        "## Limits (#limits)\r\n\r\nSixty.\r\n\r\n",
+      )
+
+      const reported: string[] = []
+      const md = createMarkdownRenderer(
+        {
+          syntax: {},
+          library,
+          onDiagnostic: (diagnostic, id) =>
+            reported.push(
+              `${id}:${diagnostic.position?.start.line}:${diagnostic.code}`,
+            ),
+        },
+        native,
+      )
+      // Eleventy passes the page as saved in `rawInput` as well.
+      const saved = (text: string) => ({
+        page: { ...page("guide").page, rawInput: text },
+      })
+      const body = guide.slice(guide.indexOf("# Guide"))
+      const html = md.render(body, saved(body))
+      expect(html).toContain("Ninety.")
+      expect(html).not.toContain("Later.")
+      // Line 7 of the file; the body the host renders starts on line 5.
+      expect(reported).toEqual(["guide:7:UNKNOWN_CALLOUT_TYPE"])
+      const moved = body.replace("> Body\r\n", "")
+      expect(() => md.render(moved, saved(moved))).toThrow(
+        /stale collected source guide/,
+      )
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  it("accepts a page saved with a byte order mark before its front matter", () => {
+    // gray-matter takes the mark off with the front matter, so neither the
+    // body nor `rawInput` has it, while the collected file does.
+    const file =
+      "\uFEFF---\r\ntitle: Guide\r\n---\r\n\r\n# Guide\r\n\r\n```cudoc-embed\r\nsources: [reference.md#limits]\r\n```\r\n"
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "cudoc-eleventy-"))
+    const docs = path.join(root, "docs")
+    fs.mkdirSync(docs)
+    fs.writeFileSync(
+      path.join(docs, "reference.md"),
+      "# Reference\n\n## Limits (#limits)\n\nSixty.\n",
+    )
+    fs.writeFileSync(path.join(docs, "guide.md"), file)
+    try {
+      const library = buildDocuments({
+        sourceRoot: docs,
+        outDir: path.join(root, "library"),
+        host: "eleventy",
+        compiler: createDocumentCompiler(
+          createMarkdownRenderer({ syntax: {} }, native),
+        ),
+        compilerId: "eleventy-test",
+      })
+      expect(library.documents.find((d) => d.id === "guide")!.source.text).toBe(
+        file,
+      )
+      const md = createMarkdownRenderer({ syntax: {}, library }, native)
+      const body = file.slice(file.indexOf("# Guide"))
+      expect(
+        md.render(body, { page: { ...page("guide").page, rawInput: body } }),
+      ).toContain("Sixty.")
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+})
+
+describe("heading tokens handed back to the host", () => {
+  it("leaves a heading without an id without one", () => {
+    const md = createMarkdownRenderer({ syntax: {} })
+    const tokens = md.parse("## Plain\n", page("guide"))
+    const heading = tokens.find((token) => token.type === "heading_open")!
+    expect(heading.attrGet("id")).not.toBe("undefined")
   })
 })

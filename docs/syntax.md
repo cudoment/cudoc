@@ -39,7 +39,7 @@ This endpoint is (@Beta).
 [Read the limits](#rate-limits)
 ```
 
-`(#rate-limits)` supplies the heading ID. `(@New)` displays a badge without becoming part of its title. Anchors must be unique in a document. Conflicting explicit IDs are an error. Without an explicit anchor, the host generates its usual ID; standalone compilation generates one from the title with the badge excluded. A host that slugs a heading before cudoc reads it may fold the badge marker into that generated ID, so give a badged heading an explicit `(#id)` when its anchor has to be stable across hosts.
+`(#rate-limits)` supplies the heading ID. `(@New)` displays a badge without becoming part of its title. Anchors must be unique in a document: a repeated ID is reported as a diagnostic during collection and as `duplicate-anchor` by [`cudoc check`](./check.md). Two different explicit IDs on one heading are an error. Without an explicit anchor, the host generates its usual ID; standalone compilation generates one from the title with the badge excluded. A host that slugs a heading before cudoc reads it may fold the badge marker into that generated ID, so give a badged heading an explicit `(#id)` when its anchor has to be stable across hosts.
 
 Badge markers inside links and code remain text. To show syntax literally, use an inline code span or a fenced code block.
 
@@ -54,6 +54,8 @@ Supported host heading forms include:
 | Eleventy            | `## Title {#id}` through `markdown-it-attrs` |
 
 Select `headingAnchor: "both"` to accept these alongside `(#id)`. cudoc's `(#id)` works in both Markdown and MDX without expression escaping.
+
+The ID cudoc settles is the one the page carries, spelled as written, on every host but one. Docusaurus keeps it too: an ID its slugger would change is handed over as `{#id}` at the end of the heading text, which it keeps verbatim, punctuation included, and any other ID passes through its slugger unchanged; only the page's `#` heading always goes through the slugger, so give it a slug-shaped ID. Nextra runs every heading ID through its slugger, its own `[#id]` included, so `(#v1.2)` becomes `v12` there and a link to `#v1.2` misses. An ID made of lowercase letters, digits and hyphens, such as `v1-2`, reads the same everywhere.
 
 ## Callouts
 
@@ -73,19 +75,19 @@ Built-in types are `NOTE`, `TIP`, `IMPORTANT`, `WARNING` and `CAUTION`, case-ins
 
 With `callout: "host"` or `"both"`, cudoc also recognizes these native forms:
 
-| Host             | Form                                                                                      |
-| ---------------- | ----------------------------------------------------------------------------------------- |
-| Docusaurus       | `:::warning[Title]` followed by body and a closing `:::`                                  |
-| VitePress        | `::: warning Title` followed by body and a closing `:::`; GitHub-style alerts             |
-| Eleventy         | `::: warning Title` followed by body and a closing `:::`, through `markdown-it-container` |
-| Nextra MDX       | `<Callout type="warning">Body</Callout>`                                                  |
-| Docs MDX profile | `<Infobox type="warning" title="Title">Body</Infobox>`                                    |
+| Host           | Form                                                                                      |
+| -------------- | ----------------------------------------------------------------------------------------- |
+| Docusaurus     | `:::warning[Title]` followed by body and a closing `:::`                                  |
+| VitePress      | `::: warning Title` followed by body and a closing `:::`; GitHub-style alerts             |
+| Eleventy       | `::: warning Title` followed by body and a closing `:::`, through `markdown-it-container` |
+| Nextra MDX     | `<Callout type="warning">Body</Callout>`                                                  |
+| `docs` profile | `<Infobox type="warning" title="Title">Body</Infobox>`                                    |
 
 Host types `info`/`default`, `danger`/`error`, and `warn` map to `note`, `caution`, and `warning`. A `details` container remains expandable content on both markdown-it hosts. Eleventy has no built-in native forms, so `host` mode there normalizes only what the site's own markdown-it plugins produce. See the [Docusaurus](./docusaurus.md), [Nextra](./nextra.md), [VitePress](./vitepress.md) and [Eleventy](./eleventy.md) integration notes for parser requirements.
 
-### Replacing an Infobox in Docs
+### Replacing an `Infobox` component
 
-Use the same blockquote example above instead of importing `Infobox`. During migration, configure `host: "docs"` and `syntax: { callout: "both", headingAnchor: "both", link: "both" }` in the actual Docs rendering and collection pipelines. This accepts static `Infobox`/`Link`/`IconLink` forms alongside Markdown. The profile is a normalization preset, not an installed Docs integration: the Docs project still needs its compiler wiring and stylesheet changes. Verify existing types/titles, dynamic props and custom component mappings on representative Docs pages before removing their imports.
+Use the same blockquote example above instead of importing `Infobox`. While documents still contain the components, configure `host: "docs"` and `syntax: { callout: "both", headingAnchor: "both", link: "both" }` in the site's rendering and collection pipelines alike. This accepts static `Infobox`/`Link`/`IconLink` forms alongside Markdown. The profile is a normalization preset, not an integration: the site still needs its own compiler wiring and stylesheet. Verify existing types/titles, dynamic props and custom component mappings on representative pages before removing their imports.
 
 ## Lists inside table cells
 

@@ -1,2 +1,3 @@
-// Compatibility entrypoint. The implementation is shared by all hosts.
-export * from "@cudoment/cudoc/transforms/table-cell-list/index"
+// The `cudoc-remark/table-cell-list` entry. The transform lives in the core, where
+// every host shares it.
+export * from "@cudoment/cudoc/transforms/table-cell-list"

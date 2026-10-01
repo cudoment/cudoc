@@ -68,7 +68,7 @@ import hljs from "highlight.js"
 import { fromHtml } from "hast-util-from-html"
 import type { Root as HastRoot, RootContent as HastContent } from "hast"
 import type { Root } from "mdast"
-import type { DocumentNode } from "@cudoment/cudoc/document"
+import { capturedImage, type DocumentNode } from "@cudoment/cudoc/document"
 import { isPageBreak } from "@cudoment/cudoc/paged"
 import {
   CALLOUT_PLAIN_STYLE,
@@ -109,7 +109,12 @@ export type DocxDocument = {
 }
 
 export type DocxDiagnostic = {
-  code: "dropped-html" | "html-as-text" | "image-as-text"
+  code:
+    | "dropped-html"
+    | "html-as-text"
+    | "image-as-text"
+    | "dropped-footnote-table"
+    | "unsafe-link"
   message: string
   document: string
 }
@@ -224,7 +229,11 @@ type Context = {
   section: Section
   /** Top-level tables that take a landscape section of their own. */
   wide: Set<Table>
+  /** The paragraphs that hold nothing but an authored page break. */
+  breaks: Set<Paragraph>
   calloutTypes: string[]
+  /** Start numbers of ordered lists that do not start at 1, across the file. */
+  listStarts: Set<number>
   warn: (code: DocxDiagnostic["code"], message: string) => void
 }
 
@@ -423,6 +432,9 @@ function inline(node: DocumentNode, context: Context): ParagraphChild[] {
     case "footnoteReference":
       return footnoteReference(node, context)
     case "html":
+      // A line break written as HTML, which a table cell needs for one.
+      if (/^<br\s*\/?>$/i.test((node.value ?? "").trim()))
+        return [new TextRun({ break: 1 })]
       if (context.options.rawHtml === "text") {
         context.warn(
           "html-as-text",
@@ -435,9 +447,17 @@ function inline(node: DocumentNode, context: Context): ParagraphChild[] {
         `raw HTML has no Word rendering and was dropped: ${htmlMessage(node.value ?? "")}`,
       )
       return []
-    default:
+    default: {
+      // A host's own component for a Markdown image is that image.
+      const image = capturedImage(node)
+      if (image)
+        return imageRun(
+          { type: "image", url: image.url, alt: image.alt ?? "" },
+          context,
+        )
       if (isComponent(node)) return componentRuns(node, context)
       return inlineChildren(node, context)
+    }
   }
 }
 
@@ -447,6 +467,14 @@ function linkRun(node: DocumentNode, context: Context): ParagraphChild[] {
   // Hyperlink removal strips the anchor entirely, matching what the HTML
   // output does when it turns every `<a>` into a `<span>`.
   if (context.options.links === "none" || !url) return children
+  // A link that would run code where it is opened is kept as its text.
+  if (/^\s*(?:javascript|vbscript|data):/i.test(url)) {
+    context.warn(
+      "unsafe-link",
+      `a ${url.trim().split(":")[0]!.toLowerCase()}: link was written as text`,
+    )
+    return children
+  }
   const resolved = context.document.resolveLink
     ? context.document.resolveLink(url)
     : { href: url }
@@ -603,6 +631,8 @@ function codeParagraphs(node: DocumentNode, context: Context): Paragraph[] {
 type Cell = {
   children: (Paragraph | Table)[]
   span: number
+  /** Rows the cell covers downwards; the rows below leave its columns out. */
+  rows?: number
   header: boolean
   alignment?: Alignment
   /** A `min-width` the header cell carries, as the CSS length it was written with. */
@@ -649,39 +679,88 @@ function gridFromGfm(node: DocumentNode, context: Context): Cell[][] {
   )
 }
 
-/** The column-layout form, after `lowerNativeElements` has flattened it. */
+const ROW_GROUPS = ["thead", "tbody", "tfoot"]
+
+/**
+ * The column-layout form, after `lowerNativeElements` has flattened it.
+ *
+ * A cell spans rows only within its row group, as the browser draws it: a
+ * `thead`, `tbody` or `tfoot`, or a run of rows written straight in the
+ * table, which any other element, such as a `caption`, ends. `rowspan="0"`
+ * reaches the group's last row, and a longer span stops there, so the rows of
+ * the next group start at the first column. A row without cells takes its
+ * place in a span, as it does in the browser, but becomes no row of the grid,
+ * where it would only be an empty strip. Rows keep their source order, so a
+ * `tfoot` written before the body stays there, where a browser draws it last.
+ */
 function gridFromElements(node: DocumentNode, context: Context): Cell[][] {
-  const rows: Cell[][] = []
-  const readRow = (row: DocumentNode) => {
-    const cells = (row.children ?? []).filter((cell) =>
+  const cellsOf = (row: DocumentNode) =>
+    (row.children ?? []).filter((cell) =>
       ["th", "td"].includes(hName(cell) ?? ""),
     )
-    if (cells.length === 0) return
+  // Every row, empty ones included, with the row group it belongs to. An
+  // element starts a group and ends it, so rows written straight in the
+  // table before or after one form groups of their own.
+  const found: { row: DocumentNode; group: number }[] = []
+  let group = 0
+  const visit = (child: DocumentNode) => {
+    if (hName(child) === "tr") {
+      found.push({ row: child, group })
+      return
+    }
+    const element = hName(child) !== undefined
+    if (element) group++
+    ;(child.children ?? []).forEach(visit)
+    if (element) group++
+  }
+  ;(node.children ?? []).forEach(visit)
+  const groupEnd = new Map<number, number>()
+  found.forEach((entry, index) => groupEnd.set(entry.group, index))
+  const filled = found.map(({ row }) => cellsOf(row).length > 0)
+
+  const rows: Cell[][] = []
+  found.forEach(({ row, group }, index) => {
+    if (!filled[index]) return
+    const last = groupEnd.get(group)!
     rows.push(
-      cells.map((cell) => {
+      cellsOf(row).map((cell) => {
         const props = properties(cell)
-        // `colSpan` arrives as a string, and alignment as a CSS declaration.
-        const span = Math.max(
-          1,
-          Number.parseInt(String(props.colSpan ?? "1"), 10) || 1,
+        // Spans arrive as strings, named the way their source spelled them:
+        // `colSpan` from the column layout, `rowspan` from authored HTML.
+        // Alignment arrives as a CSS declaration.
+        const count = (value: unknown) =>
+          Math.max(1, Number.parseInt(String(value ?? "1"), 10) || 1)
+        const span = count(props.colSpan ?? props.colspan)
+        const written = Number.parseInt(
+          String(props.rowSpan ?? props.rowspan ?? "1"),
+          10,
         )
+        // The last row the cell reaches in the table as written, and then how
+        // many rows of the grid that is.
+        const reach =
+          written === 0
+            ? last
+            : Math.min(
+                last,
+                index +
+                  (Number.isFinite(written) && written > 0 ? written : 1) -
+                  1,
+              )
+        let rows = 0
+        for (let at = index; at <= reach; at++) if (filled[at]) rows++
         const header = hName(cell) === "th"
         const minWidth = header ? cssValue(props.style, "min-width") : undefined
         return {
           children: cellBlocks(cell, context, header),
           span,
+          ...(rows > 1 ? { rows } : {}),
           header,
           alignment: ALIGNMENT[cssValue(props.style, "text-align") ?? ""],
           ...(minWidth !== undefined ? { minWidth } : {}),
         }
       }),
     )
-  }
-  const visit = (child: DocumentNode) => {
-    if (hName(child) === "tr") return readRow(child)
-    ;(child.children ?? []).forEach(visit)
-  }
-  ;(node.children ?? []).forEach(visit)
+  })
   return rows
 }
 
@@ -721,25 +800,26 @@ function tableBlock(
  * Column widths in twips: an even split, except that a header cell's
  * `min-width` holds its column at least that wide and the other columns share
  * what is left. When the minimums alone exceed the page, they are scaled down
- * together so the table still fits.
+ * together so the table still fits. `starts` is where each cell stands, from
+ * `cellColumns`, so a header cell after a column a cell above still covers
+ * holds its own column rather than the covered one.
  */
 function distributeWidths(
   grid: Cell[][],
+  starts: number[][],
   columns: number,
   available: number,
 ): number[] {
   const minimums: (number | undefined)[] = Array.from({ length: columns })
-  for (const row of grid) {
-    let column = 0
-    for (const cell of row) {
-      if (cell.header && cell.span === 1) {
-        const width = lengthTwips(cell.minWidth, available)
-        if (width !== undefined)
-          minimums[column] = Math.max(minimums[column] ?? 0, width)
-      }
-      column += cell.span
-    }
-  }
+  grid.forEach((row, rowIndex) =>
+    row.forEach((cell, cellIndex) => {
+      if (!cell.header || cell.span !== 1) return
+      const width = lengthTwips(cell.minWidth, available)
+      const column = starts[rowIndex]![cellIndex]!
+      if (width !== undefined)
+        minimums[column] = Math.max(minimums[column] ?? 0, width)
+    }),
+  )
   const fixed = minimums.reduce<number>(
     (total, width) => total + (width ?? 0),
     0,
@@ -751,8 +831,9 @@ function distributeWidths(
     )
   const share = free ? Math.floor((available - fixed) / free) : 0
   const even = Math.floor(available / columns)
-  // A minimum narrower than the even split does not shrink its column: it is
-  // a floor, not a size.
+  // With no free column, a minimum narrower than the even split does not
+  // shrink its column: it is a floor, not a size. Beside free columns it is
+  // the column's width, and the free columns share what it leaves.
   const widths = minimums.map((width) =>
     width === undefined ? share : Math.max(width, free ? 0 : even),
   )
@@ -763,13 +844,54 @@ function distributeWidths(
   return widths
 }
 
+/**
+ * The column each cell starts in. A cell spanning rows covers its columns in
+ * the rows below, which leave those columns out as HTML does, so a row's
+ * cells start after whatever the rows above still cover.
+ */
+function cellColumns(grid: Cell[][]): {
+  starts: number[][]
+  widths: number[]
+  /** The columns of each row a cell above still covers. */
+  held: Set<number>[]
+} {
+  // Rows still covered below each column by a cell above it.
+  const covered: number[] = []
+  const free = (column: number) => (covered[column] ?? 0) === 0
+  const starts: number[][] = []
+  const widths: number[] = []
+  const held: Set<number>[] = []
+  for (const row of grid) {
+    held.push(
+      new Set(covered.flatMap((rows, column) => (rows > 0 ? [column] : []))),
+    )
+    let column = 0
+    const rowStarts: number[] = []
+    for (const cell of row) {
+      while (!free(column)) column += 1
+      rowStarts.push(column)
+      column += cell.span
+    }
+    while (column < covered.length && !free(column)) column += 1
+    starts.push(rowStarts)
+    widths.push(column)
+    covered.forEach((rows, index) => {
+      if (rows > 0) covered[index] = rows - 1
+    })
+    row.forEach((cell, index) => {
+      if ((cell.rows ?? 1) < 2) return
+      for (let offset = 0; offset < cell.span; offset += 1)
+        covered[rowStarts[index]! + offset] = cell.rows! - 1
+    })
+  }
+  return { starts, widths, held }
+}
+
 function tableOf(grid: Cell[][], context: Context, first = false): Table {
   // A layout table can produce a short row, which Word draws with a missing
   // right edge, so every row is padded out to the widest one.
-  const columns = Math.max(
-    1,
-    ...grid.map((row) => row.reduce((total, cell) => total + cell.span, 0)),
-  )
+  const layout = cellColumns(grid)
+  const columns = Math.max(1, ...layout.widths)
   const { tokens } = context.options
   const { padding } = context.rhythm
   // The site draws horizontal rules and no grid, so the Word table does the
@@ -799,16 +921,27 @@ function tableOf(grid: Cell[][], context: Context, first = false): Table {
   const available = wide
     ? landscapeOf(geometry).twips.contentWidth
     : geometry.twips.contentWidth
-  const columnWidths = distributeWidths(grid, columns, available)
+  const columnWidths = distributeWidths(grid, layout.starts, columns, available)
   const rows = grid.map((row, rowIndex) => {
-    const width = row.reduce((total, cell) => total + cell.span, 0)
+    const starts = [...layout.starts[rowIndex]!]
+    const end = row.length
+      ? starts[row.length - 1]! + row[row.length - 1]!.span
+      : 0
     const padded: Cell[] = [...row]
-    for (let index = width; index < columns; index += 1)
+    for (
+      let index = Math.max(end, layout.widths[rowIndex]!);
+      index < columns;
+      index += 1
+    ) {
+      // A column a cell above spans into is that cell's, not a gap.
+      if (layout.held[rowIndex]!.has(index)) continue
       padded.push({
         children: [new Paragraph({ children: [] })],
         span: 1,
         header: false,
       })
+      starts.push(index)
+    }
     const header = row.some((cell) => cell.header)
     const last = rowIndex === grid.length - 1
     // Body rows alternate like `tbody tr:nth-child(even)` on the site.
@@ -820,14 +953,14 @@ function tableOf(grid: Cell[][], context: Context, first = false): Table {
       tableHeader: header,
       cantSplit: true,
       children: padded.map((cell, index) => {
-        const start = padded
-          .slice(0, index)
-          .reduce((total, previous) => total + previous.span, 0)
+        const start = starts[index]!
         const size = columnWidths
           .slice(start, start + cell.span)
           .reduce((total, width) => total + width, 0)
         return new TableCell({
           columnSpan: cell.span,
+          // Word merges the covered cells below; docx adds them.
+          ...(cell.rows ? { rowSpan: cell.rows } : {}),
           width: { size, type: WidthType.DXA },
           verticalAlign: VerticalAlign.TOP,
           borders: {
@@ -1006,9 +1139,23 @@ function listBlocks(
   style: string,
   level = 0,
   instance = (instanceCounter += 1),
+  parent?: string,
 ): (Paragraph | Table)[] {
   const ordered = Boolean(node.ordered)
-  const reference = `cudoc-${ordered ? "ordered" : "bullet"}${context.inCell ? "-cell" : ""}`
+  // Word has no start per list, only per numbering definition, so a list
+  // that does not start at 1 numbers from a definition of its own.
+  const start = Number(node.start ?? 1)
+  const from =
+    ordered && level === 0 && Number.isInteger(start) && start !== 1
+      ? `-from-${start}`
+      : ""
+  if (from) context.listStarts.add(start)
+  const reference = `cudoc-${ordered ? "ordered" : "bullet"}${from}${context.inCell ? "-cell" : ""}`
+  // A list nested in one of another kind counts on its own: sharing the
+  // parent's instance would continue its numbers into the next sublist, as
+  // nothing at the level above restarts them.
+  if (parent !== undefined && parent !== reference)
+    instance = instanceCounter += 1
   const numbering: Numbering = { reference, instance, level }
   const blocks: (Paragraph | Table)[] = []
   for (const item of node.children ?? []) {
@@ -1029,14 +1176,26 @@ function listBlocks(
             style,
             level + 1,
             instance,
+            reference,
           ),
         )
         continue
       }
+      // A task item's state leads its text, as the checkbox does on the site.
+      const task =
+        first && typeof item.checked === "boolean" && child.type === "paragraph"
+          ? {
+              ...child,
+              children: [
+                { type: "text", value: item.checked ? "☑ " : "☐ " },
+                ...(child.children ?? []),
+              ],
+            }
+          : child
       // Only the first block of a loose item carries the marker.
       blocks.push(
         ...blocksOf(
-          [child],
+          [task],
           { ...context, numbering: first ? numbering : null },
           style,
         ),
@@ -1172,10 +1331,14 @@ function block(
 ): (Paragraph | Table)[] {
   // `data.cudoc.kind` first: a page break is carried on a `thematicBreak`, so
   // dispatching on `type` would turn it into a horizontal rule.
-  if (isPageBreak(node))
-    return context.options.page.authoredBreaks
-      ? [emit(context, {}, [new PageBreak()])]
-      : []
+  if (isPageBreak(node)) {
+    // A break that opens the document was removed by `withoutLeadingBreaks`
+    // before the blocks were walked; one met here is the author's.
+    if (!context.options.page.authoredBreaks) return []
+    const paragraph = emit(context, {}, [new PageBreak()])
+    context.breaks.add(paragraph)
+    return [paragraph]
+  }
   if (node.data?.cudoc?.kind === "callout") return calloutBlocks(node, context)
 
   // `hName` before `node.type`: a lowered `<table>` is a `blockquote`.
@@ -1506,12 +1669,43 @@ function contentsSection(
  * A document's sections: one, or several when a wide table takes a landscape
  * page of its own, since Word changes orientation only at a section break.
  */
+/**
+ * Whether a top-level node puts nothing on the page: front matter, a
+ * definition, an ESM statement or an HTML comment.
+ */
+const silent = (node: DocumentNode): boolean =>
+  ["yaml", "toml", "definition", "footnoteDefinition", "mdxjsEsm"].includes(
+    node.type,
+  ) ||
+  (node.type === "html" && /^\s*<!--[\s\S]*-->\s*$/.test(node.value ?? ""))
+
+/**
+ * The document's top-level blocks without the authored breaks that open it.
+ *
+ * A document starts on a page already, in its own file and as a section of
+ * the volume, so a break that only silent nodes precede would print a blank
+ * page, and the start bookmark would ride on it and vanish with it beside a
+ * landscape section. The print HTML drops the same breaks; a break nested in
+ * a container is left alone in both.
+ */
+function withoutLeadingBreaks(children: DocumentNode[]): DocumentNode[] {
+  const kept: DocumentNode[] = []
+  let opening = true
+  for (const node of children) {
+    if (opening && isPageBreak(node)) continue
+    if (!silent(node)) opening = false
+    kept.push(node)
+  }
+  return kept
+}
+
 function documentSections(
   document: DocxDocument,
   options: DocxOptions,
   footnotes: Footnotes,
   bookmarkIds: BookmarkIds,
   calloutTypes: string[],
+  listStarts: Set<number>,
 ): ISectionOptions[] {
   const { definitions, footnoteDefinitions } = collectDefinitions(document.tree)
   const context: Context = {
@@ -1529,12 +1723,14 @@ function documentSections(
     section: { startBookmark: bookmarkName(document.id, ""), first: true },
     rhythm: wordRhythm(options.tokens),
     wide: new Set(),
+    breaks: new Set(),
     calloutTypes,
+    listStarts,
     warn: (code, message) =>
       options.onDiagnostic?.({ code, message, document: document.id }),
   }
   const children = blocksOf(
-    document.tree.children as unknown as DocumentNode[],
+    withoutLeadingBreaks(document.tree.children as unknown as DocumentNode[]),
     context,
     "CudocBody",
   )
@@ -1542,11 +1738,20 @@ function documentSections(
   // Footnote bodies, in the order their references were met.
   for (const [identifier, number] of context.footnoteNumbers) {
     const definition = context.footnoteDefinitions.get(identifier)!
-    const body = blocksOf(
+    const blocks = blocksOf(
       definition.children ?? [],
       { ...context, section: { first: false } },
       "CudocFootnote",
-    ).filter((child): child is Paragraph => child instanceof Paragraph)
+    )
+    // Word footnotes hold paragraphs only.
+    if (blocks.some((child) => !(child instanceof Paragraph)))
+      context.warn(
+        "dropped-footnote-table",
+        `a table in footnote [^${identifier}] has no Word rendering and was dropped`,
+      )
+    const body = blocks.filter(
+      (child): child is Paragraph => child instanceof Paragraph,
+    )
     footnotes.entries[String(number)] = {
       children: body.length ? body : [new Paragraph({ children: [] })],
     }
@@ -1562,8 +1767,18 @@ function documentSections(
   })
   const sections: ISectionOptions[] = []
   let current: (Paragraph | Table)[] = []
-  for (const child of children) {
-    if (child instanceof Table && context.wide.has(child)) {
+  const isWide = (child?: Paragraph | Table) =>
+    child instanceof Table && context.wide.has(child)
+  for (const [index, child] of children.entries()) {
+    // A section break already starts a page, so a break beside a landscape
+    // section would leave a blank one, as the print HTML avoids too.
+    if (
+      child instanceof Paragraph &&
+      context.breaks.has(child) &&
+      (isWide(children[index - 1]) || isWide(children[index + 1]))
+    )
+      continue
+    if (isWide(child)) {
       if (current.length) sections.push(section(current, false))
       sections.push(section([child], true))
       current = []
@@ -1589,11 +1804,19 @@ export async function buildDocx(
   const calloutTypes = calloutStyleTypes(options.calloutTypes)
   const footnotes: Footnotes = { next: 1, entries: {} }
   const bookmarkIds: BookmarkIds = { next: 1 }
+  const listStarts = new Set<number>()
   const sections = [
     coverSection(options),
     contentsSection(documents, options),
     ...documents.flatMap((entry) =>
-      documentSections(entry, options, footnotes, bookmarkIds, calloutTypes),
+      documentSections(
+        entry,
+        options,
+        footnotes,
+        bookmarkIds,
+        calloutTypes,
+        listStarts,
+      ),
     ),
   ].filter((section): section is ISectionOptions => Boolean(section))
   const document = new Document({
@@ -1604,7 +1827,7 @@ export async function buildDocx(
       options.page.geometry,
       options.calloutStyle,
     ),
-    numbering: wordNumbering(options.tokens),
+    numbering: wordNumbering(options.tokens, listStarts),
     ...(Object.keys(footnotes.entries).length
       ? { footnotes: footnotes.entries }
       : {}),

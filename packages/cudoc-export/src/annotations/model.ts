@@ -143,10 +143,31 @@ const offset = (value: unknown, field: string): number => {
   return value as number
 }
 
+/** A calendar date, or a date and time with its offset: never a local time. */
+const ISO_DATE =
+  /^(\d{4})-(\d{2})-(\d{2})(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:\d{2}))?$/
+
+/**
+ * `Date.parse` alone takes far more than ISO 8601, a parenthesised comment
+ * included, which would carry a reviewer's text into the report's signature
+ * line. The date is kept in the one form the runtime writes, UTC with
+ * milliseconds, so two dates compare as strings and read the same everywhere.
+ */
 const date = (value: unknown, field: string): string => {
   const raw = text(value, LIMITS.date, field)
-  if (Number.isNaN(Date.parse(raw))) fail(`${field} must be an ISO 8601 date`)
-  return raw
+  const match = ISO_DATE.exec(raw)
+  const time = match ? Date.parse(raw) : Number.NaN
+  const day = new Date(0)
+  if (match) day.setUTCFullYear(+match[1]!, +match[2]! - 1, +match[3]!)
+  if (
+    Number.isNaN(time) ||
+    day.getUTCMonth() !== +match![2]! - 1 ||
+    day.getUTCDate() !== +match![3]!
+  )
+    fail(
+      `${field} must be an ISO 8601 date, with an offset when it has a time: 2026-01-02T03:04:05Z`,
+    )
+  return new Date(time).toISOString()
 }
 
 const hasContext = (value: unknown): boolean =>
@@ -339,6 +360,7 @@ export function mergeAnnotations(
   for (const list of lists)
     for (const item of list) {
       const current = byId.get(item.id)
+      // Parsed dates are UTC with milliseconds, where string order is time order.
       if (!current || current.modified <= item.modified) byId.set(item.id, item)
     }
   return [...byId.values()].sort(

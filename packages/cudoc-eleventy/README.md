@@ -1,11 +1,11 @@
 # cudoc-eleventy
 
-Connect cudoc to Eleventy while retaining native heading IDs and TOC behavior.
+Connect cudoc to Eleventy as its markdown-it library, set with `eleventyConfig.setLibrary("md", …)` rather than `addPlugin`, while retaining native heading IDs and TOC behavior.
 
 ESM · Node.js 20+
 
 ```sh
-npm install @cudoment/cudoc cudoc-markdown-it cudoc-eleventy
+npm install @cudoment/cudoc cudoc-eleventy markdown-it-attrs markdown-it-anchor
 ```
 
 ```js

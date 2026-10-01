@@ -13,6 +13,7 @@
  */
 
 import {
+  CALLOUT_SEVERITY,
   designTokens,
   type ColorToken,
   type DesignTokens,
@@ -190,6 +191,21 @@ export function reducedMotionVariables(
   return `@media (prefers-reduced-motion: reduce) {\n  :root {\n${declaration("ease", tokens.reducedEase, "    ")}\n  }\n}`
 }
 
+/** One rule per severity, naming every callout type the table gives it. */
+export function calloutSeverityRules(): string {
+  return (["warn", "danger"] as const)
+    .map((severity) => {
+      const selectors = Object.keys(CALLOUT_SEVERITY)
+        .filter((type) => CALLOUT_SEVERITY[type] === severity)
+        .map((type) => `.cudoc-callout-${type}`)
+      return `${selectors.join(",\n")} {
+  background: var(--${severity}-wash);
+  border-left-color: var(--${severity});
+}`
+    })
+    .join("\n")
+}
+
 /** The four `--code-*` rules, generated so the class map has one home. */
 export function codeThemeRules(tokens: DesignTokens = designTokens): string {
   const role = (names: string[], property: string, extra = "") =>
@@ -352,6 +368,8 @@ figcaption {
   transform: translateY(-0.3em);
 }
 .cudoc-contents-page {
+  min-width: 4ch;
+  text-align: right;
   font-variant-numeric: tabular-nums;
   color: var(--muted);
 }`
@@ -428,10 +446,18 @@ export function printOptionRules(
   break-before: auto;
 }`,
     )
+  // A link into another document of the volume is a fragment there, and
+  // carries the address its document's own print shows as `data-cudoc-url`.
   if (linkUrls)
     rules.push(`a[href^="http://"]::after,
 a[href^="https://"]::after {
   content: " (" attr(href) ")";
+  font-size: var(--text-xs);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+a[data-cudoc-url]::after {
+  content: " (" attr(data-cudoc-url) ")";
   font-size: var(--text-xs);
   color: var(--muted);
   overflow-wrap: anywhere;

@@ -23,7 +23,7 @@ export type CudocNextraOptions = HostPluginOptions
  */
 export const cudocRemarkPlugins = (
   options: CudocNextraOptions = {},
-): PluggableList => createHostPlugins(options, "cudoc-nextra")
+): PluggableList => createHostPlugins(options, "cudoc-nextra", "nextra")
 
 export { promoteAnchorIds } from "cudoc-remark"
 export type { HostPluginOptions, PromoteAnchorIdsOptions } from "cudoc-remark"

@@ -23,7 +23,7 @@ export type CudocDocusaurusOptions = HostPluginOptions
  */
 export const cudocRemarkPlugins = (
   options: CudocDocusaurusOptions = {},
-): PluggableList => createHostPlugins(options, "cudoc-docusaurus")
+): PluggableList => createHostPlugins(options, "cudoc-docusaurus", "docusaurus")
 
 const themePath = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),

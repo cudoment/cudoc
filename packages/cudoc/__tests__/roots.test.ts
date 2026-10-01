@@ -157,9 +157,196 @@ describe("root resolution", () => {
     )
     expect(sourceFileOf(resolved, "other/x.md")).toBe(undefined)
   })
+
+  it("finds a file by its real path under a root given through a symlink, and the reverse", () => {
+    const root = workspace({ "real/guide/intro.md": "# Intro" })
+    fs.symlinkSync(path.join(root, "real"), path.join(root, "linked"))
+    const throughLink = resolveRoots({
+      roots: [{ dir: path.join(root, "linked"), base: "docs" }],
+    })
+    expect(
+      documentIdOf(throughLink, path.join(root, "real/guide/intro.md")),
+    ).toBe("docs/guide/intro")
+    const real = resolveRoots({
+      roots: [{ dir: path.join(root, "real"), base: "docs" }],
+    })
+    expect(documentIdOf(real, path.join(root, "linked/guide/intro.md"))).toBe(
+      "docs/guide/intro",
+    )
+    expect(documentIdOf(real, path.join(root, "outside.md"))).toBe(undefined)
+  })
+})
+
+describe("nested roots", () => {
+  it.each([
+    ["mirrors the directory", "docs/api", "docs/api/ref"],
+    ["differs from the directory", "reference", "reference/ref"],
+  ])(
+    "collects a file once, under the inner root, when the inner base %s",
+    (_, innerBase, innerId) => {
+      const root = workspace({
+        "content/guide.md": "# Guide (#guide)\n",
+        "content/api/ref.md": "# Ref (#ref)\n",
+      })
+      const roots = [
+        { dir: path.join(root, "content"), base: "docs" },
+        { dir: path.join(root, "content/api"), base: innerBase },
+      ]
+      const library = buildDocuments({
+        roots,
+        outDir: path.join(root, "library"),
+      })
+      expect(library.documents.map((doc) => doc.id)).toEqual([
+        "docs/guide",
+        innerId,
+      ])
+      const resolved = resolveRoots({ roots })
+      expect(
+        documentIdOf(resolved, path.join(root, "content/api/ref.md")),
+      ).toBe(innerId)
+      // The outer root's spelling of the file is not its library path, so it
+      // names no file: a link written that way reports as missing.
+      if (innerBase !== "docs/api")
+        expect(sourceFileOf(resolved, "docs/api/ref.md")).toBe(undefined)
+      expect(sourceFileOf(resolved, `${innerId}.md`)).toBe(
+        path.join(root, "content/api/ref.md"),
+      )
+    },
+  )
+
+  it("gives a file under a nested root reached through a symlink one id by either path", async () => {
+    const root = workspace({
+      "outer/index.md": "# Index (#index)\n",
+      "outer/nested/guide.md": "# Guide (#guide)\n\nBody.\n",
+    })
+    fs.symlinkSync(path.join(root, "outer/nested"), path.join(root, "link"))
+    const roots = [
+      { dir: path.join(root, "outer"), base: "outer" },
+      { dir: path.join(root, "link"), base: "inner" },
+    ]
+    const outDir = path.join(root, "library")
+    const library = buildDocuments({ roots, outDir })
+    expect(library.documents.map((doc) => doc.id)).toEqual([
+      "outer/index",
+      "inner/guide",
+    ])
+    const resolved = resolveRoots({ roots })
+    for (const file of ["link/guide.md", "outer/nested/guide.md"])
+      expect(documentIdOf(resolved, path.join(root, file)), file).toBe(
+        "inner/guide",
+      )
+  })
+
+  it("keeps a file a root reaches through a symlink of its own", () => {
+    // A dot directory is never walked, so a symlink there is not refused,
+    // and an asset reached through it is still that root's file.
+    const root = workspace({
+      "docs/guide.md": "# Guide (#guide)\n\n![Logo](./.img/logo.png)\n",
+      "docs/assets/img/logo.png": "png",
+    })
+    fs.symlinkSync(
+      path.join(root, "docs/assets/img"),
+      path.join(root, "docs/.img"),
+    )
+    const resolved = resolveRoots({ sourceRoot: path.join(root, "docs") })
+    expect(
+      resolveLocalTarget("./.img/logo.png", "guide.md", { roots: resolved }),
+    ).toMatchObject({ kind: "resolved" })
+    expect(sourceFileOf(resolved, "./guide.md")).toBe(
+      path.join(root, "docs/guide.md"),
+    )
+  })
+
+  it("leaves a symlink in the tree that leads to another root to that root", () => {
+    const root = workspace({
+      "content/guide.md": "# Guide (#guide)\n",
+      "shared/ref.md": "# Ref (#ref)\n",
+    })
+    fs.symlinkSync(path.join(root, "shared"), path.join(root, "content/api"))
+    const library = buildDocuments({
+      roots: [
+        { dir: path.join(root, "content"), base: "docs" },
+        { dir: path.join(root, "shared"), base: "docs/api" },
+      ],
+      outDir: path.join(root, "library"),
+    })
+    expect(library.documents.map((doc) => doc.id)).toEqual([
+      "docs/guide",
+      "docs/api/ref",
+    ])
+    // A symlink to a directory no root names is still refused.
+    fs.mkdirSync(path.join(root, "loose"))
+    fs.symlinkSync(path.join(root, "loose"), path.join(root, "content/other"))
+    expect(() =>
+      buildDocuments({
+        roots: [
+          { dir: path.join(root, "content"), base: "docs" },
+          { dir: path.join(root, "shared"), base: "docs/api" },
+        ],
+        outDir: path.join(root, "library"),
+      }),
+    ).toThrow(/symlink in source tree/)
+  })
+
+  it("refuses one directory listed twice, once through a symlink", () => {
+    const root = workspace({ "real/guide.md": "# Guide\n" })
+    fs.symlinkSync(path.join(root, "real"), path.join(root, "linked"))
+    expect(() =>
+      resolveRoots({
+        roots: [
+          { dir: path.join(root, "real"), base: "a" },
+          { dir: path.join(root, "linked"), base: "b" },
+        ],
+      }),
+    ).toThrow(/listed twice/)
+  })
 })
 
 describe("collection across roots", () => {
+  it.each([
+    ["", ["/docs/", "/docs/guide/", "/docs/guide/setup"]],
+    ["/", ["/docs/", "/docs/guide/", "/docs/guide/setup/"]],
+    [
+      ".html",
+      ["/docs/index.html", "/docs/guide/index.html", "/docs/guide/setup.html"],
+    ],
+  ])(
+    "serves an index document at its directory when routes end in %j",
+    (routeSuffix, expected) => {
+      // Docusaurus, Nextra, Eleventy and the App Router serve `index.md` at
+      // its directory, and a link to `/docs/index` is a broken link there.
+      const root = workspace({
+        "content/index.md": "# Home\n",
+        "content/guide/index.md": "# Guide\n",
+        "content/guide/setup.md": "# Setup\n\n[Back](./index.md)\n",
+      })
+      const library = buildDocuments({
+        sourceRoot: path.join(root, "content"),
+        routeBase: "/docs",
+        routeSuffix,
+        outDir: path.join(root, "library"),
+      })
+      const route = (id: string) =>
+        library.documents.find((doc) => doc.id === id)?.route
+      expect(["index", "guide/index", "guide/setup"].map(route)).toEqual(
+        expected,
+      )
+    },
+  )
+
+  it("refuses two documents one trailing slash apart", () => {
+    const root = workspace({
+      "content/guide.md": "# Guide\n",
+      "content/guide/index.md": "# Guide index\n",
+    })
+    expect(() =>
+      buildDocuments({
+        sourceRoot: path.join(root, "content"),
+        outDir: path.join(root, "library"),
+      }),
+    ).toThrow(/duplicate document route: \/guide/)
+  })
+
   it("derives ids and routes from the bases and records the roots in the manifest", () => {
     const root = workspace(TWO_ROOTS)
     const outDir = path.join(root, "library")

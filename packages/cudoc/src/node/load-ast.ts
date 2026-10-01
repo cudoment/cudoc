@@ -7,6 +7,7 @@ import {
   type ResolvedPathOptions,
 } from "./paths.js"
 import { loadAstFile, type LoadAstOptions } from "./load-ast-file.js"
+import { safePath } from "./storage.js"
 
 export { loadAstFile } from "./load-ast-file.js"
 export type { LoadAstOptions } from "./load-ast-file.js"
@@ -22,9 +23,10 @@ export const loadAst = (
   const pathOptions: ResolvedPathOptions = resolvePathOptions(options)
   const projectRoot = pathOptions.cwd ?? process.cwd()
   const normalized = documentPath.replace(/^[/\\]+/, "").replace(/\.json$/i, "")
-  const filePath = path.join(
-    projectRoot,
-    pathOptions.outDir,
+  // A document path names a file inside the output directory, never beside
+  // it: `../../secrets` is refused rather than read.
+  const filePath = safePath(
+    path.join(projectRoot, pathOptions.outDir),
     `${normalized}.json`,
   )
 

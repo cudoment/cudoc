@@ -2,7 +2,7 @@
   "name": "cudoc-workspace",
   "version": "0.0.0",
   "private": true,
-  "description": "Documentation AST extraction and MDX syntax extensions, shared across static site generators.",
+  "description": "Markdown syntax extensions, cross-document embedding and HTML, PDF and Word export for documentation sites, shared across static site generators.",
   "license": "MIT",
   "author": "cudoment",
   "type": "module",
@@ -19,7 +19,7 @@
     "test:run": "vitest run --project unit",
     "test:examples": "vitest run --project integration",
     "test:built": "vitest run --project built",
-    "test:scripts": "node tests/scripts/rebuild-portable.mjs && node tests/scripts/rebuild-mdx.mjs && node tests/scripts/packed-consumers.mjs && node tests/scripts/export-showcase.mjs",
+    "test:scripts": "node tests/scripts/rebuild-portable.mjs && node tests/scripts/rebuild-mdx.mjs && node tests/scripts/packed-consumers.mjs && node tests/scripts/guide-consumers.mjs && node tests/scripts/export-showcase.mjs",
     "test:all": "npm run test && npm run test:scripts",
     "test:watch": "vitest",
     "typecheck": "tsc --build && tsc -p tsconfig.test.json",
@@ -51,5 +51,9 @@
     "unified": "^11.0.5",
     "vfile": "^6.0.3",
     "vitest": "^3.2.7"
+  },
+  "overrides": {
+    "serialize-javascript": "7.1.2",
+    "uuid": "11.1.1"
   }
 }

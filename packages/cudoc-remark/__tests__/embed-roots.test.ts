@@ -141,6 +141,55 @@ it("finds prepared blocks for a file under a based root and refuses one outside 
   ).resolves.toBeDefined() // no fence: the roots are never resolved
 })
 
+it("splices the same prepared block whichever path a host gives a file under a nested root reached through a symlink", async () => {
+  // `inner` is configured as a symlink to a directory inside `outer`. A host
+  // may report the page by the link or by its real path; both have to name
+  // the document collection prepared, or the plugin looks up a block under
+  // another id and reports stale embeds that collecting again cannot fix.
+  const root = fs.realpathSync(
+    fs.mkdtempSync(path.join(os.tmpdir(), "cudoc-embed-nested-")),
+  )
+  temporary.push(root)
+  const write = (name: string, value: string) => {
+    const file = path.join(root, name)
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(file, value)
+  }
+  write("outer/limits.md", "# Limits (#limits)\n\nTen per second.\n")
+  write(
+    "outer/nested/guide.md",
+    "# Guide\n\n```cudoc-embed\nsources: [/outer/limits.md#limits]\n```\n",
+  )
+  fs.symlinkSync(path.join(root, "outer/nested"), path.join(root, "inner"))
+  const roots = [
+    { dir: path.join(root, "outer"), base: "outer" },
+    { dir: path.join(root, "inner"), base: "inner" },
+  ]
+  const outDir = path.join(root, ".cudoc/documents")
+  const library = buildDocuments({ roots, outDir, host: "next" })
+  // Collected once, under the root that owns it.
+  expect(library.documents.map((doc) => doc.id)).toEqual([
+    "outer/limits",
+    "inner/guide",
+  ])
+  await prepareEmbeds(library, outDir)
+  for (const file of ["inner/guide.md", "outer/nested/guide.md"]) {
+    const compiled = String(
+      await compile(
+        {
+          value: fs.readFileSync(path.join(root, file), "utf8"),
+          path: path.join(root, file),
+        },
+        {
+          format: "md",
+          remarkPlugins: [remarkGfm, cudocPrepare, [embed, { outDir, roots }]],
+        },
+      ),
+    )
+    expect(compiled, file).toContain("Ten per second.")
+  }
+})
+
 it("restores an estree for every expression form and names the document when one does not parse", () => {
   const block = {
     type: "root",

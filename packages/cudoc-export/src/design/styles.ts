@@ -1,4 +1,5 @@
 import {
+  calloutSeverityRules,
   codeThemeRules,
   darkVariables,
   reducedMotionVariables,
@@ -455,16 +456,7 @@ details[open] summary {
   color: var(--ink);
   font-weight: 700;
 }
-.cudoc-callout-warning,
-.cudoc-callout-caution {
-  background: var(--warn-wash);
-  border-left-color: var(--warn);
-}
-.cudoc-callout-danger,
-.cudoc-callout-error {
-  background: var(--danger-wash);
-  border-left-color: var(--danger);
-}
+${calloutSeverityRules()}
 footer {
   margin-top: var(--space-12);
   padding-top: var(--space-4);

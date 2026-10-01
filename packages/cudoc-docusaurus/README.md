@@ -19,7 +19,7 @@ const docs = {
 }
 ```
 
-Use `markdown.format: "detect"` for `.md` and `.mdx`. Import `@cudoment/cudoc/styles.css` from site CSS. The explicit `syntax` setup needs no cudoc theme plugin or component registration. For embedding, use the actual Docusaurus compiler during collection and add `cudoc-remark/embed` afterward in the rendering pipeline.
+Use `markdown.format: "detect"` for `.md` and `.mdx`. Import `@cudoment/cudoc/styles.css` from site CSS. The explicit `syntax` setup needs no cudoc theme plugin or component registration. A heading ID that Docusaurus's slugger would change reaches it as a trailing `{#id}`, which it keeps as written, so an anchor such as `(#v1.2)` is the same in the page and its table of contents. For embedding, use the actual Docusaurus compiler during collection and add `cudoc-remark/embed` afterward in the rendering pipeline.
 
 Choose `host`, `cudoc` or `both` independently for `headingAnchor`, `badge`, `tableCellList`, `callout` and `link`. The representative callout is `> [!NOTE] Title`. Authors do not register cudoc React components in the recommended setup. Syntax-only rendering needs no stored JSON; cross-document embedding requires document collection.
 

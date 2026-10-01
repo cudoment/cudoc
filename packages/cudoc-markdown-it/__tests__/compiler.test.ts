@@ -83,6 +83,27 @@ describe("createHostCompiler", () => {
     expect(result.frontmatter).toEqual({ title: "Guide" })
   })
 
+  it("shifts a diagnostic's line past the frontmatter as it shifts the tree", () => {
+    // `cudoc collect` prints the diagnostic's line as the line in the file.
+    const frontmatter = "---\ntitle: Guide\n---\n\n"
+    const source = `${frontmatter}# Title\n\n> [!BOGUS] Careful\n> Body\n`
+    const splitting: MarkdownItHost = {
+      ...host,
+      frontmatter: (input) => ({
+        body: input.slice(frontmatter.length),
+        data: { title: "Guide" },
+      }),
+    }
+    const { diagnostics } = createHostCompiler(renderer(splitting), splitting)(
+      source,
+      context(),
+    )
+
+    expect(diagnostics.map((d) => [d.code, d.position?.start.line])).toEqual([
+      ["UNKNOWN_CALLOUT_TYPE", 7],
+    ])
+  })
+
   it("keeps frontmatter a plugin left in the env when the host does not split", () => {
     const md = markdownIt()
     installHostPlugin(md, {}, host)
@@ -114,6 +135,75 @@ describe("createHostCompiler", () => {
       relativePath: "guide.md",
       cudocCollect: true,
     })
+  })
+
+  it("maps the body after front matter that repeats its text", () => {
+    const withFrontmatter: MarkdownItHost = {
+      ...host,
+      frontmatter: (source) => {
+        const end = source.indexOf("\n---\n", 4) + 5
+        return { body: source.slice(end), data: {} }
+      },
+    }
+    const source = "---\nsummary: Body.\n---\nBody.\n"
+    const { tree } = createHostCompiler(
+      renderer(withFrontmatter),
+      withFrontmatter,
+    )(source, context())
+    const paragraph = find(tree as unknown as DocumentNode, "paragraph")!
+    expect(paragraph.position!.start.offset).toBe(source.lastIndexOf("Body."))
+    expect(paragraph.position!.start.line).toBe(4)
+  })
+
+  it("maps offsets into a file written with \\r\\n back to its own text", () => {
+    // markdown-it reads every line ending as `\n`, one character shorter than
+    // `\r\n`, so its offsets drift by a line's worth for every line above.
+    const frontmatter = "---\r\ntitle: Guide\r\n---\r\n\r\n"
+    const source = `${frontmatter}# Title\r\n\r\nBody paragraph.\r\nSecond line.\r\n\r\n## Next\r\n`
+    const splitting: MarkdownItHost = {
+      ...host,
+      frontmatter: (input) => ({
+        body: input.slice(frontmatter.length),
+        data: { title: "Guide" },
+      }),
+    }
+    const { tree } = createHostCompiler(renderer(splitting), splitting)(
+      source,
+      context(),
+    )
+    const paragraph = find(tree as unknown as DocumentNode, "paragraph")!
+    const headings = (tree as unknown as DocumentNode).children!.filter(
+      (node) => node.type === "heading",
+    )
+
+    expect(
+      source.slice(
+        paragraph.position!.start.offset,
+        paragraph.position!.end.offset,
+      ),
+    ).toBe("Body paragraph.\r\nSecond line.\r\n")
+    expect(paragraph.position!.start.line).toBe(7)
+    expect(
+      headings.map((node) => source.slice(node.position!.start.offset)),
+    ).toEqual([source.slice(source.indexOf("# Title")), "## Next\r\n"])
+  })
+
+  it("maps offsets past a lone \\r and a NUL, which markdown-it also rewrites", () => {
+    const source = "# Title\r\rBody\0 text.\r\n\r\nLast.\r\n"
+    const { tree } = createHostCompiler(renderer(), host)(source, context())
+    const paragraphs = (tree as unknown as DocumentNode).children!.filter(
+      (node) => node.type === "paragraph",
+    )
+
+    expect(
+      paragraphs.map((node) => [
+        source.slice(node.position!.start.offset, node.position!.end.offset),
+        node.position!.start.line,
+      ]),
+    ).toEqual([
+      ["Body\0 text.\r\n", 3],
+      ["Last.\r\n", 5],
+    ])
   })
 
   it("names the adapter when asked to compile MDX", () => {

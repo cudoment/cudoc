@@ -15,20 +15,45 @@ import {
   type AnnotationCollection,
 } from "../annotations/model.js"
 
-/** Notes embedded in this page by "save a copy with notes". */
-export function readEmbedded(doc: Document = document): Annotation[] {
+/**
+ * Notes embedded in this page by "save a copy with notes". A block that does
+ * not read, in a copy edited by hand or cut short, goes to `onInvalid` and
+ * counts as no notes, so the panel still opens on the rest.
+ */
+export function readEmbedded(
+  doc: Document = document,
+  onInvalid?: (error: unknown) => void,
+): Annotation[] {
   const block = doc.getElementById(EMBEDDED_DATA_ID)
   if (!block) return []
-  return parseText(block.textContent ?? "").items
+  try {
+    return parseText(block.textContent ?? "").items
+  } catch (error) {
+    onInvalid?.(error)
+    return []
+  }
 }
+
+const TOO_LARGE = `annotations: a file holds at most ${LIMITS.fileBytes} bytes`
 
 /** Parses JSON text into a collection; the caller decides what a failure means. */
 export function parseText(text: string): AnnotationCollection {
-  if (text.length > LIMITS.fileBytes)
-    throw new Error(
-      `annotations: a file holds at most ${LIMITS.fileBytes} bytes`,
-    )
+  if (text.length > LIMITS.fileBytes) throw new Error(TOO_LARGE)
   return parseCollection(JSON.parse(text))
+}
+
+/**
+ * A file the reader chose: a notes file, or a saved copy of the page. Its size
+ * is checked before it is read, since a character count lets through a file
+ * of up to three times the limit in bytes, all of it held in memory.
+ */
+export async function readNotesFile(file: File): Promise<AnnotationCollection> {
+  if (file.size > LIMITS.fileBytes) throw new Error(TOO_LARGE)
+  const text = await file.text()
+  return file.name.toLowerCase().endsWith(".html") ||
+    text.trimStart().startsWith("<")
+    ? readAnnotatedHtml(text)
+    : parseText(text)
 }
 
 /** Notes from a saved copy's HTML, read without running any of it. */
@@ -142,7 +167,15 @@ export function tokenFromLocation(
   const fragment = loc.hash.startsWith("#") ? loc.hash.slice(1) : loc.hash
   for (const part of fragment.split("&")) {
     const [key, value] = part.split("=", 2)
-    if (key === FRAGMENT_KEY && value) return decodeURIComponent(value)
+    // The token alphabet needs no escapes; a malformed one is left for the
+    // decoder to refuse with a message rather than thrown from here.
+    if (key === FRAGMENT_KEY && value) {
+      try {
+        return decodeURIComponent(value)
+      } catch {
+        return value
+      }
+    }
   }
   return undefined
 }

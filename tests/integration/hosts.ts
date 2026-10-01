@@ -87,7 +87,7 @@ const docusaurus = (): (() => Promise<AsyncDocumentCompiler>) => async () => {
     createProcessorUncached,
   } = require("@docusaurus/mdx-loader/lib/processor.js")
   return async (source, context) => {
-    const capture = createCompilerCapture()
+    const capture = createCompilerCapture({ aliases: { "@site/static/": "/" } })
     const processor = await createProcessorUncached({
       format: context.options.format,
       options: {
@@ -112,13 +112,15 @@ const docusaurus = (): (() => Promise<AsyncDocumentCompiler>) => async () => {
         rehypePlugins: [capture.rehype],
       },
     })
-    await processor.process({
+    const { data } = await processor.process({
       filePath: context.filePath,
       content: source,
       frontMatter: {},
       compilerName: "server",
     })
-    return capture.read()
+    // The page title Docusaurus read from the `#` heading, which a test
+    // compares with the heading text; collection ignores the extra key.
+    return { ...capture.read(), contentTitle: data.contentTitle as string }
   }
 }
 

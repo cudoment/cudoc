@@ -67,12 +67,17 @@ async function watchCheck(cwd) {
     wake()
   })
   const exit = new Promise((resolve) => child.on("exit", resolve))
-  const until = async (condition, what) => {
+  const until = async (condition, what, again) => {
     const deadline = Date.now() + 30_000
+    let repeat = Date.now() + 2_000
     while (!condition()) {
       if (Date.now() > deadline) {
         child.kill("SIGKILL")
         throw new Error(`cudoc collect --watch: timed out waiting for ${what}`)
+      }
+      if (again && Date.now() > repeat) {
+        again()
+        repeat = Date.now() + 2_000
       }
       await new Promise((resolve) => {
         wake = resolve
@@ -86,13 +91,22 @@ async function watchCheck(cwd) {
       throw new Error(
         `first pass compiled ${JSON.stringify(passes[0].compiled)}`,
       )
-    fs.appendFileSync(path.join(cwd, "markdown/guide.md"), "\nMore.\n")
-    await until(() => passes.length >= 2, "the pass after a change")
+    // The first pass can end before the system reports changes (see
+    // `watchDocuments` in the API reference), and a change made then may go
+    // unreported, so it is made again until a pass compiles it. The system
+    // may also report the Markdown written just before the watch started,
+    // and the pass that starts compiles nothing.
+    const change = () =>
+      fs.appendFileSync(path.join(cwd, "markdown/guide.md"), "\nMore.\n")
+    const changed = () =>
+      passes.slice(1).find((pass) => pass.compiled.includes("guide"))
+    change()
+    await until(changed, "the pass after a change", change)
     if (
-      JSON.stringify(passes[1].compiled) !== '["guide"]' ||
-      passes[1].reused !== 1
+      JSON.stringify(changed().compiled) !== '["guide"]' ||
+      changed().reused !== 1
     )
-      throw new Error(`second pass compiled ${JSON.stringify(passes[1])}`)
+      throw new Error(`the pass after a change: ${JSON.stringify(changed())}`)
     child.kill("SIGINT")
     const code = await exit
     if (code !== 0) throw new Error(`cudoc collect --watch exited with ${code}`)
@@ -210,8 +224,9 @@ console.log("standalone Markdown collection, rendering, prepared embeds and refe
       "--no-audit",
       "--no-fund",
       ...tarballs,
+      // The mdast, hast and unist types come with the packages that name
+      // them in their declarations; React's are the consumer's own.
       "@types/react@^19",
-      "@types/mdast@^4",
       // A declared peer of the markdown-it adapters, which a real consumer
       // installs through its host; the Eleventy adapter imports it at runtime.
       "markdown-it@^14",

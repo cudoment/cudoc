@@ -35,4 +35,7 @@ export { promoteAnchorIds } from "./heading-ids.js"
 export type { PromoteAnchorIdsOptions } from "./heading-ids.js"
 export { createHostPlugins } from "./host-plugins.js"
 export type { HostPluginOptions } from "./host-plugins.js"
-export { createCompilerCapture } from "./capture.js"
+export {
+  createCompilerCapture,
+  type CompilerCaptureOptions,
+} from "./capture.js"
