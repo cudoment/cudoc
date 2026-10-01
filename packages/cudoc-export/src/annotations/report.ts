@@ -122,14 +122,20 @@ export function readNotesToken(token: string): AnnotationCollection {
 export function readNotesFile(file: string): AnnotationCollection {
   if (!fs.existsSync(file))
     throw new Error(`cudoc-export: notes file not found: ${file}`)
+  // A saved page carries the document and its images around the notes, so
+  // the page and the notes block in it have limits of their own.
   const size = fs.statSync(file).size
-  if (size > LIMITS.fileBytes)
-    throw new Error(
-      `cudoc-export: ${file} is larger than ${LIMITS.fileBytes} bytes`,
-    )
+  const page = /\.html?$/i.test(file)
+  const limit = page ? LIMITS.htmlBytes : LIMITS.fileBytes
+  if (size > limit)
+    throw new Error(`cudoc-export: ${file} is larger than ${limit} bytes`)
   const text = fs.readFileSync(file, "utf8")
   let json = text
   if (text.trimStart().startsWith("<")) {
+    if (!page && size > LIMITS.fileBytes)
+      throw new Error(
+        `cudoc-export: ${file} is larger than ${LIMITS.fileBytes} bytes`,
+      )
     const pattern = new RegExp(
       `<script[^>]*id="${EMBEDDED_DATA_ID}"[^>]*>([^]*?)</script>`,
     )
@@ -137,6 +143,10 @@ export function readNotesFile(file: string): AnnotationCollection {
     if (!block) throw new Error(`cudoc-export: ${file} carries no notes block`)
     json = block[1]!
   }
+  if (json.length > LIMITS.fileBytes)
+    throw new Error(
+      `cudoc-export: the notes in ${file} are larger than ${LIMITS.fileBytes} bytes`,
+    )
   try {
     return parseCollection(JSON.parse(json))
   } catch (error) {

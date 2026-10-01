@@ -183,7 +183,7 @@ describe("the bound volume", () => {
       sourceRoot,
       outDir,
       libraryDir,
-      navigation: ["reference", "guide"],
+      navigation: ["reference.md", "guide.md"],
     })
     const volume = parse(read(outDir, VOLUME_FILE))
     const articles = volume.querySelectorAll("article.cudoc-doc")
@@ -1118,7 +1118,7 @@ describe("the volume's contents page numbers", () => {
         title: "Docs",
         formats: ["pdf"],
         granularity: "both",
-        navigation: ["guide", "reference"],
+        navigation: ["guide.md", "reference.md"],
       })
       const volume = parse(read(outDir, VOLUME_FILE))
       const numbers = volume
@@ -1156,7 +1156,7 @@ describe("the volume's contents page numbers", () => {
         // Long enough that every printed address wraps onto lines of its own.
         hostUrl: `https://docs.example.com/${"deployment-segment/".repeat(12)}`,
         page: { linkUrls: true },
-        navigation: ["links", "guide", "reference"],
+        navigation: ["links.md", "guide.md", "reference.md"],
       })
       expect(
         fs.existsSync(path.join(outDir, `${DEFAULT_VOLUME_NAME}.pdf`)),

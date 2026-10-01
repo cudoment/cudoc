@@ -3,6 +3,7 @@ import fs from "node:fs"
 import path from "node:path"
 import { spawnSync } from "node:child_process"
 import { pathToFileURL } from "node:url"
+import { parse as parseYaml } from "yaml"
 import {
   buildExport,
   type ExportFormat,
@@ -15,12 +16,13 @@ import type { PaperSize } from "./design/page.js"
 
 const USAGE = `Usage: cudoc-export <build|install-browser>
 
-cudoc-export build [sourceRoot] [--out-dir site] [--config config.mjs]
+cudoc-export build [sourceRoot] [--out-dir site] [--config config.mjs|.json|.yml]
+  [--mode site|standalone|annotate] [--document id]... [--strict]
   [--format html|pdf|docx] [--granularity documents|volume|both]
   [--library directory] [--links relative|host|none]
   [--host-url https://example.com/] [--asset-dir directory]
   [--external-path /prefix] [--paper A4|Letter] [--landscape]
-  [--annotations] [--theme-switch]
+  [--theme-switch]
 
 cudoc-export annotations [notes.json...] [--token token]... --library directory
   [--out report.md] [--json]
@@ -38,8 +40,10 @@ const VALUE_FLAGS = [
   "--format",
   "--granularity",
   "--paper",
+  "--mode",
+  "--document",
 ]
-const BOOLEAN_FLAGS = ["--landscape", "--annotations", "--theme-switch"]
+const BOOLEAN_FLAGS = ["--landscape", "--theme-switch", "--strict"]
 
 try {
   const args = process.argv.slice(2)
@@ -59,6 +63,7 @@ try {
     const assetDirs: string[] = []
     const externalPaths: string[] = []
     const formats: ExportFormat[] = []
+    const documents: string[] = []
     const flags = new Set<string>()
     let sourceRoot: string | undefined
     for (let i = 1; i < args.length; i++) {
@@ -72,8 +77,13 @@ try {
         if (argument === "--asset-dir") assetDirs.push(next)
         else if (argument === "--external-path") externalPaths.push(next)
         else if (argument === "--format") formats.push(next as ExportFormat)
+        else if (argument === "--document") documents.push(next)
         else options[argument] = next
-      } else if (BOOLEAN_FLAGS.includes(argument)) flags.add(argument)
+      } else if (argument === "--annotations")
+        throw new Error(
+          "--annotations was replaced by --mode annotate, which writes one page per document carrying the review-note runtime",
+        )
+      else if (BOOLEAN_FLAGS.includes(argument)) flags.add(argument)
       else if (!argument.startsWith("-") && !sourceRoot) sourceRoot = argument
       else throw new Error(`Unknown argument: ${argument}`)
     }
@@ -81,7 +91,9 @@ try {
     const config = configPath
       ? configPath.endsWith(".json")
         ? JSON.parse(fs.readFileSync(configPath, "utf8"))
-        : (await import(pathToFileURL(path.resolve(configPath)).href)).default
+        : /\.ya?ml$/i.test(configPath)
+          ? parseYaml(fs.readFileSync(configPath, "utf8"))
+          : (await import(pathToFileURL(path.resolve(configPath)).href)).default
       : {}
     const page = {
       ...config.page,
@@ -111,7 +123,11 @@ try {
       formats: formats.length ? formats : config.formats,
       granularity: (options["--granularity"] ??
         config.granularity) as ExportGranularity,
-      ...(flags.has("--annotations") ? { annotations: true } : {}),
+      ...(options["--mode"]
+        ? { mode: options["--mode"] as SiteOptions["mode"] }
+        : {}),
+      ...(documents.length ? { documents } : {}),
+      ...(flags.has("--strict") ? { strict: true } : {}),
       ...(flags.has("--theme-switch") ? { themeSwitch: true } : {}),
       ...(Object.keys(page).length ? { page } : {}),
     })
@@ -120,6 +136,10 @@ try {
     for (const diagnostic of result.diagnostics)
       console.error(
         `cudoc-export: ${diagnostic.document}: ${diagnostic.message}`,
+      )
+    for (const dependency of result.dependencies)
+      console.error(
+        `cudoc-export: ${dependency.document}: needs ${dependency.kind === "remote" ? "a remote resource" : dependency.kind === "file" ? "a file beside it" : "a page beside it"}: ${dependency.url}`,
       )
     console.log(JSON.stringify(result))
   } else throw new Error(USAGE)

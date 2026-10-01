@@ -136,9 +136,12 @@ export function documentMetadata(doc: StoredDocument): {
   }
 }
 
-/** Namespaces browser storage so two exports on one machine do not mix. */
-export const siteId = (title: string, order: readonly string[]): string =>
-  hash([title, ...order].join("\0")).slice(0, 16)
+/**
+ * Namespaces browser storage so two exports on one machine do not mix: the
+ * configured review id, or a hash of the title and the published documents.
+ */
+export const siteId = (seed: readonly string[]): string =>
+  hash(seed.join("\0")).slice(0, 16)
 
 const findElement = (
   node: HastRoot | RootContent,
@@ -197,6 +200,43 @@ export function injectThemeScript(page: HastRoot, href: string): void {
     tagName: "script",
     properties: { src: href },
     children: [],
+  })
+}
+
+/** The theme script written into `<head>` itself, for a page that carries everything. */
+export function inlineThemeScript(page: HastRoot, code: string): void {
+  const head = findElement(page, "head")
+  if (!head) throw new Error("cudoc-export: page has no head for the theme")
+  ensurePolicy(head)
+  head.children.push({
+    type: "element",
+    tagName: "script",
+    properties: {},
+    children: [{ type: "text", value: code }],
+  })
+}
+
+/** The review-note runtime written into the page itself. */
+export function inlineAnnotationAssets(
+  page: HastRoot,
+  runtime: { script: string; stylesheet: string },
+): void {
+  const head = findElement(page, "head")
+  const body = findElement(page, "body")
+  if (!head || !body)
+    throw new Error("cudoc-export: page has no head or body to annotate")
+  ensurePolicy(head)
+  head.children.push({
+    type: "element",
+    tagName: "style",
+    properties: {},
+    children: [{ type: "text", value: runtime.stylesheet }],
+  })
+  body.children.push({
+    type: "element",
+    tagName: "script",
+    properties: {},
+    children: [{ type: "text", value: runtime.script }],
   })
 }
 

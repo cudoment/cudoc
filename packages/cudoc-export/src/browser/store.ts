@@ -48,10 +48,17 @@ export function parseText(text: string): AnnotationCollection {
  * of up to three times the limit in bytes, all of it held in memory.
  */
 export async function readNotesFile(file: File): Promise<AnnotationCollection> {
-  if (file.size > LIMITS.fileBytes) throw new Error(TOO_LARGE)
+  // A saved page carries the document and its images around the notes: the
+  // page has a limit of its own, and the notes in it the notes file's.
+  const page = /\.html?$/i.test(file.name)
+  if (file.size > (page ? LIMITS.htmlBytes : LIMITS.fileBytes))
+    throw new Error(
+      page
+        ? `annotations: a saved page holds at most ${LIMITS.htmlBytes} bytes`
+        : TOO_LARGE,
+    )
   const text = await file.text()
-  return file.name.toLowerCase().endsWith(".html") ||
-    text.trimStart().startsWith("<")
+  return page || text.trimStart().startsWith("<")
     ? readAnnotatedHtml(text)
     : parseText(text)
 }

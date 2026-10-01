@@ -65,13 +65,13 @@ suite("review notes in the browser", () => {
     fs.mkdirSync(sourceRoot)
     fs.writeFileSync(
       path.join(sourceRoot, "index.md"),
-      "---\nlang: ko\n---\n\n# Home (#home)\n\nFirst paragraph of the page.\n\n## Start (#start)\n\nRun the installer before anything else.\n\n- First item\n- Second item\n",
+      '---\nlang: ko\n---\n\n# Home (#home)\n\nFirst paragraph of the page.\n\n## Start (#start)\n\nRun the installer before anything else.\n\n- First item\n- Second item\n\n<button type="button" id="probe">Probe</button>\n',
     )
     buildSite({
       sourceRoot,
       outDir: path.join(root, "site"),
       title: "Demo",
-      annotations: true,
+      mode: "annotate",
     })
     url = pathToFileURL(path.join(root, "site", "index.html")).href
     browser = await launchBrowser()
@@ -179,7 +179,11 @@ suite("review notes in the browser", () => {
     expect(result.listed).toBe(2)
     expect(result.bodies).toContain("<img src=x onerror=alert(1)>")
     // A block quote is one line: the boundaries inside it collapse to spaces.
-    expect(result.excerpts).toEqual(["installer before anything", "First item"])
+    // Two notes made in the same millisecond list in id order, which is random.
+    expect([...result.excerpts].sort()).toEqual([
+      "First item",
+      "installer before anything",
+    ])
     expect(result.images).toBe(0)
     expect(result.after).toBe(before)
   }, 60_000)
@@ -212,11 +216,13 @@ suite("review notes in the browser", () => {
     )
     const tree = parse(copy)
     expect(tree.querySelector("#cudoc-annotations")).toBeNull()
+    // The page carries the runtime itself, so the copy does too.
     expect(
       tree
         .querySelectorAll("script")
         .map((s) => s.getAttribute("src") ?? s.getAttribute("type")),
-    ).toEqual(["cudoc-annotations.js", "application/json"])
+    ).toEqual([undefined, "application/json"])
+    expect(copy).not.toContain("<link")
     const embedded = parseCollection(
       JSON.parse(tree.querySelector("#cudoc-annotations-data")!.textContent),
     )
@@ -228,19 +234,33 @@ suite("review notes in the browser", () => {
       "</script><script>alert(1)</script><!--",
     )
 
-    fs.writeFileSync(path.join(root, "site", "index.annotated.html"), copy)
+    // The copy opens on its own in a folder holding nothing else, with its
+    // styles and its notes, and asks for nothing outside itself.
+    const elsewhere = fs.mkdtempSync(path.join(os.tmpdir(), "cudoc-ann-copy-"))
+    fs.writeFileSync(path.join(elsewhere, "index.annotated.html"), copy)
+    const requests: string[] = []
+    const record = (request: { url: () => string }) =>
+      requests.push(request.url())
+    page.on("request", record)
     await page.goto("about:blank")
     await page.goto(
-      pathToFileURL(path.join(root, "site", "index.annotated.html")).href,
+      pathToFileURL(path.join(elsewhere, "index.annotated.html")).href,
     )
     await page.waitForFunction(
       () => typeof window.cudocAnnotations === "object",
     )
+    page.off("request", record)
     await page.evaluate(() => localStorage.clear())
     const restored = await page.evaluate(() => ({
       notes: window.cudocAnnotations.list().length,
       anchors: Object.values(window.cudocAnnotations.anchors()),
+      font: getComputedStyle(document.querySelector("main")!).fontFamily,
     }))
+    fs.rmSync(elsewhere, { recursive: true, force: true })
+    expect(requests.filter((url) => !url.startsWith("data:"))).toEqual([
+      pathToFileURL(path.join(elsewhere, "index.annotated.html")).href,
+    ])
+    expect(restored.font).toContain("IBM Plex Sans")
     expect(restored.notes).toBe(saved.items.length)
     expect(restored.anchors.every((a) => a === "text" || a === "block")).toBe(
       true,
@@ -497,10 +517,16 @@ suite("review notes in the browser", () => {
         const range = document.createRange()
         range.setStart(text, 0)
         range.setEnd(text, 5)
+        p.dispatchEvent(
+          new PointerEvent("pointerdown", {
+            bubbles: true,
+            pointerType: "mouse",
+          }),
+        )
         const selection = getSelection()!
         selection.removeAllRanges()
         selection.addRange(range)
-        document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }))
+        p.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }))
       })
     const visible = (selector: string) =>
       page.evaluate(
@@ -537,6 +563,108 @@ suite("review notes in the browser", () => {
     expect(
       await page.evaluate(() => window.cudocAnnotations.list().length),
     ).toBe(1)
+  }, 60_000)
+
+  it("dismisses the note button however the reader moves on, and lets the keyboard reach it", async () => {
+    await openFresh()
+    const select = (pointerType = "mouse", release = true) =>
+      page.evaluate(
+        ({ pointerType, release }) => {
+          const p = document.querySelector("main p[data-cudoc-block]")!
+          const text = document
+            .createTreeWalker(p, NodeFilter.SHOW_TEXT)
+            .nextNode()!
+          p.dispatchEvent(
+            new PointerEvent("pointerdown", { bubbles: true, pointerType }),
+          )
+          const range = document.createRange()
+          range.setStart(text, 0)
+          range.setEnd(text, 5)
+          getSelection()!.removeAllRanges()
+          getSelection()!.addRange(range)
+          if (release)
+            p.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }))
+        },
+        { pointerType, release },
+      )
+    const float = () =>
+      page.evaluate(
+        () =>
+          !document.querySelector(".cudoc-ann-float")!.hasAttribute("hidden"),
+      )
+    const shown = () => expect.poll(float).toBe(true)
+
+    // A control that keeps the selection: the button goes on the press and
+    // does not come back on the release.
+    await select()
+    await shown()
+    await page.click("#probe")
+    await page.waitForTimeout(50)
+    expect(await float()).toBe(false)
+    expect(await page.evaluate(() => getSelection()!.isCollapsed)).toBe(false)
+
+    // Escape, keeping the selection.
+    await select()
+    await shown()
+    await page.keyboard.press("Escape")
+    expect(await float()).toBe(false)
+
+    // The selection going away without any pointer, as a script or a
+    // touch handle does it.
+    await select()
+    await shown()
+    await page.evaluate(() => getSelection()!.removeAllRanges())
+    await expect.poll(float).toBe(false)
+
+    // A press elsewhere hides it before the release.
+    await select()
+    await shown()
+    const box = (await page.locator("main li").first().boundingBox())!
+    await page.mouse.move(box.x + 4, box.y + 4)
+    await page.mouse.down()
+    expect(await float()).toBe(false)
+    await page.mouse.up()
+
+    // Keyboard: Tab reaches the button, Enter opens the composer, Escape
+    // closes it, and the button stays gone.
+    await select()
+    await shown()
+    await page.keyboard.press("Tab")
+    expect(
+      await page.evaluate(() =>
+        document.activeElement?.classList.contains("cudoc-ann-float"),
+      ),
+    ).toBe(true)
+    expect(await float()).toBe(true)
+    await page.keyboard.press("Enter")
+    expect(
+      await page.evaluate(
+        () =>
+          !document
+            .querySelector(".cudoc-ann-composer")!
+            .hasAttribute("hidden"),
+      ),
+    ).toBe(true)
+    await page.keyboard.press("Escape")
+    await page.waitForTimeout(50)
+    expect(
+      await page.evaluate(() => ({
+        composer: !document
+          .querySelector(".cudoc-ann-composer")!
+          .hasAttribute("hidden"),
+        float: !document
+          .querySelector(".cudoc-ann-float")!
+          .hasAttribute("hidden"),
+      })),
+    ).toEqual({ composer: false, float: false })
+
+    // Touch: no release in the text, so the button follows the settled
+    // selection, and leaves when it collapses.
+    await page.evaluate(() => getSelection()!.removeAllRanges())
+    await select("touch", false)
+    await shown()
+    await page.evaluate(() => getSelection()!.collapseToStart())
+    await expect.poll(float).toBe(false)
   }, 60_000)
 
   it("keeps a note whose quote is gone, marked as not found", async () => {
@@ -655,6 +783,133 @@ suite("review notes in the browser", () => {
     expect(await page.evaluate(() => window.cudocAnnotations.list())).toEqual(
       [],
     )
+  }, 60_000)
+
+  it("loads a saved page larger than a notes file may be", async () => {
+    await openFresh()
+    await page.evaluate(() =>
+      window.cudocAnnotations.create("Second item", "Carried in a big copy."),
+    )
+    const copy = await page.evaluate(() =>
+      window.cudocAnnotations.embeddedCopy(),
+    )
+    // A standalone page carries its pictures: well over 2 MiB around the notes.
+    const big = copy.replace(
+      "<main",
+      `<img alt="" src="data:image/png;base64,${"A".repeat(3 * 1024 * 1024)}"><main`,
+    )
+    await openFresh()
+    expect(await page.evaluate(() => window.cudocAnnotations.list())).toEqual(
+      [],
+    )
+    await page.evaluate(() =>
+      (document.querySelector(".cudoc-ann-toggle") as HTMLElement).click(),
+    )
+    await page.setInputFiles(".cudoc-ann-file", {
+      name: "index.annotated.html",
+      mimeType: "text/html",
+      buffer: Buffer.from(big),
+    })
+    await expect
+      .poll(() => page.evaluate(() => window.cudocAnnotations.list().length))
+      .toBe(1)
+  }, 60_000)
+
+  it("composes an issue on GitHub from a hosted review, after saying what leaves", async () => {
+    const hosted = path.join(root, "hosted")
+    buildSite({
+      sourceRoot: path.join(root, "docs"),
+      outDir: hosted,
+      libraryDir: path.join(root, "hosted-library"),
+      title: "Demo",
+      mode: "annotate",
+      annotate: {
+        target: "hosted",
+        reviewId: "demo-review",
+        inbox: {
+          github: {
+            repo: "owner/name",
+            template: "review.yml",
+            field: "notes",
+          },
+        },
+      },
+    })
+    await page.goto("about:blank")
+    await page.goto(pathToFileURL(path.join(hosted, "index.html")).href)
+    await page.waitForFunction(
+      () => typeof window.cudocAnnotations === "object",
+    )
+    await page.evaluate(() => {
+      localStorage.clear()
+      ;(window as unknown as { opened: string[] }).opened = []
+      window.open = ((url: string) => {
+        ;(window as unknown as { opened: string[] }).opened.push(url)
+        return null
+      }) as typeof window.open
+      ;(document.querySelector(".cudoc-ann-toggle") as HTMLElement).click()
+    })
+    // Nothing to send yet.
+    await page.click(".cudoc-ann-github")
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => document.querySelector(".cudoc-ann-message")!.textContent,
+        ),
+      )
+      .toMatch(/no notes to send|보낼 메모가 없습니다/)
+    await page.evaluate(() =>
+      window.cudocAnnotations.create(
+        "installer before anything",
+        "Reorder this.",
+      ),
+    )
+    await page.click(".cudoc-ann-github")
+    // The notice comes first, in the panel; nothing opens until the reader agrees.
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => document.querySelector(".cudoc-ann-token")!.textContent,
+        ),
+      )
+      .toMatch(/GitHub/)
+    expect(
+      await page.evaluate(
+        () => (window as unknown as { opened: string[] }).opened,
+      ),
+    ).toEqual([])
+    await page.click(".cudoc-ann-github-continue")
+    const [opened] = await page.evaluate(
+      () => (window as unknown as { opened: string[] }).opened,
+    )
+    const url = new URL(opened!)
+    expect(url.origin + url.pathname).toBe(
+      "https://github.com/owner/name/issues/new",
+    )
+    expect(url.searchParams.get("template")).toBe("review.yml")
+    expect(url.searchParams.get("notes")).toMatch(/^#cudoc-notes=[jz]\./)
+    // Opening the page is not submitting it: the note stays.
+    expect(
+      await page.evaluate(() => window.cudocAnnotations.list().length),
+    ).toBe(1)
+
+    // Too much for an address: the notes leave as a file instead.
+    await page.evaluate(() => {
+      let seed = 7
+      const noise = () =>
+        Array.from({ length: 900 }, () => {
+          seed = (seed * 48271) % 2147483647
+          return String.fromCharCode(33 + (seed % 90))
+        }).join("")
+      for (let i = 0; i < 12; i++)
+        window.cudocAnnotations.create("installer before anything", noise())
+    })
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.click(".cudoc-ann-github"),
+    ])
+    expect(download.suggestedFilename()).toBe("index.annotations.json")
+    await page.evaluate(() => localStorage.clear())
   }, 60_000)
 
   it("logged no errors along the way", () => {

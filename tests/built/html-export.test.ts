@@ -13,7 +13,7 @@ import path from "node:path"
 import { describe, it, expect, beforeAll, afterAll } from "vitest"
 import { parse } from "node-html-parser"
 import { loadLibrary } from "@cudoment/cudoc/node/library"
-import { buildSite } from "cudoc-export"
+import { buildSite, type SiteResult } from "cudoc-export"
 import { BUILT_HOSTS, example, snapshot } from "./outputs.js"
 
 const DEPLOYMENT = "https://docs.example.com/project/"
@@ -119,6 +119,48 @@ for (const host of BUILT_HOSTS.filter((h) => h.name !== "export")) {
         })
       })
     }
+
+    describe("mode: standalone", () => {
+      let result: SiteResult
+      let page: ReturnType<typeof parse>
+
+      beforeAll(() => {
+        const outDir = path.join(temporary, `${host.name}-standalone`)
+        result = buildSite({
+          sourceRoot: path.join(site, host.sourceDir),
+          library: libraryDir,
+          outDir,
+          mode: "standalone",
+        })
+        page = parse(
+          fs.readFileSync(path.join(outDir, "portable.html"), "utf8"),
+        )
+      })
+
+      it("carries its stylesheet and images, and writes nothing beside its pages", () => {
+        expect(page.querySelectorAll("link")).toHaveLength(0)
+        expect(page.querySelector("head style")?.text).toContain("--canvas")
+        expect(result.files.every((file) => file.endsWith(".html"))).toBe(true)
+        for (const img of page.querySelectorAll("img"))
+          expect(img.getAttribute("src"), `${host.name}: image`).toMatch(
+            /^(?:data:|https?:)/,
+          )
+        expect(
+          result.dependencies.filter((need) => need.kind !== "remote"),
+          `${host.name}: what a page needs beside it`,
+        ).toEqual([])
+      })
+
+      it("renders the same document as the site", () => {
+        expect(
+          page.querySelector("[data-callout]")?.getAttribute("data-callout"),
+        ).toBe("warning")
+        expect(page.querySelectorAll("main table")).toHaveLength(2)
+        expect(
+          page.querySelectorAll("em").some((node) => node.text === "adapted"),
+        ).toBe(true)
+      })
+    })
 
     it("left the library, the sources and the host build unchanged", () => {
       expect(snapshot(libraryDir), `${host.name}: shared library`).toEqual(

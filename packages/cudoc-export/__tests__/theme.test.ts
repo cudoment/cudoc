@@ -137,7 +137,12 @@ describe("buildSite with themeSwitch", () => {
           )
           expect(html).not.toContain("defer")
           expect(html.match(/http-equiv/g)).toHaveLength(1)
-          expect(html).not.toContain("data-cudoc-")
+          // The control's words, in the page's language, are the one data
+          // attribute the theme adds.
+          expect(html).toContain(
+            '<html lang="en" data-cudoc-ui="{&#x22;theme&#x22;:&#x22;Theme&#x22;,&#x22;system&#x22;:&#x22;System&#x22;,&#x22;light&#x22;:&#x22;Light&#x22;,&#x22;dark&#x22;:&#x22;Dark&#x22;}">',
+          )
+          expect(html.match(/data-cudoc-/g)).toHaveLength(1)
         }
         expect(sha256(path.join(s.outDir, THEME_SCRIPT))).toBe(
           sha256(themeRuntimeFile()),
@@ -153,7 +158,11 @@ describe("buildSite with themeSwitch", () => {
   withScript(
     "shares one policy meta with the annotation runtime and lists the file it wrote",
     async () => {
-      const s = site({ themeSwitch: true, annotations: true })
+      const s = site({
+        themeSwitch: true,
+        mode: "annotate",
+        annotate: { target: "hosted", reviewId: "demo" },
+      })
       try {
         s.build()
         const html = s.read("index.html")
