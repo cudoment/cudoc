@@ -69,7 +69,12 @@ import { fromHtml } from "hast-util-from-html"
 import type { Root as HastRoot, RootContent as HastContent } from "hast"
 import type { Root } from "mdast"
 import { capturedImage, type DocumentNode } from "@cudoment/cudoc/document"
-import { isPageBreak } from "@cudoment/cudoc/paged"
+import {
+  TREE_PRINT_ATTRIBUTE,
+  isPageBreak,
+  isTree,
+  treePrintDepth,
+} from "@cudoment/cudoc/paged"
 import {
   CALLOUT_PLAIN_STYLE,
   CALLOUT_PLAIN_TITLE_STYLE,
@@ -1206,6 +1211,36 @@ function listBlocks(
   return blocks
 }
 
+/**
+ * A tree embed as the nested list it prints as: each item's summary line as
+ * its own paragraph, its children as a list under it, and the levels past
+ * the embed's `print` left out. The print HTML reads a tree the same way.
+ */
+function printedTree(node: DocumentNode): DocumentNode {
+  const limit = treePrintDepth(node.data?.hProperties?.[TREE_PRINT_ATTRIBUTE])
+  const flatten = (list: DocumentNode, level: number): DocumentNode => ({
+    ...list,
+    children: (list.children ?? []).map((item) => ({
+      ...item,
+      children: (item.children ?? []).flatMap((child) => {
+        if (hName(child) !== "details") return [child]
+        const [summary, ...rest] = child.children ?? []
+        return [
+          ...(summary
+            ? [{ type: "paragraph", children: summary.children ?? [] }]
+            : []),
+          ...(level < limit
+            ? rest
+                .filter((nested) => nested.type === "list")
+                .map((nested) => flatten(nested, level + 1))
+            : []),
+        ]
+      }),
+    })),
+  })
+  return flatten(node, 1)
+}
+
 function calloutBlocks(
   node: DocumentNode,
   context: Context,
@@ -1340,6 +1375,7 @@ function block(
     return [paragraph]
   }
   if (node.data?.cudoc?.kind === "callout") return calloutBlocks(node, context)
+  if (isTree(node)) return listBlocks(printedTree(node), context, style)
 
   // `hName` before `node.type`: a lowered `<table>` is a `blockquote`.
   const tag = hName(node)

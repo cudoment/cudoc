@@ -18,6 +18,10 @@ import { Paragraph, TextRun } from "docx"
 import type { DocumentNode } from "@cudoment/cudoc/document"
 import { compileDocument } from "@cudoment/cudoc/markdown"
 import {
+  buildEmbedTree,
+  type TreeNode,
+} from "@cudoment/cudoc/node/resolve-embed"
+import {
   buildDocx,
   bookmarkName,
   type DocxDiagnostic,
@@ -1248,6 +1252,50 @@ describe("what the HTML shows that Word keeps too", () => {
     expect(text).toContain("☐ Open")
     const line = paragraphs(xml).find((p) => p.includes(">first<"))!
     expect(line).toMatch(/first<\/w:t><\/w:r><w:r><w:br\/><\/w:r>/)
+  })
+
+  it("writes a tree as a nested list down to its print level", async () => {
+    const node = (
+      name: string,
+      level: number,
+      children: TreeNode[] = [],
+    ): TreeNode => ({
+      id: name,
+      kind: "document",
+      documentId: name,
+      name,
+      title: name,
+      url: `/${name}`,
+      sourcePath: `${name}.md`,
+      level,
+      cells: [{ text: name, url: `/${name}` }, { text: `About ${name}.` }],
+      children,
+    })
+    const embed = buildEmbedTree(
+      [node("A", 1, [node("B", 2, [node("C", 3)])]), node("D", 1)],
+      { type: "tree", print: 2 },
+    )
+    const { document: xml } = await archive([
+      document({
+        tree: {
+          type: "root",
+          children: [...compile("# Map\n").children, ...embed.children],
+        } as Root,
+      }),
+    ])
+    const level = (text: string) => {
+      const found = paragraphs(xml).find((p) => p.includes(text))
+      return found?.match(/<w:ilvl w:val="(\d+)"\/>/)?.[1]
+    }
+    // The site's fold is gone: every line is a list item at its own level.
+    expect([level("About A."), level("About B."), level("About D.")]).toEqual([
+      "0",
+      "1",
+      "0",
+    ])
+    expect(xml).not.toContain("CudocDetailsSummary")
+    // C is past print: 2.
+    expect(runs(xml).join("")).not.toContain("About C.")
   })
 
   it("reports a footnote table it drops and writes a script link as text", async () => {

@@ -135,6 +135,37 @@ describe("print-ready HTML", () => {
       expect(element.getAttribute("open")).not.toBeUndefined()
   })
 
+  it("writes a tree out as a nested list down to its print level", () => {
+    const { sourceRoot, outDir, libraryDir } = workspace({
+      "map.md":
+        "# Map\n\n```cudoc-embed\nsources: [/notes/]\nrender:\n  type: tree\n  open: 0\n  print: 2\n```\n",
+      "notes/a.md": "# A\n\nAbout A.\n",
+      "notes/a/b.md": "# B\n\nAbout B.\n",
+      "notes/a/b/c.md": "# C\n\nAbout C.\n",
+    })
+    buildSite({ sourceRoot, outDir, libraryDir })
+    // The site keeps the folded tree, every level closed.
+    const site = parse(read(outDir, "map.html")).querySelector(".cudoc-tree")!
+    expect(site.querySelectorAll("details")).toHaveLength(2)
+    expect(site.querySelectorAll("details[open]")).toHaveLength(0)
+    expect(site.text).toContain("About C.")
+    // Paper has no fold: the line is the item's text and two levels show.
+    const tree = parse(read(outDir, "map.print.html")).querySelector(
+      ".cudoc-tree",
+    )!
+    expect(tree.querySelectorAll("details, summary")).toHaveLength(0)
+    const outer = tree.querySelector(":scope > li")!
+    expect(outer.text).toContain("A · About A.")
+    expect(outer.querySelector("ul > li")!.text.trim()).toBe("B · About B.")
+    expect(tree.text).not.toContain("About C.")
+    // The volume prints it the same way.
+    const volume = parse(read(outDir, VOLUME_FILE)).querySelector(
+      ".cudoc-tree",
+    )!
+    expect(volume.querySelectorAll("details")).toHaveLength(0)
+    expect(volume.text).not.toContain("About C.")
+  })
+
   it("keeps the authored page break and drops nothing else", () => {
     const { sourceRoot, outDir, libraryDir } = workspace()
     buildSite({ sourceRoot, outDir, libraryDir })
@@ -502,6 +533,21 @@ describe("a link to a private document", () => {
         (await zip.file("word/_rels/document.xml.rels")?.async("string")) ?? "",
     }
   }
+
+  it("is left off a tree on a public page, so the export goes through", () => {
+    const { sourceRoot, outDir, libraryDir } = workspace({
+      "map.md":
+        "# Map\n\n```cudoc-embed\nsources: [/team/]\nrender: { type: tree }\n```\n",
+      "team/open.md": "# Open\n\nShared plans.\n",
+      "team/closed.md": "# Closed\n\nPrivate plans.\n",
+    })
+    // A folder would otherwise put a link to the private document on the
+    // page, which the relative policy cannot write.
+    buildSite({ sourceRoot, outDir, libraryDir, private: ["team/closed.md"] })
+    const tree = parse(read(outDir, "map.html")).querySelector(".cudoc-tree")!
+    expect(tree.text).toContain("Shared plans.")
+    expect(tree.text).not.toContain("Closed")
+  })
 
   it("names the page on the host in every output under the host policy", async () => {
     const { sourceRoot, outDir, libraryDir } = workspace(FILES)

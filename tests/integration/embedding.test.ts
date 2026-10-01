@@ -24,7 +24,9 @@ import { buildDocumentsAsync } from "@cudoment/cudoc/node/library"
 import type { Library } from "@cudoment/cudoc/node/library"
 import {
   resolveEmbedAsync,
+  resolveTree,
   parseEmbedSpec,
+  type TreeNode,
 } from "@cudoment/cudoc/node/resolve-embed"
 import { HOST_CASES, FIXTURES, OPTIONS } from "./hosts.js"
 
@@ -45,7 +47,7 @@ type Shape = {
 }
 
 /**
- * The ten shapes the showcase document uses, stated independently of it so a
+ * The eleven shapes the showcase document uses, stated independently of it so a
  * failure names the shape rather than a line of fixture.
  */
 const SHAPES: Shape[] = [
@@ -135,6 +137,41 @@ const SHAPES: Shape[] = [
       expect(String(link?.url)).toMatch(/#limits$/)
       const parent = walk(cells(rows[2]!)[1]!).find((n) => n.type === "link")
       expect(String(parent?.url)).toMatch(/#authentication$/)
+    },
+  },
+  {
+    name: "a heading tree",
+    spec: "sources: [reference.md]\nrender:\n  type: tree\n  headings: 2\n  print: 2\n",
+    expect: (nodes) => {
+      const outer = nodes.find((n) => n.data?.cudoc?.kind === "tree")!
+      expect(outer.data?.hProperties).toEqual({
+        className: ["cudoc-tree"],
+        "data-cudoc-print": 2,
+      })
+      // Every item with children folds them in a details whose summary is
+      // its line; the document's own, at the first level, starts open.
+      const folds = nodes.filter((n) => n.data?.hName === "details")
+      const lines = folds.map((fold) => nodeText(fold.children![0]!))
+      expect(lines).toEqual([
+        "Deep reference · Sections here exist to be selected, summarized and rewritten by the showcase document.",
+        expect.stringMatching(/^Limits · /),
+        expect.stringMatching(/^Authentication · Send an access token/),
+      ])
+      expect(folds.map((fold) => fold.data?.hProperties?.open)).toEqual([
+        true,
+        undefined,
+        undefined,
+      ])
+      // The leaves, in document order under their headings.
+      const leaves = nodes
+        .filter((n) => n.type === "listItem" && n.data?.hProperties)
+        .map((n) => nodeText(n).split(" · ")[0])
+      expect(leaves).toEqual(["Retry", "Backoff", "Scopes", "Glossary"])
+      // A line links to its node in the source document.
+      const link = nodes.find(
+        (n) => n.type === "link" && nodeText(n) === "Backoff",
+      )
+      expect(String(link?.url)).toMatch(/reference#backoff$/)
     },
   },
   {
@@ -426,6 +463,100 @@ for (const host of HOST_CASES)
       })
     })
   }
+
+/**
+ * A tree over folders: `X.md` above the folder `X/`, a folder's `index.md`
+ * standing for it, and a folder nothing stands for passed through. The
+ * hierarchy is read from library paths, which each host derives from the
+ * same files, and the lines from what each host compiled.
+ */
+const FOLDERS: Record<string, string> = {
+  "index.md": "# Home\n",
+  "guide/index.md": "# Guide\n\nGuide summary.\n",
+  "guide/install.md": "# Install\n\nInstall summary.\n",
+  "notes/Alpha.md": "# Alpha\n\nAlpha summary.\n",
+  "notes/Alpha/Beta.md": "# Beta\n\nBeta summary.\n",
+  "notes/archive/Old.md": "# Old\n\nOld summary.\n",
+}
+
+/** The outline as `level title: summary` lines, depth first. */
+const outline = (nodes: TreeNode[]): string[] =>
+  nodes.flatMap((node) => [
+    `${node.level} ${node.cells.map((cell) => cell.text).join(": ")}`,
+    ...outline(node.children),
+  ])
+
+for (const host of HOST_CASES) {
+  const suite = host.compiler ? describe : describe.skip
+  suite(`${host.name}: trees over folders`, () => {
+    let workspace: string
+    let library: Library
+
+    beforeAll(async () => {
+      workspace = fs.mkdtempSync(path.join(os.tmpdir(), "cudoc-tree-"))
+      const source = path.join(workspace, "docs")
+      for (const [name, text] of Object.entries(FOLDERS)) {
+        fs.mkdirSync(path.dirname(path.join(source, name)), { recursive: true })
+        fs.writeFileSync(path.join(source, name), text)
+      }
+      const compile = await host.compiler!()
+      library = await buildDocumentsAsync({
+        ...OPTIONS,
+        sourceRoot: source,
+        outDir: path.join(workspace, "library"),
+        host: host.host,
+        compilerId: `${host.name}-tree`,
+        async compiler(text, context) {
+          return compile(text, {
+            ...context,
+            options: { ...context.options, format: "md" },
+          })
+        },
+      })
+    }, 60_000)
+
+    afterAll(() => fs.rmSync(workspace, { recursive: true, force: true }))
+
+    it("nests documents by folder and sorts each level by title", () => {
+      const nodes = resolveTree(
+        library,
+        parseEmbedSpec("sources: [/]\nrender: { type: tree }\n"),
+        { documentId: "index" },
+      )
+      expect(outline(nodes)).toEqual([
+        "1 Alpha: Alpha summary.",
+        "2 Beta: Beta summary.",
+        "1 Guide: Guide summary.",
+        "2 Install: Install summary.",
+        "1 Old: Old summary.",
+      ])
+      expect(nodes.map((node) => node.sourcePath)).toEqual([
+        "notes/Alpha.md",
+        "guide/index.md",
+        "notes/archive/Old.md",
+      ])
+    })
+
+    it("starts below a folder, in the order given", async () => {
+      const resolved = await resolveEmbedAsync(
+        library,
+        parseEmbedSpec(
+          "sources: [/notes/]\nrender:\n  type: tree\n  order: [Old, ...]\n",
+        ),
+        { documentId: "index", prefix: "case-" },
+      )
+      const summaries = walk(resolved as unknown as DocumentNode)
+        .filter((n) => n.type === "listItem")
+        .map((n) => nodeText(n).split(" · ")[0])
+      expect(summaries).toEqual(["Old", "Alpha", "Beta"])
+      expect(resolved.data?.cudocDependencies).toEqual([
+        "notes/Alpha",
+        "notes/Alpha/Beta",
+        "notes/archive/Old",
+      ])
+    })
+  })
+}
 
 describe("embed shape coverage", () => {
   it("exercises every shape the showcase document uses", () => {

@@ -41,7 +41,7 @@ cudoc에는 Node.js 20 이상이 필요하며 모든 패키지는 ESM입니다. 
 - **VitePress 개발 서버.** VitePress 1은 Vite 5에서 실행되는데, Vite 5의 개발 서버에는 Windows에서 `server.fs.deny`를 우회할 수 있는 문제를 비롯한 보안 공지가 나와 있으며 이를 고친 Vite 5 릴리스는 없습니다. 이 공지는 `vitepress dev`에만 해당하고 `vitepress build`가 만드는 사이트에는 해당하지 않습니다. 개발 서버는 자기 컴퓨터나 신뢰할 수 있는 네트워크에서만 실행하십시오. 아직 보고되는 공지와 남겨 둔 이유는 [예제 문서](../examples/README.md#build-an-example)에 정리했습니다.
 - **VitePress와 Eleventy.** 플러그인은 설정을 평가할 때 불러온 라이브러리를 계속 들고 있으므로, 다시 수집한 뒤에는 개발 서버를 재시작합니다([VitePress](./vitepress.ko.md#6단계--빌드-전마다-수집-실행), [Eleventy](./eleventy.ko.md#7단계--빌드-전마다-수집-실행)).
 
-cudoc은 유의적 버전을 따르며, 여덟 패키지가 모두 같은 버전을 씁니다. 호환을 판단하는 대상은 [API 레퍼런스](./api-reference/README.ko.md)가 문서화한 범위입니다. 공개 import와 그 시그니처, 옵션과 기본값, Markdown 문법, `cudoc`과 `cudoc-export` 명령, 저장 형식이 여기에 해당합니다. 1.0.0 전에는 수 버전이 이 범위를 모두 유지하고, 부 버전은 이 범위를 바꿀 수 있으며 무엇을 고쳐야 하는지는 릴리스 노트에 적습니다. 패키지가 export하지 않는 모듈은 처음부터 이 범위에 들지 않습니다.
+cudoc은 유의적 버전을 따르며, 여덟 패키지가 모두 같은 버전을 씁니다. 호환을 판단하는 대상은 [API 레퍼런스](./api-reference/README.ko.md)가 문서화한 범위입니다. 공개 import와 그 시그니처, 옵션과 기본값, Markdown 문법, `cudoc`과 `cudoc-export` 명령, 저장 형식이 여기에 해당합니다. 1.0.0 전에는 수 버전이 이 범위를 모두 유지하고, 부 버전은 이 범위를 바꿀 수 있으며 무엇을 고쳐야 하는지는 [릴리스 노트](./release-notes.ko.md)에 적습니다. 패키지가 export하지 않는 모듈은 처음부터 이 범위에 들지 않습니다.
 
 결함은 [github.com/cudoment/cudoc/issues](https://github.com/cudoment/cudoc/issues)에 보고해 주십시오. 신고 양식이 호스트와 그 버전, cudoc 버전, 문제를 보여 주는 가장 작은 문서를 묻습니다.
 
@@ -79,7 +79,7 @@ cudoc-vitepress: markdown-it hosts compile Markdown .md documents, not React .md
 | 가이드                           | 다루는 내용                                                                  |
 | -------------------------------- | ---------------------------------------------------------------------------- |
 | [Markdown 문법](./syntax.ko.md)  | 앵커, 배지, 콜아웃, 표 셀 안의 목록, 열 배치, 문법 모드                      |
-| [문서 임베딩](./embedding.ko.md) | 수집, 절 선택, 요약 표, 찾기·바꾸기, 갱신 규칙                               |
+| [문서 임베딩](./embedding.ko.md) | 수집, 절 선택, 요약 표, 문서 트리, 찾기·바꾸기, 갱신 규칙                    |
 | [내보내기](./export.ko.md)       | 독립 HTML·PDF·Word, 호스트와 함께 또는 단독으로; 하이퍼링크 정책, 자산, 설정 |
 | [참조 검사](./check.ko.md)       | 문서 집합 전체에서 깨진 링크·앵커·이미지·임베드 찾기                         |
 | [AST 데이터셋](./dataset.ko.md)  | 컴파일된 문서를 인덱싱이나 다른 소비자를 위한 AST JSON으로 걸러내기          |

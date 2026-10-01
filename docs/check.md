@@ -46,7 +46,7 @@ Errors exit `1`. Warnings do not, unless you pass `--strict`. Without a collecte
 | `missing-document`            | error    | A local link names no collected document and no file                                                     |
 | `missing-anchor`              | error    | The document exists; that anchor does not                                                                |
 | `missing-asset`               | error    | An image has no file under any collection root or asset directory                                        |
-| `missing-embed-source`        | error    | An embed names a document that was not collected                                                         |
+| `missing-embed-source`        | error    | An embed names a document that was not collected, or a tree a folder with no document it can list        |
 | `missing-embed-anchor`        | error    | The embed source exists; that section, or any selected, does not                                         |
 | `duplicate-anchor`            | error    | Two headings in one document claim the same anchor                                                       |
 | `empty-anchor`                | error    | An anchor marker with no id, left in the heading text                                                    |
@@ -58,6 +58,7 @@ Errors exit `1`. Warnings do not, unless you pass `--strict`. Without a collecte
 | `imported-embed-component`    | error    | An embed copies a component its source file imports for itself                                           |
 | `unstable-anchor-link`        | warning  | A link depends on a generated anchor that document order can move                                        |
 | `unportable-embed-component`  | warning  | An embed copies a component that standalone HTML cannot render                                           |
+| `unmatched-tree-order`        | warning  | A tree's `order` names no line of its first level                                                        |
 
 External URLs are out of scope. Checking whether `https://example.com` is reachable is a network job with different failure modes, and it belongs in a separate tool. A path on your own domain that another application serves, such as `/sdk/js/start` beside a documentation site, is out of scope too once you list its prefix in `externalPaths`; without that it is reported as a missing document, because the checker has no other way to know the page exists.
 
@@ -132,6 +133,19 @@ guide.md
 ```
 
 Only columns written as mappings are reported. The shorthand `summary` of a section that opens with a table is legitimately blank. A column naming an extractor the configuration does not register is an `invalid-embed-spec` error instead.
+
+## The unmatched-order warning
+
+A [tree](./embedding.md#draw-a-tree-of-documents)'s `order` puts the names it lists first. An entry that names no line of the first level moves nothing, and the tree silently stays in title order, so the checker names the entry and the titles it could have meant:
+
+```
+guides/index.md
+  9:11  warning unmatched-tree-order Overveiw
+        order names "Overveiw", which is not on the tree's first level, so it moves nothing. An entry matches a document's file name or a line's title.
+        available: "Install", "Overview"
+```
+
+An entry matches a document's file name without the extension, or a line's title, compared in Unicode NFC. `...` is never reported.
 
 ## Malformed embed blocks
 

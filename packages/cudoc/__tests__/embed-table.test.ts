@@ -71,6 +71,7 @@ const rowsOf = (tree: unknown) =>
 const build = (
   extractors?: Record<string, TableExtractor>,
   files: Record<string, string> = { "api.md": API, "index.md": "# Index\n" },
+  routes?: Record<string, string>,
 ): Library => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cudoc-table-"))
   temporary.push(root)
@@ -83,6 +84,7 @@ const build = (
     sourceRoot: docs,
     outDir: path.join(root, "library"),
     ...(extractors ? { extractors } : {}),
+    ...(routes ? { routes } : {}),
   })
 }
 
@@ -216,6 +218,37 @@ describe("column definitions", () => {
     expect(() =>
       build({ reference: { version: "", extract: () => "x" } }),
     ).toThrow(/needs a version string/)
+  })
+
+  it("keeps a table's links through a copy, whatever the routes", () => {
+    // A's route is B's path, so a link read again as a source path would
+    // name B and turn into B's route. An extractor writes its address for
+    // the page the table lands on, so the copy keeps that too.
+    const library = build(
+      {
+        to: {
+          version: "1",
+          extract: () => ({ text: "elsewhere", url: "/b" }),
+        },
+      },
+      {
+        "index.md": "# Index\n",
+        "a.md": "# A\n\nA summary.\n",
+        "b.md": "# B\n\nB summary.\n",
+        "list.md":
+          "# List\n\n```cudoc-embed\nsources: [a.md]\nrender:\n  type: table\n  columns: [link, { value: { extractor: to } }]\n```\n",
+      },
+      { a: "/b", b: "/c" },
+    )
+    const links = (source: string) =>
+      rowsOf(
+        resolveEmbed(library, parseEmbedSpec(`sources: [${source}]\n`), {
+          documentId: "index",
+        }),
+      )
+        .slice(1)
+        .map((row) => row.map((cell) => cell.url))
+    expect(links("list.md")).toEqual([["/b", "/b"]])
   })
 
   it("refuses an extractor the collection did not register", () => {
