@@ -19,7 +19,9 @@ const result = buildSite({
 })
 ```
 
-The CLI equivalent is `npx cudoc-export build docs --out-dir site`. Open `site/index.html` and share the whole directory. The builder handles collection, embeds, local assets, navigation, TOC and code highlighting. Use a nonexistent output path initially; existing output must be owned by cudoc. The generated shell needs no JavaScript or CDN (unless `annotations: true` adds the review-note script or `themeSwitch: true` the theme button's script; both are local files that make no network request), and does not execute React components.
+The CLI equivalent is `npx cudoc-export build docs --out-dir site`. Open `site/index.html` and share the whole directory. The builder handles collection, embeds, local assets, navigation, TOC and code highlighting. Use a nonexistent output path initially; existing output must be owned by cudoc. The generated shell needs no JavaScript or CDN (unless `themeSwitch: true` adds the theme menu's script; it is a local file that makes no network request), and does not execute React components.
+
+`navigation` (a YAML file or a list) decides what the site lists and publishes, `locales` adds languages found by file suffix, and `home`, `header`, `toc`, `css`, `sourceLinks` and `mounts` shape the rest. `mode: "standalone"` writes each document as one HTML file that carries its styles and pictures, to send on its own, and `mode: "annotate"` writes pages that collect review notes, as single files or, with `annotate.target: "hosted"`, as a site with a GitHub issue form as its inbox.
 
 To export alongside an existing site, first run that host's collector and embed preparation, then reuse its library:
 
@@ -59,7 +61,7 @@ Choose `host`, `cudoc` or `both` independently for `headingAnchor`, `badge`, `ta
 
 ## See the output
 
-The repository keeps one finished export, a six-document API handbook built by [`showcase.config.mjs`](https://github.com/cudoment/cudoc/blob/main/examples/export/showcase.config.mjs) from [these Markdown sources](https://github.com/cudoment/cudoc/tree/main/examples/export/showcase), so each format can be opened before anything is installed:
+The repository keeps finished exports of a six-document API handbook, built by [`showcase.config.mjs`](https://github.com/cudoment/cudoc/blob/main/examples/export/showcase.config.mjs) and three configurations beside it from [these Markdown sources](https://github.com/cudoment/cudoc/tree/main/examples/export/showcase), so each output can be opened before anything is installed. The [documentation site](https://cudoment.github.io/cudoc/index.html), itself exported by `cudoc-export`, serves the [site](https://cudoment.github.io/cudoc/showcase/index.html), a [standalone page](https://cudoment.github.io/cudoc/samples/standalone/getting-started.html) and a [page to review](https://cudoment.github.io/cudoc/samples/annotate/getting-started.html); the other formats are in the repository:
 
 | Format           | One document                                                                                                                           | Bound volume                                                                                                                                   |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -68,7 +70,7 @@ The repository keeps one finished export, a six-document API handbook built by [
 | PDF              | [`getting-started.pdf`](https://github.com/cudoment/cudoc/blob/main/examples/export/showcase-output/getting-started.pdf)               | [`northlight-handbook.pdf`](https://github.com/cudoment/cudoc/blob/main/examples/export/showcase-output/northlight-handbook.pdf)               |
 | Word             | [`getting-started.docx`](https://github.com/cudoment/cudoc/blob/main/examples/export/showcase-output/getting-started.docx)             | [`northlight-handbook.docx`](https://github.com/cudoment/cudoc/blob/main/examples/export/showcase-output/northlight-handbook.docx)             |
 
-The PDFs open in GitHub's viewer and the Word files download; the HTML files show as source there and open as pages from a clone of the repository. [What the sample demonstrates](https://github.com/cudoment/cudoc/blob/main/docs/export.md#a-complete-example) is described in the usage guide.
+The PDFs open in GitHub's viewer and the Word files download; the HTML files show as source there and open as pages on the documentation site. [What the samples demonstrate](https://github.com/cudoment/cudoc/blob/main/docs/export.md#complete-examples) is described in the usage guide.
 
 - [Usage guide](https://github.com/cudoment/cudoc/tree/main/docs/export.md) · [한국어 가이드](https://github.com/cudoment/cudoc/tree/main/docs/export.ko.md)
 - [Markdown syntax](https://github.com/cudoment/cudoc/tree/main/docs/syntax.md)

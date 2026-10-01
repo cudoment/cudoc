@@ -1,0 +1,9 @@
+/* Linked after the built-in stylesheet on the site, and carried inside the
+   page on a standalone one. Everything that should reach the PDF and Word
+   as well goes in the configuration's tokens instead. */
+header {
+  background-image: url("stripe.svg");
+  background-repeat: repeat-x;
+  background-position: bottom;
+  background-size: auto 3px;
+}

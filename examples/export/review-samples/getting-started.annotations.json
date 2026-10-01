@@ -1,0 +1,154 @@
+{
+  "@context": "http://www.w3.org/ns/anno.jsonld",
+  "type": "AnnotationCollection",
+  "generator": "cudoc-export 0.8.0",
+  "total": 3,
+  "items": [
+    {
+      "@context": "http://www.w3.org/ns/anno.jsonld",
+      "type": "Annotation",
+      "id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+      "created": "2026-09-30T09:12:00.000Z",
+      "modified": "2026-09-30T09:12:00.000Z",
+      "motivation": "commenting",
+      "body": [
+        {
+          "type": "TextualBody",
+          "value": "Name a secret manager we support, or link the list.",
+          "format": "text/plain",
+          "purpose": "commenting"
+        }
+      ],
+      "target": {
+        "source": "getting-started",
+        "selector": [
+          {
+            "type": "TextQuoteSelector",
+            "exact": "Store the key in your secret manager",
+            "prefix": "le\n\n\n\n\nRevoke\n\n\nOwner role\n\n\n\n\n\n",
+            "suffix": " and expose it to your service a"
+          },
+          {
+            "type": "TextPositionSelector",
+            "start": 1154,
+            "end": 1190
+          },
+          {
+            "type": "CssSelector",
+            "value": "[data-cudoc-block=\"requirements:391ddc1f\"]"
+          }
+        ]
+      },
+      "cudoc": {
+        "document": "getting-started",
+        "astHash": "00692da818cbb0f12580a53c66d77e36cafb0950701b9430fb2dff12d331026f",
+        "sourceHash": "ad416fddcaeda82086fce8a5c9bcda0ed3d27d91209d162e06296561c60bf52f",
+        "block": "requirements:391ddc1f",
+        "heading": "requirements",
+        "scope": "text",
+        "state": "open"
+      },
+      "creator": {
+        "type": "Person",
+        "name": "Mina"
+      }
+    },
+    {
+      "@context": "http://www.w3.org/ns/anno.jsonld",
+      "type": "Annotation",
+      "id": "urn:uuid:00000000-0000-4000-8000-000000000002",
+      "created": "2026-09-30T09:20:00.000Z",
+      "modified": "2026-09-30T09:20:00.000Z",
+      "motivation": "replying",
+      "body": [
+        {
+          "type": "TextualBody",
+          "value": "Linking the list sounds right; it changes more often than this page.",
+          "format": "text/plain",
+          "purpose": "replying"
+        }
+      ],
+      "target": {
+        "source": "getting-started",
+        "selector": [
+          {
+            "type": "TextQuoteSelector",
+            "exact": "Store the key in your secret manager",
+            "prefix": "le\n\n\n\n\nRevoke\n\n\nOwner role\n\n\n\n\n\n",
+            "suffix": " and expose it to your service a"
+          },
+          {
+            "type": "TextPositionSelector",
+            "start": 1154,
+            "end": 1190
+          },
+          {
+            "type": "CssSelector",
+            "value": "[data-cudoc-block=\"requirements:391ddc1f\"]"
+          }
+        ]
+      },
+      "cudoc": {
+        "document": "getting-started",
+        "astHash": "00692da818cbb0f12580a53c66d77e36cafb0950701b9430fb2dff12d331026f",
+        "sourceHash": "ad416fddcaeda82086fce8a5c9bcda0ed3d27d91209d162e06296561c60bf52f",
+        "block": "requirements:391ddc1f",
+        "heading": "requirements",
+        "scope": "text",
+        "state": "open",
+        "parent": "urn:uuid:00000000-0000-4000-8000-000000000001"
+      },
+      "creator": {
+        "type": "Person",
+        "name": "Mina"
+      }
+    },
+    {
+      "@context": "http://www.w3.org/ns/anno.jsonld",
+      "type": "Annotation",
+      "id": "urn:uuid:00000000-0000-4000-8000-000000000003",
+      "created": "2026-09-30T09:31:00.000Z",
+      "modified": "2026-09-30T09:31:00.000Z",
+      "motivation": "commenting",
+      "body": [
+        {
+          "type": "TextualBody",
+          "value": "Show the same request with a test key, so a reader can paste it as is.",
+          "format": "text/plain",
+          "purpose": "commenting"
+        }
+      ],
+      "target": {
+        "source": "getting-started",
+        "selector": [
+          {
+            "type": "TextQuoteSelector",
+            "exact": "curl -H \"Authorization: Bearer $NORTHLIGHT_KEY\" \\\n  \"https://api.northlight.example/v1/weather/current?station=OSL-01\""
+          },
+          {
+            "type": "TextPositionSelector",
+            "start": 1717,
+            "end": 1835
+          },
+          {
+            "type": "CssSelector",
+            "value": "[data-cudoc-block=\"request:1379b1d7\"]"
+          }
+        ]
+      },
+      "cudoc": {
+        "document": "getting-started",
+        "astHash": "00692da818cbb0f12580a53c66d77e36cafb0950701b9430fb2dff12d331026f",
+        "sourceHash": "ad416fddcaeda82086fce8a5c9bcda0ed3d27d91209d162e06296561c60bf52f",
+        "block": "request:1379b1d7",
+        "heading": "request",
+        "scope": "block",
+        "state": "open"
+      },
+      "creator": {
+        "type": "Person",
+        "name": "Mina"
+      }
+    }
+  ]
+}

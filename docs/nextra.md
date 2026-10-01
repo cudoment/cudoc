@@ -169,7 +169,7 @@ Collection has to run before Nextra does. To collect again as you write, call [`
 
 `cudoc check` reports every broken link, anchor, image and embed in one pass, and exits non-zero, so a broken reference stops the build before the site is generated. → [Reference checking](./check.md)
 
-## Step 7 — Optionally export standalone HTML
+## Step 7 — Optionally export HTML
 
 ```sh
 npm install cudoc-export
@@ -177,7 +177,7 @@ npx cudoc-export build content --library .cudoc/documents --out-dir shared-html 
   --links host --host-url https://docs.example.com/project/ --asset-dir public
 ```
 
-Note the source directory is `content`, not `docs`. Your Nextra build and its collected data are not modified. → [Standalone HTML](./export.md)
+Note the source directory is `content`, not `docs`. Your Nextra build and its collected data are not modified. → [Export](./export.md)
 
 ---
 
@@ -209,7 +209,7 @@ If you enable `both`, change it in the collector's `documentOptions` too. Suppor
 
 **Heading IDs are slugged.** Nextra runs every heading ID through its slugger, its own `[#id]` included, so an ID keeps its spelling only when it is slug-shaped already: `## Version (#v1.2)` renders as `v12`. That slugger takes the IDs in document order, so an ID that an earlier heading's text already produced, `## Setup` followed by `## Intro (#setup)`, comes out as `setup-1` here and on Docusaurus, where VitePress, Eleventy and the standalone export keep `setup` on the explicit one and number the earlier heading. Write anchors in lowercase letters, digits and hyphens, put the heading with the explicit ID before any heading whose text would make the same ID, and links to them resolve the same on every host.
 
-**Static components become document nodes; dynamic ones stay components.** A static `<Callout>` normalizes into a portable callout, which every host and the standalone export can render. A component left in an embedded section renders through Nextra's own component mapping where the copy is spliced in; standalone HTML export still needs a renderer for it, and `cudoc check` names it.
+**Static components become document nodes; dynamic ones stay components.** A static `<Callout>` normalizes into a portable callout, which every host and the HTML export can render. A component left in an embedded section renders through Nextra's own component mapping where the copy is spliced in; HTML export still needs a renderer for it, and `cudoc check` names it.
 
 **`.md` versus `.mdx`.** Authored React components belong in `.mdx`. `.md` stays Markdown, where `{value}` is literal text. → [Choosing `.md` or `.mdx`](./README.md#choosing-md-or-mdx)
 

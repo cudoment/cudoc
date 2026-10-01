@@ -25,7 +25,7 @@ Install only what your host needs. ESM, Node.js 20+. Each [usage guide](../READM
 | [`cudoc-markdown-it`](../../packages/cudoc-markdown-it/README.md) | Connect markdown-it pipelines                                             |
 | [`cudoc-vitepress`](../../packages/cudoc-vitepress/README.md)     | VitePress rendering and collection                                        |
 | [`cudoc-eleventy`](../../packages/cudoc-eleventy/README.md)       | Eleventy rendering and collection                                         |
-| [`cudoc-export`](../../packages/cudoc-export/README.md)           | Standalone HTML, PDF and Word generation                                  |
+| [`cudoc-export`](../../packages/cudoc-export/README.md)           | HTML (site, single pages, review pages), PDF and Word generation          |
 
 Next.js needs no adapter package of its own. `@next/mdx` hands over the remark pipeline directly, and there is no native heading-id or table-of-contents pass to order cudoc against, so `cudoc-remark` with `host: "next"` is the whole integration. The Docusaurus and Nextra adapters exist because those hosts do have such a pass. → [MDX hosts](./adapters.md#docusaurus-and-nextra)
 
@@ -37,7 +37,7 @@ Only the core package is scoped: `cudoc` was already taken on npm, so it publish
 - `cudoc-remark` connects a remark/MDX pipeline and inserts prepared embeds.
 - `cudoc-docusaurus` and `cudoc-nextra` configure remark ordering and native headings.
 - `cudoc-markdown-it` connects the actual Markdown-it pipeline; `cudoc-vitepress` and `cudoc-eleventy` add one host definition each.
-- `cudoc-export` generates standalone HTML, PDF and Word, either collecting Markdown itself or reusing a host's library and prepared embeds. Every format reads one set of design tokens. Exported hyperlinks can be local, deployed-host URLs or removed.
+- `cudoc-export` generates an HTML site, single HTML pages, review pages, PDF and Word, either collecting Markdown itself or reusing a host's library and prepared embeds. Every format reads one set of design tokens. Exported hyperlinks can be local, deployed-host URLs or removed.
 
 The core has no React runtime dependency. React is used by the MDX embedding runtime. Import Node-only entry points from build scripts or server code, not client components.
 
@@ -90,7 +90,7 @@ flowchart LR
 
 Syntax-only rendering does not need library storage. Cross-document embedding uses the persisted library; source replacement recompiles original source with the original configuration. Host adapters must capture actual host processing rather than assume the standalone parser produces an identical result.
 
-The same collected library can feed both the primary host and standalone HTML. HTML's `library` mode consumes prepared blocks without rerunning the host compiler or changing the shared files. See [Export input paths and link policies](./adapters.md#export).
+The same collected library can feed both the primary host and HTML export. HTML's `library` mode consumes prepared blocks without rerunning the host compiler or changing the shared files. See [Export input paths and link policies](./adapters.md#export).
 
 ## Maintenance
 

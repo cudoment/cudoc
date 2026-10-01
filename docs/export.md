@@ -2,7 +2,7 @@
 
 **English** | [한국어](./export.ko.md) · [All guides](./README.md)
 
-`cudoc-export` turns a collected document set into standalone deliverables: a static HTML site, PDF and Word, all from one collection and one set of design tokens. It is an optional additional output for cudoc's Markdown extensions and document embedding. Keep Next.js, Docusaurus, Nextra, VitePress or Eleventy as your primary documentation host and use `cudoc-export` alongside it, reusing the same collected documents and prepared embeds. You do not need to switch hosts or maintain a second document set. It can also be used on its own. The output can be deployed to a static server or opened directly from disk. No application scaffold is required.
+`cudoc-export` turns a collected document set into deliverables: an HTML site, single HTML pages that open on their own, pages that collect review notes, PDF and Word, all from one collection and one set of design tokens. It is an optional additional output for cudoc's Markdown extensions and document embedding. Keep Next.js, Docusaurus, Nextra, VitePress or Eleventy as your primary documentation host and use `cudoc-export` alongside it, reusing the same collected documents and prepared embeds. You do not need to switch hosts or maintain a second document set. It can also be used on its own. The output can be deployed to a static server or opened directly from disk. No application scaffold is required.
 
 ## Your first site, from an empty directory
 
@@ -49,17 +49,68 @@ npx cudoc-export build docs --out-dir site
 
 Open `site/index.html`. You get a styled site with navigation, a heading table of contents, and a summary table whose rows link into `reference.html`. Edit a document, run the command again, and every page that references it updates with it.
 
-Share the whole `site/` directory or deploy it to any static host. Nothing in the output needs a server, a bundler or a CDN: it opens from `file://` as readily as from a URL.
+Share the whole `site/` directory or deploy it to any static host. Nothing in the output needs a server, a bundler or a CDN: it opens from `file://` as readily as from a URL. To send one page as a single file instead, see [Three kinds of HTML](#three-kinds-of-html).
 
 The builder collects the documents, resolves embeds and writes HTML, styles and local assets. It adds navigation, a heading TOC, callouts, scrollable tables and highlighted code.
 
-## A complete example
+## Complete examples
 
-The repository carries one finished export so that every option below can be seen in its output rather than imagined: a six-document handbook for a fictional weather API under [`examples/export/showcase/`](../examples/export/showcase/), built by [`showcase.config.mjs`](../examples/export/showcase.config.mjs) into [`examples/export/showcase-output/`](../examples/export/showcase-output/). Open [`northlight-handbook.pdf`](../examples/export/showcase-output/northlight-handbook.pdf) for the bound volume of twenty-eight pages, [`northlight-handbook.docx`](../examples/export/showcase-output/northlight-handbook.docx) for the same volume in Word, [`getting-started.pdf`](../examples/export/showcase-output/getting-started.pdf) or [`getting-started.docx`](../examples/export/showcase-output/getting-started.docx) for one document on its own, and `index.html` in that directory for the site once the repository is on your disk.
+The repository carries finished exports so that every option below can be seen in its output rather than imagined. The documents are a six-document handbook for a fictional weather API under [`examples/export/showcase/`](../examples/export/showcase/), in English with Korean translations of two of them, and `npm run showcase` inside `examples/export` builds them four ways:
 
-The documents use what an author writes in Markdown: explicit anchors and badges, callouts including a registered `success` type, lists inside table cells with a layout rule that splits the long column, an embed that reads each endpoint's method and path out of the reference into a summary table on the overview page, an embedded section reworded with `replace`, a footnote, an image, request and response samples in `curl`, Node.js, Python, HTTP and SQL, a seven-column table and a `cudoc-pagebreak` fence before an appendix. The configuration turns on all three formats at both granularities, a cover image and a numbered contents page, running header and footer with a fixed `date`, printed link addresses, landscape pages for tables of six columns or more, minimum widths for description and date columns, the review-note runtime and the theme switch, and an accent colour that reaches all three outputs through `tokens`.
+| Output                                                                            | Configuration                                                       | What it shows                                                                                                                                                                                                 |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`showcase-output/`](../examples/export/showcase-output/index.html)               | [`showcase.config.mjs`](../examples/export/showcase.config.mjs)     | The site: a [navigation file](../examples/export/showcase/nav.yml), English and Korean, a header link, a stylesheet of its own and the theme menu, with the bound PDF and Word volume and each document alone |
+| [`standalone-output/`](../examples/export/standalone-output/getting-started.html) | [`standalone.config.mjs`](../examples/export/standalone.config.mjs) | Two pages as single files, each carrying its styles, pictures and theme menu, linking to the published site                                                                                                   |
+| [`annotate-output/`](../examples/export/annotate-output/getting-started.html)     | [`annotate.config.mjs`](../examples/export/annotate.config.mjs)     | One page to send for review, with the note runtime inside it                                                                                                                                                  |
+| [`review-output/`](../examples/export/review-output/)                             | [`review.config.mjs`](../examples/export/review.config.mjs)         | The site with the note runtime beside it, for a static host, with a GitHub [issue form](../examples/export/review/cudoc-review.yml) as its inbox                                                              |
 
-The sample is rebuilt with `npm run showcase` inside `examples/export` after that example is installed, and `tests/scripts/export-showcase.mjs` fails when the committed text outputs differ from what the current packages produce, so the sample never lags behind a release.
+[`review-samples/`](../examples/export/review-samples/) holds the notes a reader returned on the page to review and the [report](../examples/export/review-samples/report.md) `cudoc-export annotations` made from them. The [documentation site](https://cudoment.github.io/cudoc/index.html) publishes the first three under `showcase/`, `samples/standalone/` and `samples/annotate/`, so they open in a browser without a checkout.
+
+Open [`northlight-handbook.pdf`](../examples/export/showcase-output/northlight-handbook.pdf) for the bound volume of twenty-eight pages, [`northlight-handbook.docx`](../examples/export/showcase-output/northlight-handbook.docx) for the same volume in Word, and [`getting-started.pdf`](../examples/export/showcase-output/getting-started.pdf) or [`getting-started.docx`](../examples/export/showcase-output/getting-started.docx) for one document on its own.
+
+The documents use what an author writes in Markdown: explicit anchors and badges, callouts including a registered `success` type, lists inside table cells with a layout rule that splits the long column, an embed that reads each endpoint's method and path out of the reference into a summary table on the overview page, an embedded section reworded with `replace`, a footnote, an image, request and response samples in `curl`, Node.js, Python, HTTP and SQL, a seven-column table and a `cudoc-pagebreak` fence before an appendix. The site configuration turns on all three formats at both granularities, a cover image and a numbered contents page, running header and footer with a fixed `date`, printed link addresses, landscape pages for tables of six columns or more, minimum widths for description and date columns, the theme menu, and an accent colour that reaches all three outputs through `tokens`. The other three configurations import it and change only what their mode needs.
+
+`tests/scripts/export-showcase.mjs` rebuilds all four and fails when a committed text output differs from what the current packages produce, so no sample lags behind a release.
+
+## Three kinds of HTML
+
+`mode` (or `--mode`) decides what the HTML output is:
+
+| `mode`           | What it writes                                                                                              | For                                                                                                                   |
+| ---------------- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `site` (default) | Every published page, sharing `cudoc.css` and the navigation, with a home page and the print HTML           | A directory to deploy or hand over whole                                                                              |
+| `standalone`     | One HTML file per document, each carrying everything it shows                                               | A page to attach to a message, or to open from any folder                                                             |
+| `annotate`       | Pages carrying the review-note runtime: single files by default, or a site with `annotate.target: "hosted"` | A review whose notes come back to the author, described in [Collect feedback](#collect-feedback-on-the-exported-site) |
+
+A single page, which `standalone` writes and `annotate` writes by default, is one document without the site around it: no navigation, home link or language menu. `documents` (or repeated `--document`) picks the documents a single-page run writes, by id or file name, from those the site publishes; without it every published document gets its page. A site writes every page it publishes, so `documents` there is an error. PDF and Word are written in every mode when `formats` asks for them.
+
+```sh
+npx cudoc-export build docs --out-dir out --mode standalone --document guide.md
+```
+
+### What a single page carries
+
+A single page shows the same thing from a download folder, a chat attachment or another machine, because what it shows is inside it:
+
+| In the document                                                                                                                                                                                           | In the page                                                                                                                                   |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| The built-in stylesheet, the `css` files and `tokens`                                                                                                                                                     | One `<style>` element                                                                                                                         |
+| A local image, each `srcset` candidate, a video poster, an SVG `<image>`, and an image or font a `css` file loads                                                                                         | A `data:` URL                                                                                                                                 |
+| The theme menu and the review-note runtime                                                                                                                                                                | Inline `<script>` and `<style>` elements                                                                                                      |
+| A link to another document                                                                                                                                                                                | Kept; reported as a page it needs beside it unless the run writes that page too, and under `links: "host"` it names the deployed page instead |
+| A link to another local file, such as a PDF                                                                                                                                                               | The file is copied beside the page, and reported                                                                                              |
+| A resource on another server, such as a remote image                                                                                                                                                      | Kept as written, and reported                                                                                                                 |
+| A stylesheet on another server, an `@import` or a remote `url()` in a `css` file, a local resource that is neither an image nor a font, or one an `<object>`, `<use>`, `<iframe>` or a media source loads | Refused                                                                                                                                       |
+
+A run prints what each page needs from outside on standard error, and returns the same list as `dependencies`:
+
+```text
+cudoc-export: guide: needs a file beside it: spec.pdf
+cudoc-export: guide: needs a page beside it: reference.md
+cudoc-export: guide: needs a remote resource: https://example.com/diagram.png
+```
+
+`strict: true` (or `--strict`) turns any of them into an error, for a page that must stand entirely on its own. A resource larger than `standalone.maxAssetBytes` once written inline (5 MiB by default), or a page larger than `standalone.maxPageBytes` (20 MiB), stops the build, so a page stays quick to open and small enough to save again with notes in it.
 
 ## Export alongside an existing site
 
@@ -126,15 +177,16 @@ Every format reads one set of design tokens, so a PDF is the site's stylesheet
 printed rather than a second design, and Word takes the same palette, type scale
 and spacing translated into Word styles. A callout is the same colour in all
 three: `WARNING` in the warning colour, `CAUTION` and a registered `danger` or
-`error` type in the danger colour, and every other type in the accent. See
-[Configure the site](#configure-the-site) for `tokens`.
+`error` type in the danger colour, and every other type in the accent. The
+`tokens` keys are listed in the [adapter reference](./api-reference/adapters.md#export).
 
 ### The bound volume
 
 The bound file opens with a cover page carrying the title, then a contents page
-listing every document with the page it starts on, then the documents in
-navigation order, each starting on a new page. `volume` names the file and
-shapes that front matter:
+listing every document with the page it starts on, then the documents, each
+starting on a new page: the default language's in navigation order, then the
+`hidden` ones. `volume.order` moves the documents it names to the front, in
+its order. `volume` names the file and shapes that front matter:
 
 ```js
 await buildExport({
@@ -146,6 +198,7 @@ await buildExport({
     fileName: "handbook", // handbook.pdf, handbook.docx, handbook.print.html
     cover: { image: "design/cover.png" }, // false for no cover page
     contents: { title: "Contents", pageNumbers: true }, // false for none
+    order: ["overview.md"], // first, then the rest in navigation order
   },
 })
 ```
@@ -212,9 +265,10 @@ document starts on a page already; a break anywhere else stays.
 
 ### How the PDF is made
 
-cudoc always writes print-ready HTML — `<document>.print.html` and
-`<volume>.print.html` beside the site, plus `cudoc-print.css` — whether or not a
-browser is installed. You can open and print those yourself. When you ask for
+A site always writes print-ready HTML — `<document>.print.html` and
+`<volume>.print.html` beside its pages, plus `cudoc-print.css` — whether or not a
+browser is installed, and single pages write it when a PDF is asked for. You can
+open and print those yourself. When you ask for
 `pdf`, cudoc prints them with a headless Chromium, in one browser session.
 
 That browser is installed with the package, and only the 187MB headless shell
@@ -282,8 +336,9 @@ quote indents and the padding of boxes and cells, each one key, so a document
 that reads too loose or too tight in Word is tuned without touching the site.
 The keys, their defaults and where each is applied are listed under
 [Word template](./api-reference/adapters.md#word-template). The `css` option
-reaches HTML and PDF only —
-Word reads no CSS — so use `tokens` for anything that should hold across formats.
+reaches the HTML pages only — the print HTML, and so the PDF, is styled from
+`tokens`, and Word reads no CSS — so use `tokens` for anything that should hold
+across formats.
 An SVG image becomes its alt text, because `docx` needs a raster fallback and
 cudoc ships no rasterizer, and the substitution is reported as
 `image-as-text`. `<details>` ships expanded, and a tree embed as a nested list
@@ -339,6 +394,8 @@ A local image, stylesheet or other rendering resource that reaches outside every
 
 In `host` mode, set `hostUrl` to the full deployment URL including its base path. For example, with `https://docs.example.com/project/` and a collected route `/docs/start`, both `start.md#setup` and `/docs/start#setup` become `https://docs.example.com/project/docs/start#setup`. Already-prefixed routes do not get a duplicate `/project/`. Query strings and fragments are preserved; a fragment-only link targets the current document on the deployed site. Other local paths resolve against the deployment and the current document's route.
 
+A link to a file that is not collected, such as a source file, opens it in the repository when `sourceLinks` names one, under `relative` and `host` alike; see [Files that are not documents](#files-that-are-not-documents).
+
 Set custom slugs and routes in the collector to match the primary site's URLs. HTML export does not infer routing from host configuration. `links` controls exported hyperlinks; it is separate from `syntax.link`, which controls syntax normalization during collection.
 
 ## Configure the site
@@ -350,10 +407,15 @@ export default {
   sourceRoot: "docs",
   outDir: "site",
   title: "Product documentation",
-  navigation: ["index", "reference"],
+  navigation: "docs/nav.yml",
+  locales: { en: "English", ko: "한국어" },
+  header: {
+    links: [{ title: "GitHub", url: "https://github.com/owner/repo" }],
+  },
+  toc: { depth: 3 },
   syntax: { headingAnchor: "cudoc", callout: "cudoc" },
   links: "relative",
-  // css: "./custom.css",
+  // css: ["theme/brand.css"],
 }
 ```
 
@@ -361,12 +423,69 @@ export default {
 npx cudoc-export build --config site.config.mjs
 ```
 
-`navigation` uses document IDs without extensions. Listed documents come first, with remaining documents following. `css` appends a local CSS file to the built-in stylesheet. If there is no `index.md`, the builder creates an index page. JSON config is also accepted.
+A configuration may also be JSON or YAML (`.json`, `.yml`, `.yaml`); only `renderOptions` callbacks need an ES module. Paths in it are read from the directory the command runs in. An option cudoc does not know is an error, so a misspelt key never passes silently. This configuration collects Markdown directly. Add `library` and remove the collection options such as `syntax` when reusing an existing host library.
 
-The built-in stylesheet follows the viewer's light or dark system setting, needs no script to do so, and keeps every colour in a custom property that both themes define. `themeSwitch: true` (or `--theme-switch`) adds a System / Light / Dark button to the header whose choice the browser remembers; it is the one small script the site loads besides annotations, and the default output stays without it. To restyle the site, point `css` at a file that redefines those properties rather than rewriting the rules. The full token list is in the [adapter reference](./api-reference/adapters.md#export):
+### The navigation
+
+`navigation` is the list on the left, and also what the site publishes: a document the navigation does not list and `hidden` does not name is written by no format, so a draft stays out of the site, the PDF and the Word file alike. The one exception is the home page, which is published whether or not the navigation lists it. Without `navigation`, every document is listed, folder by folder, `index.md` first. The result's `omitted` names each document left out and why.
+
+Write the navigation in a YAML file and give its path, or write the same entries in the configuration:
+
+```yaml
+# docs/nav.yml
+items:
+  - index.md # a file: that document alone
+  - guides # a folder: every document in it, its subfolders as groups
+  - folder: reference # a folder with settings
+    title: { en: Reference, ko: 레퍼런스 }
+    page: README.md # the document the folder's title opens
+    exclude: [draft-*.md] # left out of this folder
+    order: [overview, ...] # these first, then the rest by title
+    depth: 1 # levels drawn as groups; deeper documents are listed flat
+    collapsed: true # the group starts closed
+  - title: Tools # a group of entries, in the order written
+    items: [cli.md, api.md]
+  - title: Status # a link out
+    url: https://status.example.com/
+hidden: # published, but not listed
+  - legal/privacy.md
+```
+
+- A document is written with its extension, `guide.md`; a name without one is a folder, and `.` is the whole collection.
+- A document is listed once. An entry that names it wins over a folder that would bring it in. Naming it twice, or naming a `private` document, is an error that gives the file and line.
+- In a folder, `setup.md` stands for the folder `setup/` beside it, and otherwise `setup/index.md` does, as in a [tree embed](./embedding.md#which-document-goes-under-which); a folder nothing stands for is a group under its own name. A `README.md` stands for its folder only when `page` names it.
+- A folder's entries sort by title. `order` lists names to put first, and `...` stands for every name not listed, so `[..., changelog]` puts one name last.
+- An `order` or `exclude` name that matches nothing, and a document without a translation, are reported in the result's `diagnostics` (`unmatched-navigation-order`, `unmatched-navigation-exclude`, `missing-translation`) and on standard error.
+- A link to a document the site does not publish is an error under `relative` links, since the page it points at would not exist; the message names the document and the way out.
+
+The [showcase navigation](../examples/export/showcase/nav.yml) and the [documentation site's navigation](../docs-site/nav.yml) are both written this way.
+
+### Languages
+
+`locales` names the languages the documents are written in, the default first:
+
+```js
+locales: { en: "English", ko: "한국어" }
+```
+
+The default language's files carry no suffix, and every other language's end in `.<code>.md`, so `guide.ko.md` is the Korean `guide.md`. Write the navigation with the default language's files: each language draws its own list from the translations and leaves out a document that has none. Every page links to the same document in the other languages from a menu in the header, or to that language's home when there is no translation. A page's `<html lang>` is its language's code, or the document's front matter `lang` when that makes the code more specific, such as `ko-KR`; front matter naming another language is an error, since the file name already decides it.
+
+A language can take another suffix and its own words for the page's controls: `{ ja: { label: "日本語", suffix: ".jp", ui: { documents: "ドキュメント" } } }`. cudoc has the words for English and Korean, and uses the English ones for any word another language does not set; the keys are listed in the [adapter reference](./api-reference/adapters.md#site-structure). The bound volume holds the default language; a translation is written as its own PDF and Word file.
+
+### Home, header and contents
+
+The site opens on `index.md`, or on the document `home` names, such as `home: "README.md"`, which is then written as `index.html` and its translations as `index.<code>.html`. A home must exist in every language, and an `index.md` beside another home is refused, since both would be written to `index.html`. Without either, a landing page listing the navigation is generated.
+
+`header.links` adds links beside the site title, each with a `title` that may name one text per language like a navigation title. The contents on the right list headings down to the level `toc.depth` names, from 2 to 6 and 6 by default; `toc: false` leaves them out everywhere, and front matter `toc: false` on one page. The home page has none.
+
+### Look
+
+The built-in stylesheet follows the viewer's light or dark system setting, needs no script to do so, and keeps every colour in a custom property that both themes define. `themeSwitch: true` (or `--theme-switch`) adds a theme menu to the header, with System, Light and Dark, whose choice the browser remembers; it is the one small script the site loads besides the review-note runtime, and the default output stays without it.
+
+`css` names one stylesheet or a list, loaded after the built-in one. A site links each as its own file under `cudoc-css/`, and copies an image or font it loads to `cudoc-css/files/` under a name taken from the file's content; a single page carries its text and those files inline. To restyle the site, redefine the custom properties rather than rewriting the rules. The full token list is in the [adapter reference](./api-reference/adapters.md#export):
 
 ```css
-/* custom.css, appended after the built-in stylesheet */
+/* theme/brand.css, loaded after the built-in stylesheet */
 :root {
   --accent: #7c4dff;
   --accent-soft: #ece7fb;
@@ -387,7 +506,23 @@ The built-in stylesheet follows the viewer's light or dark system setting, needs
 }
 ```
 
-This configuration collects Markdown directly. Add `library` and remove the collection options such as `syntax` when reusing an existing host library.
+### Files that are not documents
+
+A guide often links to something that is not a page: a source file, an example's configuration, a folder of samples. Two options say where those live:
+
+```js
+export default {
+  roots: [{ dir: "docs", base: "docs" }],
+  outDir: "site",
+  sourceLinks: {
+    root: ".",
+    url: "https://github.com/owner/repo/blob/v1.2.0/",
+  },
+  mounts: [{ from: "examples/output", to: "examples" }],
+}
+```
+
+`sourceLinks` sends a link to a file that exists under `root` but is not collected to `url` followed by its path, so `[the CLI](../src/cli.ts#L10)` opens on GitHub at that commit. The library's paths are read from `root`, which is why the documents above are collected under the base `docs`. It applies under `relative` and `host` alike, and a link this way to a `private` document's file is an error. `mounts` copies each folder into the output as it is and points every link into `from` at its copy under `to`; a mount is part of a site with `relative` links, and single pages and `host` or `none` links refuse one, as does a mount that overlaps a collection root, an asset directory, the library or another mount. The documentation site links its source files and publishes the export samples this way; see its [configuration](../docs-site/site.config.mjs).
 
 ## Assets and custom components
 
@@ -407,17 +542,43 @@ Add this `renderOptions` to the site options. Component callbacks return HTML, a
 
 ## Collect feedback on the exported site
 
-The people who receive an exported site often need to send something back: a wrong sentence, a missing step. `annotations: true` (or `--annotations`) ships a small review-note runtime with the site, and nothing else changes: the default output still carries no script.
+The people who receive an exported page often need to send something back: a wrong sentence, a missing step. `mode: "annotate"` (or `--mode annotate`) writes pages that carry a small review-note runtime. The other modes carry none, and the default output has no script at all.
 
 ```js
 export default {
   sourceRoot: "docs",
-  outDir: "site",
-  annotations: true,
+  outDir: "review",
+  mode: "annotate",
+  documents: ["guide.md"],
 }
 ```
 
-**For the reader.** Select text and press the note button, or hover a paragraph, list item, table row or code block and press the `+` that appears beside it, then type. The speech-bubble button at the bottom right shows how many notes the page has and opens the panel, which lists them with their quotes; a note can be edited, answered, resolved or deleted. The name field at the top is optional. When done, **copy a share token** for a short list, or open _More_ to **download the notes** (`<page>.annotations.json`) or **save a copy with notes** (`<page>.annotated.html`, which opens with the notes in place when kept in the same folder as the original). The panel is in English unless you pick another language in its header, and by default it narrows the page rather than covering the sidebar; both settings are remembered by the browser. Notes stay in the browser between visits where the browser allows it; Firefox does not for local files, so download before closing.
+By default each document becomes a single page that carries the runtime as it carries its styles (see [What a single page carries](#what-a-single-page-carries)), to send as a file. For a review that readers open on a static host instead, `annotate.target: "hosted"` writes a site with the runtime beside its pages:
+
+```js
+export default {
+  sourceRoot: "docs",
+  outDir: "review-site",
+  mode: "annotate",
+  annotate: {
+    target: "hosted",
+    reviewId: "guide-review-2026-10",
+    inbox: {
+      github: {
+        repo: "owner/docs",
+        template: "cudoc-review.yml",
+        field: "notes",
+      },
+    },
+  },
+}
+```
+
+`reviewId` is required there. It names this review's notes in each reader's browser, which keeps them across rebuilds of the site and apart from another review on the same host; a single page derives one from the title and the documents unless it is given.
+
+**For the reader.** Select text and press the note button beside the selection, or hover a paragraph, list item, table row or code block and press the `+` that appears beside it, then type. The note button goes away when you click elsewhere, press Escape or clear the selection, and Tab reaches it from the keyboard. The speech-bubble button at the bottom right shows how many notes the page has and opens the panel, which lists them with their quotes; a note can be edited, answered, resolved or deleted. The name field at the top is optional. When done, **copy a share token** for a short list, or open _More_ to **download the notes** (`<page>.annotations.json`) or **save a copy with notes** (`<page>.annotated.html`). A copy of a single page opens with its styles and notes from any folder; a copy of a hosted page loads its styles only from the folder the original is in. The panel is in English unless you pick another language in its header, and by default it narrows the page rather than covering the sidebar; both settings are remembered by the browser. Notes stay in the browser between visits where the browser allows it; Firefox does not for local files, so download before closing.
+
+**Sending notes from a hosted review.** A static host cannot receive anything, so the notes travel through a place the reader already has. With `inbox.github`, the panel's **Compose on GitHub** first says what will be sent: the note text, the quoted passages and the reader's name travel to GitHub in the address, and on a public repository the issue is public. It then opens the repository's new-issue page with the notes filled into the issue form's `field` (`notes` by default), and the reader submits the issue there. Copy the sample [issue form](../examples/export/review/cudoc-review.yml) into the repository's `.github/ISSUE_TEMPLATE/` and name it in `template`. More notes than an address can hold, past 6,000 characters, are downloaded as JSON instead, to attach to the issue.
 
 **For the author.** Load the returned `.json` (or `.annotated.html`) into your own copy of the site through the load button under _More_, or append a returned token to your copy's address, and the notes appear where they were made, or marked as position uncertain or not found when the document has changed since. A returned copy whose notes were damaged on the way still opens, says it could not load them, and shows none of them. To work through them in the source, run
 
@@ -425,22 +586,22 @@ export default {
 npx cudoc-export annotations review.annotations.json --library .cudoc/documents --out review.md
 ```
 
-which writes a Markdown report: for each note the document, the heading, the source line numbers with those lines quoted, and the reviewer's text. A share token goes in as `--token '<token>'` instead of, or next to, the files. The report is facts only. It contains no instructions of its own, so it can be pasted under your own prompt to an assistant, with the reviewer's words labelled as data rather than as requests; what to do with them stays in your prompt. `--json` gives the same facts as JSON.
+which writes a Markdown report: for each note the document, the heading, the source line numbers with those lines quoted, and the reviewer's text. A share token, including one from an issue, goes in as `--token '<token>'` instead of, or next to, the files. The report is facts only. It contains no instructions of its own, so it can be pasted under your own prompt to an assistant, with the reviewer's words labelled as data rather than as requests; what to do with them stays in your prompt. `--json` gives the same facts as JSON. The [report made from the sample](../examples/export/review-samples/report.md) shows the layout.
 
-**What to know before sharing.** A returned `.annotated.html` is an HTML file from someone else: open it as you would any attachment that can run code, or load the `.json` instead. A share token carries the note text and names in the address; the panel says so, and on a local file it copies only the `#cudoc-notes=…` part, never your path. Notes stored in the browser include the quoted passages. Nothing is uploaded anywhere: the runtime has no network access and the page forbids it (`connect-src 'none'`). On a hosted deployment, add a Content-Security-Policy header such as `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; connect-src 'none'; frame-ancestors 'none'`. Text pulled in by `cudoc-embed` is not in the embedding document's Markdown, so a note on it is reported as not found. The file format, the anchoring rules and the report's contract are in the [adapter reference](./api-reference/adapters.md#annotations).
+**What to know before sharing.** A returned `.annotated.html` is an HTML file from someone else: open it as you would any attachment that can run code, or load the `.json` instead. A share token carries the note text and names in the address; the panel says so, and on a local file it copies only the `#cudoc-notes=…` part, never your path. Notes stored in the browser include the quoted passages. The page uploads nothing: the runtime has no network access and the page forbids it (`connect-src 'none'`), so the only way out is the GitHub page a reader opens and submits. On a hosted deployment, add a Content-Security-Policy header such as `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; connect-src 'none'; frame-ancestors 'none'`. Text pulled in by `cudoc-embed` is not in the embedding document's Markdown, so a note on it is reported as not found. The file format, the anchoring rules and the report's contract are in the [adapter reference](./api-reference/adapters.md#annotations).
 
 ## Share or deploy
 
-Open `site/index.html`, copy the whole `site/` directory to another machine, or upload that directory to a static host. Use `relative` for navigation within the shared directory, `host` to direct readers to the primary site, or `none` for reading without clickable links. CSS and copied local assets use relative paths. The generated shell needs no client-side fetch, JavaScript or CDN; `annotations: true` and `themeSwitch: true` each add one local script and still no network access. This is a directory export, not a single HTML file containing all assets.
+A site is a directory: open `site/index.html`, copy the whole `site/` directory to another machine, or upload it to a static host. Use `relative` for navigation within the shared directory, `host` to direct readers to the primary site, or `none` for reading without clickable links. Stylesheets and copied local assets use relative paths. The generated shell needs no client-side fetch, JavaScript or CDN; `themeSwitch: true` and a hosted review each add local scripts and still no network access. To hand over one page instead, write it with `mode: "standalone"`: the file is the whole page.
 
-Run the build again to update the site. Keep `outDir` separate from source, library and asset directories, and use an output directory owned by cudoc. A failed staged site write preserves the previous site. Without `library`, the generated document library is a separate output; its default is `.cudoc/documents` under the site directory's parent (`site` → `.cudoc/documents`). With `library`, that input stays unchanged.
+Run the build again to update the output. Keep `outDir` separate from source, library and asset directories, and use an output directory owned by cudoc. A build that fails leaves the previous output as it was, and a successful one replaces it whole, so no file from an earlier mode or an earlier page is left behind. Without `library`, the generated document library is a separate output; its default is `.cudoc/documents` under the output directory's parent (`site` → `.cudoc/documents`). With `library`, that input stays unchanged.
 
 ## Checks for your deployment
 
 - Confirm collected routes, custom slugs, base paths and `hostUrl` against the primary site's deployed URLs. The exporter rewrites links but does not check remote availability.
-- Copy the whole output directory to a different location and open it with `file://` in the browsers your readers use. Check navigation, images, styles, embedded tables and printing; this is not a single-file bundle.
-- Inspect host-specific widgets and assets. Dynamic React/Vue code needs an explicit HTML renderer, and CSS imports and CSS `url()` dependencies are not recursively bundled.
-- Keep the primary build and HTML output separate. Recollect and prepare before exporting changed documents. Review the documents/scopes included before sharing; HTML export is not a publication-permission filter.
+- Copy the whole output directory to a different location and open it with `file://` in the browsers your readers use. Check navigation, images, styles, embedded tables and printing. For a single page, open it alone from an empty folder, and build it with `strict: true` when it must need nothing beside it.
+- Inspect host-specific widgets and assets. Dynamic React/Vue code needs an explicit HTML renderer. A `css` file's `url()` files are copied or carried inline, but its `@import` is refused: list each stylesheet in `css` instead.
+- Keep the primary build and HTML output separate. Recollect and prepare before exporting changed documents. Review what the navigation publishes and the result's `omitted` list before sharing; the navigation decides what is written, but it is not a publication-permission filter for what the documents themselves contain.
 
 The repository's [host-library export check](../tests/built/html-export.test.ts) verifies all three link policies against five real host libraries and hashes all source, library and primary output files to verify they remain unchanged.
 

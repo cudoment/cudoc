@@ -23,7 +23,19 @@
     else root.removeAttribute("data-theme");
   }
   apply(stored());
-  var STRINGS = root.lang.toLowerCase().startsWith("ko") ? { theme: "\uD14C\uB9C8", system: "\uC2DC\uC2A4\uD15C", light: "\uB77C\uC774\uD2B8", dark: "\uB2E4\uD06C" } : { theme: "Theme", system: "System", light: "Light", dark: "Dark" };
+  var STRINGS = (() => {
+    const fallback = root.lang.toLowerCase().startsWith("ko") ? { theme: "\uD14C\uB9C8", system: "\uC2DC\uC2A4\uD15C", light: "\uB77C\uC774\uD2B8", dark: "\uB2E4\uD06C" } : { theme: "Theme", system: "System", light: "Light", dark: "Dark" };
+    try {
+      const given = JSON.parse(root.dataset.cudocUi ?? "{}");
+      const strings = { ...fallback };
+      for (const key of Object.keys(fallback))
+        if (typeof given[key] === "string" && given[key])
+          strings[key] = given[key];
+      return strings;
+    } catch {
+      return fallback;
+    }
+  })();
   var ICONS = {
     system: ["M3 5h18v12H3z", "M8 21h8", "M12 17v4"],
     light: [
@@ -57,30 +69,31 @@
     }
     return svg;
   }
-  var NEXT = {
-    system: "light",
-    light: "dark",
-    dark: void 0
-  };
+  var MODES = ["system", "light", "dark"];
   function mount() {
     const header = document.querySelector("body > header");
     if (!header || header.querySelector(".theme-switch")) return;
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "theme-switch";
-    const label = document.createElement("span");
+    const control = document.createElement("label");
+    control.className = "theme-switch";
+    const select = document.createElement("select");
+    select.setAttribute("aria-label", STRINGS.theme);
+    for (const mode of MODES) {
+      const option = document.createElement("option");
+      option.value = mode;
+      option.textContent = STRINGS[mode];
+      select.append(option);
+    }
     const render = () => {
       const mode = stored() ?? "system";
-      label.textContent = STRINGS[mode];
-      button.replaceChildren(icon(mode), label);
-      const text = `${STRINGS.theme}: ${STRINGS[mode]}`;
-      button.title = text;
-      button.setAttribute("aria-label", text);
+      select.value = mode;
+      control.querySelector("svg")?.remove();
+      control.prepend(icon(mode));
+      control.title = `${STRINGS.theme}: ${STRINGS[mode]}`;
     };
-    button.addEventListener("click", () => {
-      const next = NEXT[stored() ?? "system"];
-      remember(next);
-      apply(next);
+    select.addEventListener("change", () => {
+      const choice = select.value === "system" ? void 0 : select.value;
+      remember(choice);
+      apply(choice);
       render();
     });
     window.addEventListener("storage", (event) => {
@@ -89,8 +102,9 @@
         render();
       }
     });
+    control.append(select);
     render();
-    header.append(button);
+    (header.querySelector(".header-end") ?? header).append(control);
   }
   if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", mount);

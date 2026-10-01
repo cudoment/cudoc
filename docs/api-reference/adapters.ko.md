@@ -193,39 +193,76 @@ Eleventy는 페이지 데이터 객체를 markdown-it env로 전달하고 markdo
 
 ```ts
 type SiteLinkMode = "relative" | "host" | "none"
+type HtmlMode = "site" | "standalone" | "annotate"
 
-buildSite(options: SiteOptions): {
+buildSite(options: SiteOptions): SiteResult
+
+type SiteResult = {
   outDir: string
-  documentCount: number
+  documentCount: number // 이번 실행이 쓴 페이지 수
   libraryDir: string
+  files: string[] // HTML 출력이 쓴 파일, outDir 기준 상대 경로, 정렬됨
+  diagnostics: NavigationDiagnostic[]
+  dependencies: SiteDependency[] // 단일 페이지에서만, 문서·종류·url 순으로 정렬
+  omitted: OmittedDocument[]
+}
+
+type SiteDependency = {
+  kind: "remote" | "file" | "page"
+  document: string
+  url: string // 문서에 쓴 그대로
+}
+
+type OmittedDocument = {
+  document: string
+  reason: "private" | "not-in-navigation"
+}
+
+type NavigationDiagnostic = {
+  code:
+    | "missing-translation"
+    | "unmatched-navigation-order"
+    | "unmatched-navigation-exclude"
+  message: string
+  document: string // 문서 ID, 또는 항목을 적은 위치
 }
 ```
 
-`SiteOptions`는 `DocumentOptions`에 다음 필드를 추가합니다. `SiteOptions`, `SiteLinkMode`는 공개 타입이며 반환 경로는 절대 경로입니다. `siteStyles`는 기본 CSS 문자열입니다.
+`SiteOptions`는 `DocumentOptions`에 다음 필드를 추가합니다. `SiteOptions`, `SiteResult`, `SiteDependency`, `SiteLinkMode`, `HtmlMode`, `OmittedDocument`, `AnnotateOptions`, `StandaloneOptions`, `NavigationOption`, `NavigationSpec`, `NavigationItem`, `NavigationTitle`, `NavigationDiagnostic`, `LocaleOption`, `UiStrings`는 공개 타입이며 반환 경로는 절대 경로입니다. `siteStyles`는 기본 CSS 문자열입니다. 아래 필드도 수집 옵션도 아닌 키를 넘기면 그 키를 밝힌 오류가 납니다. `mode: "annotate"`로 대체된 `annotations`를 넘기면 오류 메시지가 대체할 옵션을 알려 줍니다.
 
-| 옵션            | 타입 / 기본값                                                      | 계약                                                                                                                                                                     |
-| --------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `sourceRoot`    | `string`; `sourceRoot`·`roots` 중 하나 필수                        | 라이브러리 최상위에 놓이는 소스 디렉터리 하나. `roots: [{ dir }]`의 축약형입니다. 자산 해석과 출력 보호에 쓰므로 `library`를 지정해도 필요합니다.                        |
-| `roots`         | `SourceRoot[]`; `sourceRoot`·`roots` 중 하나 필수                  | 문서가 있는 디렉터리들과 각각의 기준 경로. `library`와 함께 쓰면 라이브러리를 수집한 기준 경로와 같아야 합니다.                                                          |
-| `exclude`       | `string[]`, 수집 전용                                              | 문서가 아닌 파일. 수집에 전달합니다. [수집](./node.ko.md#수집)을 참고하세요.                                                                                             |
-| `private`       | `string[]`, 수집 전용                                              | 수집은 하되 내보내지 않는 문서. 수집에 전달합니다. 비공개 문서는 어느 형식에서도 렌더링되지 않고 탐색·목차·문서 수에도 들지 않습니다.                                    |
-| `externalPaths` | `string[]`, `[]`                                                   | 같은 호스트에서 다른 애플리케이션이 담당하는 루트 상대 접두어(`/sdk` 등). 그 아래로 가는 링크는 어느 정책에서도 외부로 보아 쓴 그대로 두고 해석하거나 복사하지 않습니다. |
-| `extractors`    | `Record<string, TableExtractor>`, 수집 전용                        | 임베드 표가 부를 수 있는 셀 추출기. 수집에 전달합니다. [임베드](./node.ko.md#임베드)를 참고하세요.                                                                       |
-| `outDir`        | 필수 `string`                                                      | 소스·라이브러리·자산 루트와 분리한 사이트 전용 출력 경로.                                                                                                                |
-| `title`         | `string`, `"Documentation"`                                        | 사이트 머리말과 페이지 제목 접미사.                                                                                                                                      |
-| `navigation`    | `string[]`, 전체 ID                                                | 먼저 표시할 기존 문서 ID. 나머지 문서가 뒤에 이어집니다.                                                                                                                 |
-| `css`           | 선택적 `string`                                                    | 기본 스타일 뒤에 추가할 로컬 CSS 파일. HTML 표현 전용이며 CSS를 읽지 않는 형식에는 닿지 않습니다.                                                                        |
-| `tokens`        | 선택적 `DesignTokenOverrides`                                      | 기본 토큰 위에 그룹마다 한 단계씩 병합하는 재정의. 모든 출력 형식이 함께 읽습니다.                                                                                       |
-| `page`          | 선택적 `PageOptions`                                               | 용지, 여백, 머리글과 바닥글, 제목 앞 쪽 나누기, 링크 주소 인쇄. [페이지를 나누는 출력](#페이지를-나누는-출력) 참고.                                                      |
-| `volume`        | 선택적 `VolumeOptions`                                             | 묶은 파일의 이름, 표지, 목차. [페이지를 나누는 출력](#페이지를-나누는-출력) 참고.                                                                                        |
-| `libraryDir`    | `string`, `path.join(path.dirname(outDir), ".cudoc", "documents")` | `library`가 없을 때 수집 출력. `library`를 지정하면 무시합니다.                                                                                                          |
-| `library`       | 선택적 `string`                                                    | 컴파일하거나 다시 출력하지 않고 읽을 기존 수집 라이브러리 디렉터리.                                                                                                      |
-| `links`         | `SiteLinkMode`, `"relative"`                                       | 출력 전체의 하이퍼링크 정책.                                                                                                                                             |
-| `hostUrl`       | 선택적 `string`, `"host"`에서 필수                                 | 기본 경로를 포함한 HTTP(S) 절대 배포 URL. 인증정보·쿼리·프래그먼트를 허용하지 않으며 마지막 `/`를 정규화합니다.                                                          |
-| `assetDirs`     | `string[]`, `[]`                                                   | 루트 다음 순서대로 탐색할 URL 루트 자산 디렉터리.                                                                                                                        |
-| `renderOptions` | 선택적 `RenderOptions`                                             | HTML 컴포넌트 콜백과 코드 강조 재정의. [렌더링](./document.ko.md#컴포넌트와-렌더링) 참고.                                                                                |
-| `annotations`   | `boolean`, `false`                                                 | 모든 페이지에 메모 런타임을 실어, 받은 사람이 메모를 남기고 파일로 돌려줄 수 있게 합니다. [주석](#주석) 참고.                                                            |
-| `themeSwitch`   | `boolean`, `false`                                                 | 머리글에 시스템·라이트·다크를 차례로 고르는 버튼을 더하고 선택을 브라우저에 기억합니다. [테마 전환](#테마-전환) 참고.                                                    |
+| 옵션            | 타입 / 기본값                                                      | 계약                                                                                                                                                                                                                    |
+| --------------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sourceRoot`    | `string`; `sourceRoot`·`roots` 중 하나 필수                        | 라이브러리 최상위에 놓이는 소스 디렉터리 하나. `roots: [{ dir }]`의 축약형입니다. 자산 해석과 출력 보호에 쓰므로 `library`를 지정해도 필요합니다.                                                                       |
+| `roots`         | `SourceRoot[]`; `sourceRoot`·`roots` 중 하나 필수                  | 문서가 있는 디렉터리들과 각각의 기준 경로. `library`와 함께 쓰면 라이브러리를 수집한 기준 경로와 같아야 합니다.                                                                                                         |
+| `exclude`       | `string[]`, 수집 전용                                              | 문서가 아닌 파일. 수집에 전달합니다. [수집](./node.ko.md#수집)을 참고하세요.                                                                                                                                            |
+| `private`       | `string[]`, 수집 전용                                              | 수집은 하되 내보내지 않는 문서. 수집에 전달합니다. 비공개 문서는 어느 형식에서도 렌더링되지 않으며, `navigation`이나 `home`, `documents`에 비공개 문서를 적으면 오류입니다.                                             |
+| `externalPaths` | `string[]`, `[]`                                                   | 같은 호스트에서 다른 애플리케이션이 담당하는 루트 상대 접두어(`/sdk` 등). 그 아래로 가는 링크는 어느 정책에서도 외부로 보아 쓴 그대로 두고 해석하거나 복사하지 않습니다.                                                |
+| `extractors`    | `Record<string, TableExtractor>`, 수집 전용                        | 임베드 표가 부를 수 있는 셀 추출기. 수집에 전달합니다. [임베드](./node.ko.md#임베드)를 참고하세요.                                                                                                                      |
+| `outDir`        | 필수 `string`                                                      | 소스·라이브러리·자산·마운트 루트와 분리한 전용 출력 경로.                                                                                                                                                               |
+| `title`         | `string`, `"Documentation"`                                        | 사이트 머리말과 페이지 제목 접미사.                                                                                                                                                                                     |
+| `mode`          | `HtmlMode`, `"site"`                                               | `site`: 공유 스타일시트·탐색·홈·인쇄 HTML과 함께 게시하는 모든 페이지를 씁니다. `standalone`: [단일 페이지](#단일-페이지)를 씁니다. `annotate`: `annotate.target`에 따라 단일 페이지나 사이트에 메모 런타임을 싣습니다. |
+| `annotate`      | `AnnotateOptions`, `{}`                                            | `target`(기본값 `"file"` 또는 `"hosted"`), `reviewId`(`hosted`에서 필수, 영문자나 숫자로 시작하는 64자 이하의 영문자·숫자·`.`·`-`·`_`), `inbox`(`hosted` 전용). [주석](#주석) 참고.                                     |
+| `documents`     | 선택적 `string[]`                                                  | 단일 페이지 실행이 쓸 문서. ID나 소스 경로로 적으며, 사이트가 게시하는 문서여야 합니다. 사이트는 게시하는 페이지를 모두 쓰므로 사이트에서 지정하면 오류입니다.                                                          |
+| `strict`        | `boolean`, `false`                                                 | 단일 페이지에 `dependencies`가 하나라도 있으면 아무것도 게시하기 전에 실행을 실패시킵니다. 사이트에서 지정하면 오류입니다.                                                                                              |
+| `standalone`    | `StandaloneOptions`, `{}`                                          | `maxAssetBytes`(5 MiB)는 본문에 넣어 쓴 자원 하나, `maxPageBytes`(20 MiB)는 단일 페이지 하나의 상한입니다. 둘 다 28 MiB 이하의 바이트 수(정수)입니다.                                                                   |
+| `home`          | 선택적 `string`                                                    | `index.html`로 쓸 문서. `README.md`처럼 소스 경로로 적으며, 그 번역은 `index.<code>.html`이 됩니다. 언어마다 홈이 있어야 합니다.                                                                                        |
+| `header`        | `{ links?: { title: NavigationTitle; url: string }[] }`, `{}`      | 사이트 제목 옆에 둘 링크. 각각 `http(s)`나 `mailto` 절대 URL입니다.                                                                                                                                                     |
+| `navigation`    | `NavigationOption`, 폴더별 전체 문서                               | 왼쪽 목록이자 사이트가 게시하는 문서. [사이트 구성](#사이트-구성) 참고.                                                                                                                                                 |
+| `locales`       | 선택적 `Record<string, LocaleOption>`                              | 사이트의 언어. 첫 언어가 기본 언어이고, 각 언어는 파일 이름 접미사로 찾습니다. [사이트 구성](#사이트-구성) 참고.                                                                                                        |
+| `toc`           | `false \| { depth?: number }`, `{ depth: 6 }`                      | 오른쪽 목차가 나열할 제목. `depth`(2–6) 단계까지 나열합니다. `false`는 모든 페이지에서, front matter `toc: false`는 그 페이지에서만 목차 열을 뺍니다.                                                                   |
+| `css`           | 선택적 `string \| string[]`                                        | 기본 스타일시트 다음에 불러올 로컬 스타일시트. 사이트에서는 파일로 연결하고, 단일 페이지에서는 본문에 넣어 싣습니다. HTML 표현 전용이며 CSS를 읽지 않는 형식에는 닿지 않습니다.                                         |
+| `sourceLinks`   | 선택적 `{ root: string; url: string }`                             | `root` 아래에 있지만 수집하지 않은 파일로 가는 링크의 대상. `url` 뒤에 그 파일의 라이브러리 경로를 붙입니다. `url`은 쿼리나 프래그먼트가 없는 `http(s)` 절대 URL입니다.                                                 |
+| `mounts`        | `{ from: string; to: string }[]`, `[]`                             | 출력의 `to` 아래로 복사할 디렉터리. `from` 안으로 가는 링크는 그 복사본을 가리킵니다. `relative` 링크를 쓰는 사이트 전용입니다.                                                                                         |
+| `tokens`        | 선택적 `DesignTokenOverrides`                                      | 기본 토큰 위에 그룹마다 한 단계씩 병합하는 재정의. 모든 출력 형식이 함께 읽습니다.                                                                                                                                      |
+| `page`          | 선택적 `PageOptions`                                               | 용지, 여백, 머리글과 바닥글, 제목 앞 쪽 나누기, 링크 주소 인쇄. [페이지를 나누는 출력](#페이지를-나누는-출력) 참고.                                                                                                     |
+| `volume`        | 선택적 `VolumeOptions`                                             | 묶은 파일의 이름, 표지, 목차, 순서. [페이지를 나누는 출력](#페이지를-나누는-출력) 참고.                                                                                                                                 |
+| `libraryDir`    | `string`, `path.join(path.dirname(outDir), ".cudoc", "documents")` | `library`가 없을 때 수집 출력. `library`를 지정하면 무시합니다.                                                                                                                                                         |
+| `library`       | 선택적 `string`                                                    | 컴파일하거나 다시 출력하지 않고 읽을 기존 수집 라이브러리 디렉터리.                                                                                                                                                     |
+| `links`         | `SiteLinkMode`, `"relative"`                                       | 출력 전체의 하이퍼링크 정책.                                                                                                                                                                                            |
+| `hostUrl`       | 선택적 `string`, `"host"`에서 필수                                 | 기본 경로를 포함한 HTTP(S) 절대 배포 URL. 인증정보·쿼리·프래그먼트를 허용하지 않으며 마지막 `/`를 정규화합니다.                                                                                                         |
+| `assetDirs`     | `string[]`, `[]`                                                   | 루트 다음 순서대로 탐색할 URL 루트 자산 디렉터리.                                                                                                                                                                       |
+| `renderOptions` | 선택적 `RenderOptions`                                             | HTML 컴포넌트 콜백과 코드 강조 재정의. [렌더링](./document.ko.md#컴포넌트와-렌더링) 참고.                                                                                                                               |
+| `themeSwitch`   | `boolean`, `false`                                                 | 머리글에 시스템·라이트·다크 중에서 색 구성을 고르는 메뉴를 더하고, 선택을 브라우저에 기억합니다. [테마 전환](#테마-전환) 참고.                                                                                          |
 
 동기 생성기는 두 입력 경로를 제공합니다.
 
@@ -234,7 +271,7 @@ buildSite(options: SiteOptions): {
 
 임베드 코드 블록이 있는 문서만 준비 데이터를 읽습니다. 준비 누락·오래된 준비 데이터·블록 누락은 오류입니다. 검증 기준은 저장된 원문 스냅샷과 manifest 지문이며 모든 현재 소스 파일을 스냅샷과 비교하지는 않습니다. 소스·경로·컴파일러가 바뀌면 다시 수집하고 준비해야 합니다. `library`를 지정하면 반환값의 `libraryDir`는 해당 입력 경로입니다.
 
-렌더링은 `renderDocument`와 기본 highlight.js를 사용하며 알 수 없는 언어는 이스케이프한 코드로 표시합니다. `renderOptions`로 기본 렌더링 옵션을 재정의하고 명시적인 컴포넌트 콜백을 전달합니다. frontmatter `title`은 탐색·페이지 제목, `lang`은 언어(기본 `en`)입니다. 생성기는 CSS·탐색·목차를 추가하며 필요하면 index를 생성합니다.
+렌더링은 `renderDocument`와 기본 highlight.js를 사용하며 알 수 없는 언어는 이스케이프한 코드로 표시합니다. `renderOptions`로 기본 렌더링 옵션을 재정의하고 명시적인 컴포넌트 콜백을 전달합니다. frontmatter `title`은 탐색과 페이지의 제목입니다. `locales`가 없으면 frontmatter `lang`이 `<html lang>`(기본 `en`)이 되고, `locales`가 있으면 [사이트 구성](#사이트-구성)에서 설명하듯 파일 이름이 언어를 정합니다. 생성기는 페이지 틀을 더하고, 홈 문서가 없는 언어에는 랜딩 페이지를 만듭니다.
 
 `siteStyles`는 토큰으로 구성되며 테마를 인식하는 스타일시트입니다. [design/tokens.ts](../../packages/cudoc-export/src/design/tokens.ts)의 객체에서 `buildStyles(tokens)`가 생성하며, `designTokens`와 `resolveTokens`와 `buildStyles`를 공개하고 `siteStyles`는 기본값으로 만든 결과입니다. 속성 선언과 highlight.js 색상 규칙 네 벌을 그 객체에서 생성하고, `__tests__/styles.test.ts`가 결과를 바이트 단위 골든 픽스처와 대조합니다. 라이트 팔레트를 `:root`의 사용자 정의 속성으로 정의하고 `prefers-color-scheme: dark`에서는 그 속성만 다시 정의하므로, 스크립트 없이 시스템 설정이 테마를 선택합니다. 인쇄 블록을 제외하면 어떤 규칙에도 색을 직접 쓰지 않으며, 두 테마 모두에서 모든 전경·표면 조합이 WCAG AA를 충족합니다. 본문 텍스트는 4.5:1, 포커스 링은 3:1입니다. 다크 색은 `:root`와 같은 특이성으로 두 번 선언됩니다. `prefers-color-scheme: dark` 아래의 `:root:where(:not([data-theme="light"]))`와 `:root:where([data-theme="dark"])`입니다. 그래서 `<html>`의 `data-theme="light"`나 `"dark"`가 시스템 설정을 덮어쓰고 `color-scheme`도 함께 정하되, 덧붙인 스타일시트의 `:root` 규칙은 여전히 이깁니다. 이 속성을 설정하는 것은 [테마 전환](#테마-전환)이며, 그 옵션이 없으면 아무것도 설정하지 않습니다.
 
@@ -253,7 +290,76 @@ buildSite(options: SiteOptions): {
 
 글자 크기는 고정 픽셀 루트가 아니라 브라우저의 기본 크기에서 확대·축소하므로 독자의 글자 크기 설정을 존중합니다. `html`이 `font-size: 100%`이고 본문은 `--text-base`(0.9375rem)에 `--leading-body`(1.7)를 적용합니다. 폰트 스택은 IBM Plex Sans와 JetBrains Mono를 먼저 지정하고 플랫폼 UI 폰트와 한글 폰트로 이어지며, 어떤 폰트도 내려받지 않으므로 `file://`과 오프라인에서 그대로 동작합니다. 본문은 `--measure`(72ch)로 한 줄 길이를 제한하고, 제목과 표, 코드 블록, 콜아웃은 본문 열 전체 폭을 사용합니다.
 
-페이지 구조는 고정 헤더와 고정 문서 사이드바, 제목 목차가 그 열 양옆에 놓인 형태이며 1024px에서 두 열, 768px에서 한 열로 접힙니다. 한 열이 되면 내비게이션 대상의 높이가 2.75rem으로 커집니다. 표는 전체 테두리 격자 대신 가로 구분선과 교차 행 배경, 레이블 형태의 머리글, 고정폭 숫자를 사용하며 페이지를 넓히지 않고 가로로 스크롤합니다. 상호작용 상태는 `--ease`로 전환하고 `prefers-reduced-motion`에서는 1ms로 줄어듭니다. `css`는 이 스타일 뒤에 덧붙여지므로 규칙을 다시 쓰지 않고 속성만 재정의해서 디자인을 바꿉니다. 형식을 가로질러 유지해야 하는 변경은 `tokens`로 지정하세요. `tokens`는 데이터여서 CSS를 쓰지 않는 작성기도 같은 객체를 읽지만, `css`는 스타일시트를 불러오는 출력에만 닿습니다. `resolveTokens`는 그룹마다 한 단계씩 병합하므로 색 하나를 재정의해도 나머지 팔레트가 유지되며, 폰트 스택은 병합하지 않고 통째로 교체합니다. `--radius`와 `--measure`와 `--head-h`와 `--ease`, 그리고 다크 팔레트는 CSS 밖에 대응물이 없습니다. 인쇄 블록은 헤더와 두 내비게이션 열을 숨기고, 줄 길이 제한을 해제하고, 본문 색을 그대로 두며, 표 머리글을 페이지마다 반복하고, 쪽 폭보다 긴 코드 줄은 모든 쪽을 축소해 맞추는 대신 줄을 바꿉니다. 옵션에 따라 달라지는 규칙은 아래에서 설명하는 독립 인쇄 스타일시트에만 더해지므로, 옵션이 사이트 자체의 인쇄 블록을 바꾸는 일은 없습니다.
+페이지 구조는 고정 헤더와 고정 문서 사이드바, 제목 목차가 그 열 양옆에 놓인 형태이며 1024px에서 두 열, 768px에서 한 열로 접힙니다. 한 열이 되면 내비게이션 대상의 높이가 2.75rem으로 커집니다. 표는 전체 테두리 격자 대신 가로 구분선과 교차 행 배경, 레이블 형태의 머리글, 고정폭 숫자를 사용하며 페이지를 넓히지 않고 가로로 스크롤합니다. 상호작용 상태는 `--ease`로 전환하고 `prefers-reduced-motion`에서는 1ms로 줄어듭니다. `css` 파일은 이 스타일 다음에 불러오므로 규칙을 다시 쓰지 않고 속성만 재정의해서 디자인을 바꿉니다. 형식을 가로질러 유지해야 하는 변경은 `tokens`로 지정하세요. `tokens`는 데이터여서 CSS를 쓰지 않는 작성기도 같은 객체를 읽지만, `css`는 스타일시트를 불러오는 출력에만 닿습니다. `resolveTokens`는 그룹마다 한 단계씩 병합하므로 색 하나를 재정의해도 나머지 팔레트가 유지되며, 폰트 스택은 병합하지 않고 통째로 교체합니다. `--radius`와 `--measure`와 `--head-h`와 `--ease`, 그리고 다크 팔레트는 CSS 밖에 대응물이 없습니다. 인쇄 블록은 헤더와 두 내비게이션 열을 숨기고, 줄 길이 제한을 해제하고, 본문 색을 그대로 두며, 표 머리글을 페이지마다 반복하고, 쪽 폭보다 긴 코드 줄은 모든 쪽을 축소해 맞추는 대신 줄을 바꿉니다. 옵션에 따라 달라지는 규칙은 아래에서 설명하는 별도의 인쇄 스타일시트 `cudoc-print.css`에만 더해지므로, 옵션이 사이트 자체의 인쇄 블록을 바꾸는 일은 없습니다.
+
+### 사이트 구성
+
+소스: [plan.ts](../../packages/cudoc-export/src/plan.ts), [navigation.ts](../../packages/cudoc-export/src/navigation.ts), [locales.ts](../../packages/cudoc-export/src/locales.ts), [design/shell.ts](../../packages/cudoc-export/src/design/shell.ts).
+
+실행은 무엇이든 쓰기 전에 라이브러리와 옵션으로 출력 계획을 한 번 계산하고, 모든 형식이 그 계획을 읽습니다. 계획에는 게시하는 문서 집합(탐색이나 `hidden`이 나열하는 문서와 홈), 빠지는 문서와 그 이유, 언어별 탐색과 홈, 문서별 출력 경로, 이번 실행이 쓰는 문서, 묶은 파일의 구성 문서와 순서가 들어 있습니다. 그래서 한 형식이 빼는 문서를 다른 형식이 게시하는 일은 없습니다. 비공개 문서는 게시하지 않습니다. 탐색에도 `hidden`에도 없는 문서는 `not-in-navigation`으로 빠지며, `relative`에서는 그 문서로 가는 링크가 오류입니다.
+
+**탐색.** `NavigationOption`은 YAML 파일 경로나 항목 목록, 또는 `NavigationSpec`입니다.
+
+```ts
+type NavigationOption = string | NavigationItem[] | NavigationSpec
+type NavigationSpec = { items: NavigationItem[]; hidden?: string[] }
+type NavigationTitle = string | Record<string, string> // 언어 코드별 텍스트
+type NavigationItem =
+  | string // "guide.md"는 문서, "guides"는 폴더, "."는 컬렉션 전체
+  | {
+      folder: string
+      title?: NavigationTitle
+      page?: string // README.md처럼 폴더 안의 문서
+      exclude?: string[] // 폴더 기준 glob
+      order?: string[] // 앞에 둘 이름이나 제목; "..."는 한 번만, 나머지 전부
+      depth?: number // 1부터: 그룹으로 그릴 단계 수
+      collapsed?: boolean
+    }
+  | { title: NavigationTitle; items: NavigationItem[]; collapsed?: boolean }
+  | { title: NavigationTitle; url: string } // http(s) 또는 mailto
+```
+
+YAML 파일은 중복 키를 거부하며 읽고, 파일이나 그 항목의 오류는 `file:line`으로 위치를 밝힙니다. 설정 안에 적은 항목은 `navigation[2].items[0]`처럼 경로로 위치를 밝힙니다. 문서는 `.md`나 `.mdx`를 붙여 적으며 번역 키로 찾으므로, 기본 언어 파일 이름 하나가 모든 번역을 가리킵니다. 확장자가 없는 이름은 폴더입니다. 폴더 항목이 문서를 가리키면 문서 표기를 알려 주는 오류가 나고, 문서 항목이 아무것도 가리키지 않아도 오류가 납니다. 항목은 두 번에 걸쳐 해석합니다. 먼저 명시적인 항목, 곧 파일 항목과 폴더의 `page`와 `hidden` 파일이 각자의 문서를 차지합니다. 두 번 차지된 문서는 두 위치를 모두 밝힌 오류이고, 비공개 문서는 오류입니다. 그다음 각 폴더가 자기 안에 남은 문서를 나열합니다. 이미 차지된 문서, 나열된 폴더를 대표하는 페이지, 더 구체적으로 나열된 폴더가 나열하는 문서, `exclude`와 일치하는 문서는 빠집니다. `exclude`의 glob은 폴더 안의 경로와 그 상위 폴더 경로마다 맞춰 보므로, `drafts`라고 쓰면 하위 폴더 하나가 통째로 빠집니다. 폴더 안에서는 [`resolveTree`](./node.ko.md#임베드)가 트리를 읽는 방식처럼 `X.md`가 폴더 `X/`를 대표하고, 없으면 `X/index.md`가 대표하며, 컬렉션 자체의 `index.md`는 `.`를 대표합니다. `README.md`는 `page`가 지정하지 않는 한 아무 폴더도 대표하지 않습니다. 대표하는 문서가 없는 폴더는 폴더 이름을 단 그룹으로 남깁니다. 폴더를 녹여 없애는 메뉴는 독자가 위치를 잃게 만들기 때문입니다. 폴더의 항목은 `order`가 이름이나 제목으로 지정한 항목을 앞에 두고, 나머지를 `compareNames`로 제목 순, 이어서 이름 순으로 정렬합니다. `...`는 나머지 전부의 자리입니다. `depth` 단계보다 깊은 곳에는 그룹을 그리지 않습니다. 더 깊은 폴더의 페이지와 문서는 마지막으로 그린 그룹의 목록에 들어가 나머지와 함께 정렬됩니다. `navigation`이 없으면 컬렉션 전체가 그 자리에 그려지는 폴더 항목 하나가 되며 `index`가 맨 앞입니다. 아무것과도 맞지 않은 `order`나 `exclude` 항목은 그 항목을 적은 위치와 함께 `unmatched-navigation-order`나 `unmatched-navigation-exclude`로 보고합니다.
+
+**언어.** `locales`는 `en`, `ko`, `pt-BR` 같은 언어 코드마다 레이블이나 `{ label, suffix?, ui? }`를 지정합니다.
+
+```ts
+type LocaleOption =
+  string | { label: string; suffix?: string; ui?: Partial<UiStrings> }
+type UiStrings = Record<
+  | "skip"
+  | "documents"
+  | "onThisPage"
+  | "language"
+  | "theme"
+  | "system"
+  | "light"
+  | "dark",
+  string
+>
+```
+
+첫 언어가 기본 언어이며 접미사가 없습니다. 다른 언어의 접미사는 기본값이 `.<code>`이고, 점 뒤에 영문자나 숫자, `-`가 오는 형태이며, 다른 언어의 접미사와 달라야 합니다. 문서의 언어는 파일 이름을 끝맺는 접미사로 정하되 마지막 점 구간만 읽으므로, `notes.v2.ko.md`는 `notes.v2`의 한국어 문서입니다. 번역 키는 접미사를 뺀 ID입니다. front matter `lang`은 그 코드를 더 구체적으로 만들 때만 쓸 수 있으며(`ko`에 대한 `ko-KR`), 그때는 `<html lang>`이 됩니다. 다른 언어를 적으면 오류입니다. `locales`가 없으면 모든 페이지의 `lang`은 front matter `lang`이거나 `en`입니다. 모든 언어가 같은 항목으로 탐색을 그리며, 문서 항목과 폴더 페이지와 폴더 구성원은 각각 그 키의 해당 언어 번역으로 그립니다. 없는 번역은 빠지고 한 번만 `missing-translation`으로 보고하며, 항목이 하나도 남지 않은 그룹은 그리지 않습니다. `title` 객체는 그 언어의 텍스트를, 없으면 기본 언어의 텍스트를 씁니다. `locales`에 없는 키를 적으면 오류입니다. `ui`는 페이지 틀이 쓰는 문구를 바꿉니다. cudoc은 영어와 한국어 문구를 갖추고 있고, 그 밖의 언어는 영어 문구에서 시작합니다.
+
+**홈과 출력 경로.** 언어마다 홈은 `home`의 번역이거나(이때 모든 언어에 있어야 합니다) `index`의 번역입니다. 기본 언어의 홈은 `index.html`에, 다른 언어의 홈은 `index.<code>.html`에 쓰고, 나머지 문서는 `<id>.html`에 씁니다. 자기 파일이 홈의 파일과 겹치는데 그 홈이 아닌 문서는 오류입니다. 홈이 없는 언어는 그 언어의 탐색을 나열하는 랜딩 페이지를 생성해 받습니다. 단일 페이지는 홈을 쓰지 않으므로 `index`를 포함한 모든 문서가 `<id>.html`입니다.
+
+**페이지 틀.** 사이트 페이지에는 머리글(그 언어의 홈으로 가는 사이트 제목, `header.links`, 언어가 둘 이상일 때의 언어 메뉴, 테마 메뉴), 탐색 사이드바, 본문 열이 있고, `toc`나 페이지의 front matter가 끄거나 홈 페이지가 아니라면 `toc.depth`까지의 제목 목차가 있습니다. 언어 메뉴는 다른 언어마다 같은 문서의 게시된 번역으로, 번역이 없으면 그 언어의 홈으로 연결합니다. 그룹은 `<details>` 요소이며 `collapsed`가 아니거나 현재 페이지를 품고 있으면 열려 있습니다. 단일 페이지에는 제목과 `header.links`, 테마 메뉴, 목차가 있고 탐색과 홈 링크, 언어 메뉴는 없습니다. 페이지 틀이 만든 링크는 페이지를 조립하는 동안 `data-cudoc-final`을 달고 있으므로 링크 정책이 다시 고쳐 쓰지 않습니다. 이 속성은 작성한 내용에서는 제거하며, 써 낸 페이지에는 남지 않습니다.
+
+**스타일시트.** `css` 파일은 css-tree로 파싱합니다. `@import`는 거부합니다. 각 `url()`은 스타일시트 자신의 디렉터리를 기준으로 렌더링 자원처럼 해석하며, 루트나 `assetDirs` 디렉터리, 또는 그 디렉터리 안에 있어야 합니다. 사이트에서는 지정한 순서대로 `cudoc.css` 다음에 `cudoc-css/<n>-<name>.css`로 연결하고, 그 파일이 불러오는 것은 `cudoc-css/files/<SHA-256의 앞 16진수 12자리>-<name>`으로 복사하므로, 다시 빌드해도 같은 내용은 같은 이름을 받습니다. 원격 `url()`은 그대로 둡니다. 단일 페이지에서는 그 텍스트를 페이지의 `<style>` 하나에 넣고 각 `url()`을 `data:` URL로 바꾸며, 원격 `url()`은 거부합니다. 복사하는 자원은 `cudoc-css/` 아래에 쓸 수 없습니다.
+
+**sourceLinks와 mounts.** `relative`와 `host`에서, 문서도 아니고 루트나 `assetDirs`에서도 찾지 못했지만 `sourceLinks.root` 아래 그 라이브러리 경로에 있는 파일로 가는 하이퍼링크는 `sourceLinks.url` 뒤에 그 경로를 붙인 주소가 됩니다. 경로의 구간마다 퍼센트 인코딩하고 쿼리와 프래그먼트는 유지하며, 디렉터리는 끝의 `/`를 유지하고, 비공개 문서 검사를 적용합니다. 마운트의 `from`은 디렉터리이고 `to`는 `.`, `..`, 맨 앞의 `/`가 없는 출력 안의 폴더 경로이며, 둘 다 소스·라이브러리·자산·출력 디렉터리와 겹칠 수 없고, 다른 마운트의 `from`이나 `to`와도 겹칠 수 없습니다. 루트 위의 마운트는 내비게이션이 뺀 문서까지 게시하기 때문입니다. `from` 안으로 가는 링크는 그 파일이 루트 아래에 있든 `sourceLinks.root` 아래에 있든 복사본으로 바꿔 쓰고, 폴더는 페이지를 쓴 다음 통째로 복사합니다. 그 안의 심볼릭 링크나 비공개 문서는 오류입니다. 복사하는 자원은 마운트의 `to/` 아래에 쓸 수 없습니다. 단일 페이지에서, 또는 `host`나 `none` 링크와 함께 마운트를 쓰면 오류입니다. 사이트 안의 상대 링크만 복사본에 닿기 때문입니다.
+
+### 단일 페이지
+
+`standalone`과 `target: "file"`인 `annotate`는 단일 페이지를 씁니다. 쓰는 문서마다 어느 폴더에서 열어도 똑같이 렌더링되는 `<id>.html` 하나가 됩니다.
+
+- 머리에는 `<style>` 하나가 있습니다. 해석한 토큰으로 만든 `cudoc.css` 다음에, 각 `css` 파일의 텍스트가 그 파일이 불러오는 것을 본문에 넣은 채로 이어집니다. 페이지는 어떤 스타일시트에도 연결하지 않습니다. 작성한 `<link rel="stylesheet">`가 로컬 파일을 가리키면 그 파일의 텍스트를 담은 `<style>`로 바꾸고 그 파일이 불러오는 것도 페이지 안에 담으며, 다른 서버를 가리키면 거부합니다.
+- [자산 규칙](#내보내기-링크와-자산)이 복사할 렌더링 자원 가운데 `<img>`, `<input>`, SVG `<image>`·`<feImage>`가 불러오는 것(`src`, 각 `srcset` 후보, `href`), 동영상의 `poster`, 인라인 `style`의 `url()`, 작성한 `<style>` 안의 `url()`은 모두 그 파일의 `data:` URL이 됩니다. 실을 수 있는 것은 이미지(PNG, JPEG, GIF, WebP, AVIF, SVG, BMP, ICO)와 글꼴(WOFF, WOFF2, TTF, OTF)뿐이며, 그 밖의 로컬 자원은 그 자원을 밝힌 오류입니다. `<object data>`, `<use href>`, `<iframe>`, `<audio>`, 동영상 자체의 `src`, 미디어 `<source>`처럼 다른 요소가 불러오는 로컬 자원도 오류입니다.
+- 테마 스크립트와 메모 런타임은 인라인 `<script>` 요소로, 런타임의 스타일시트는 인라인 `<style>`로 싣습니다. 요소를 끝낼 수 있는 텍스트는 이스케이프하며(`<\/script`, `<\/style`), `<!--`를 담은 스크립트는 거부합니다. 빌드한 런타임에는 `<!--`가 없습니다.
+- 다른 문서로 가는 하이퍼링크는 상대 `<id>.html` 링크로 남거나 `host`에서는 배포된 페이지를 가리키며, 이번 실행이 그 문서도 쓰지 않는 한 `page`로 보고합니다. 다른 로컬 파일로 가는 하이퍼링크는 사이트와 같이 그 파일을 페이지 옆에 복사하고 `file`로 보고합니다. 다른 서버의 자원은 쓴 그대로 두고 `remote`로 보고합니다.
+- `dependencies`가 그 보고를 나열합니다. CLI는 각각을 표준 오류에 `cudoc-export: <document>: needs a page beside it|a file beside it|a remote resource: <url>`로 출력하며, `strict`는 목록이 비어 있지 않으면 아무것도 게시하기 전에 그 목록을 담은 오류로 바꿉니다.
+- `standalone.maxAssetBytes`(기본 5 MiB)는 base64를 포함해 본문에 넣어 쓴 자원 하나의 크기를, `standalone.maxPageBytes`(기본 20 MiB)는 써 낸 페이지의 크기를 제한합니다. 둘 다 `LIMITS.htmlBytes − LIMITS.fileBytes − 2 MiB`인 28 MiB 이하이므로, 메모와 함께 저장한 사본도 독자가 다시 불러올 수 있는 32 MiB 안에 들어갑니다.
+- 인쇄 HTML과 `cudoc-print.css`, 복사한 렌더링 자원은 `formats`가 PDF를 요청할 때만 씁니다. PDF는 그 인쇄 HTML로 인쇄하며, Word에는 그중 어느 것도 필요하지 않습니다.
 
 ### 페이지를 나누는 출력
 
@@ -282,20 +388,24 @@ type DocxWriterOptions = {
   >
 }
 
-type ExportResult = SiteResult & {
+type ExportResult = Omit<SiteResult, "files" | "diagnostics"> & {
   formats: ExportFormat[]
   files: Record<ExportFormat, string[]> // outDir 기준 상대 경로, 출력 순서
-  diagnostics: {
-    code:
-      | "dropped-html"
-      | "html-as-text"
-      | "image-as-text"
-      | "dropped-footnote-table"
-      | "unsafe-link"
-    message: string
-    document: string
-  }[]
+  diagnostics: ExportDiagnostic[]
 }
+
+type ExportDiagnostic =
+  | NavigationDiagnostic // 내보내기 절 참고
+  | {
+      code:
+        | "dropped-html"
+        | "html-as-text"
+        | "image-as-text"
+        | "dropped-footnote-table"
+        | "unsafe-link"
+      message: string
+      document: string
+    }
 
 type RunningText = string | { left?: string; center?: string; right?: string }
 
@@ -379,8 +489,9 @@ Chrome이 첫 요소의 명명 페이지에 빈 쪽을 앞세우기 때문이며
 모든 문서와 묶음 이름의 `<id>.html`, `<id>.print.html`, `<id>.pdf`, `<id>.docx`는
 예약되어 있으며, 그 자리에 놓이게 되는 자산은 오류입니다.
 
-**형식마다 쓰는 파일.** 모든 빌드가 브라우저 유무와 무관하게 `cudoc-print.css`와
-문서별 `<id>.print.html`과 `<묶음>.print.html`을 씁니다. `pdf`는 `playwright-core`로
+**형식마다 쓰는 파일.** 사이트는 브라우저 유무와 무관하게 `cudoc-print.css`와
+문서별 `<id>.print.html`과 `<묶음>.print.html`을 쓰고, 단일 페이지는 `formats`에 PDF가
+있을 때만 씁니다. `pdf`는 `playwright-core`로
 `chromium-headless-shell`을 한 세션 구동해 그 파일들을 각각 한 번씩 `<id>.pdf`와
 `<묶음>.pdf`로 인쇄합니다. `postinstall`이 그 셸을 설치하며 어떤 경우에도 설치를
 실패시키지 않습니다. `CUDOC_SKIP_BROWSER_DOWNLOAD`나
@@ -392,7 +503,7 @@ npm 12 이상에서는 프로젝트가 승인한 뒤에만 실행합니다
 PDF를 요청하면 그 명령을 알려 주는 오류를 냅니다. `docx`는 `docx` 패키지로
 `<id>.docx`와 `<묶음>.docx`를 쓰며, HTML 렌더러가 읽는 것과 같은 mdast를 걷습니다.
 
-**한 권으로 묶은 파일**은 내비게이션 순서의 문서들이며, 각 문서는
+**한 권으로 묶은 파일**은 기본 언어의 문서를 내비게이션 순서로 놓고 그 뒤에 `hidden` 문서를 이어 놓되, `volume.order`가 지정한 문서를 그 순서대로 맨 앞으로 옮긴 것입니다(각 문서는 구성원이어야 하고, 한 번만, ID나 소스 경로로 적습니다). 각 문서는
 `<article class="cudoc-doc" id="cudoc-<token>">`와 자기 Word 구역에 들어가고,
 `volume`이 끄지 않는 한 표지 구역과 목차 구역이 앞에 옵니다. 토큰은
 `@cudoment/cudoc/document`의 `idToken(id)`입니다. 문서 id에서 ASCII 영문자, 숫자,
@@ -586,57 +697,87 @@ tokens: {
 
 ### 테마 전환
 
-`themeSwitch: true`(CLI `--theme-switch`)는 모든 페이지의 머리글에 시스템·라이트·다크를
-차례로 고르는 버튼을 더하고, 출력 루트에 예약된 파일 하나 `cudoc-theme.js`를 패키지의
-`dist/browser/`에서 복사합니다. 모든 페이지가 `<head>` 끝에서 `defer` 없는 평범한
+`themeSwitch: true`(CLI `--theme-switch`)는 모든 페이지의 머리글에 테마 메뉴를
+더합니다. 모니터·해·달 아이콘 옆에 시스템·라이트·다크를 고르는 기본 `<select>`이므로,
+키보드 조작과 스크린 리더의 안내, 휴대전화 자체의 선택 화면을 브라우저가 제공합니다.
+사이트에서는 출력 루트에 예약된 파일 하나 `cudoc-theme.js`를 패키지의
+`dist/browser/`에서 복사하고, 모든 페이지가 `<head>` 끝에서 `defer` 없는 평범한
 `<script src>`로 이 파일을 읽으므로, 기억된 선택이 본문이 그려지기 전에 적용됩니다.
-주석과 같은 Content-Security-Policy 메타를 두 옵션 중 먼저 요청하는 쪽이 한 번만
-넣습니다. 스크립트는 `<html>`에 `data-theme="light"` 또는 `"dark"`를 설정하거나
+단일 페이지는 같은 스크립트를 그 자리에 인라인으로 싣습니다. 주석과 같은
+Content-Security-Policy 메타를 두 옵션 중 먼저 요청하는 쪽이 한 번만 넣습니다.
+스크립트는 `<html>`에 `data-theme="light"` 또는 `"dark"`를 설정하거나
 제거하고(스타일시트가 이에 응답하는 방식은 `siteStyles` 설명 참고), 선택을
 `localStorage["cudoc-theme"]`에 기억합니다(없으면 시스템, 저장은 주석과 같이 최선
-노력, 다른 탭의 변경은 `storage` 이벤트로 따라감). 버튼은 스크립트가 만들므로
-스크립트가 없는 페이지에는 버튼도 없습니다. 라벨은 문서의 `lang`(`ko`면 한국어, 그 외
-영어)을 따라 시스템·라이트·다크로 읽히고 모니터·해·달 아이콘이 함께 놓이며, 도구
-설명과 접근성 이름은 "테마: <모드>"입니다. 기본값은 꺼짐이며, 꺼진 출력은
-스크립트 없이 시스템 설정을 따릅니다.
+노력, 다른 탭의 변경은 `storage` 이벤트로 따라감). 메뉴는 스크립트가 만들므로
+스크립트가 없는 페이지에는 메뉴도 없습니다. 메뉴의 문구는 빌더가 페이지 언어의
+`ui` 문구(`theme`, `system`, `light`, `dark`)로 `<html>`에 써 둔 `data-cudoc-ui`에서
+읽고, 그 속성이 없으면 문서의 `lang`(`ko`면 한국어, 그 외 영어)을 따릅니다. 도구
+설명은 "<테마>: <모드>"입니다. 기본값은 꺼짐이며, 꺼진 출력은 스크립트 없이 시스템
+설정을 따릅니다.
 
 ### 주석
 
-`annotations: true`(CLI `--annotations`)는 사이트에 메모 런타임을 실어, 파일을 받은
-사람이 글자나 블록을 골라 평문 메모를 남기고, 답글을 달고, 해결로 표시하고, 저자에게
-돌려줄 수 있게 합니다. 기본값은 꺼짐이고, 꺼진 출력은 바이트 하나도 바뀌지
-않습니다. 스크립트도, 정책 메타도, 블록 id도 없습니다.
+`mode: "annotate"`(CLI `--mode annotate`)는 페이지에 메모 런타임을 실어, 페이지를
+받은 사람이 글자나 블록을 골라 평문 메모를 남기고, 답글을 달고, 해결로 표시하고,
+저자에게 돌려줄 수 있게 합니다. 다른 모드의 출력은 이 기능 때문에 바이트 하나도
+바뀌지 않습니다. 스크립트도, 정책 메타도, 블록 id도 없습니다.
 
-**옵션이 더하는 것.** 출력 루트에 예약된 파일 둘을 패키지의 `dist/browser/`에서
-복사합니다. `cudoc-annotations.js`는 의존성과 네트워크 접근이 없는 클래식 지연
-스크립트 하나이고, `cudoc-annotations.css`가 그 스타일입니다. 모든 페이지가 두 파일의
-`<link>`와 `<script defer>`를 갖고(랜딩 페이지도 스크립트를 읽지만 문서가 없어 아무
-일도 하지 않습니다), 문자 집합 메타 바로 뒤에
+```ts
+type AnnotateOptions = {
+  target?: "file" | "hosted" // "file"
+  reviewId?: string // "hosted"에서 필수
+  inbox?: { github: { repo: string; template: string; field?: string } }
+}
+```
+
+기본값인 `target: "file"`은 런타임을 인라인으로 싣는 [단일 페이지](#단일-페이지)를
+씁니다. `target: "hosted"`는 정적 호스트에 올릴 사이트를 쓰고 런타임을 페이지 옆에
+두며, `reviewId`가 필요합니다. 한 호스트의 사이트들은 같은 출처를 쓰므로 브라우저
+저장소도 함께 쓰기 때문입니다. `reviewId`가 그 저장소의 키가 되며, 지정하지 않은
+파일 대상 페이지는 제목과 게시하는 모든 문서 id의 해시를 씁니다. 그래서 `documents`로 어떤 페이지를 쓰든 키가 같습니다. `inbox`(`hosted` 전용)는 GitHub
+저장소(`owner/name`), 그 저장소의 이슈 양식 파일(`*.yml` 또는 `*.yaml`), 양식의 필드
+id(기본값 `notes`, 영문자·숫자·`_`·`-`)를 지정합니다.
+
+**모드가 더하는 것.** 사이트에서는 출력 루트에 예약된 파일 둘을 패키지의
+`dist/browser/`에서 복사합니다. `cudoc-annotations.js`는 의존성과 네트워크 접근이
+없는 클래식 지연 스크립트 하나이고, `cudoc-annotations.css`가 그 스타일입니다. 모든
+페이지가 두 파일의 `<link>`와 `<script defer>`를 갖습니다(생성된 랜딩 페이지도
+스크립트를 읽지만 문서가 없어 아무 일도 하지 않습니다). 단일 페이지는 두 파일을
+인라인으로 싣습니다. 모든 페이지의 문자 집합 메타 바로 뒤에는
 `<meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'none'; form-action 'none'; connect-src 'none'">`가
 붙습니다. 이 정책은 출처와 무관한 지시문만 씁니다. 일부 브라우저에서 `file://`
 페이지의 불투명 출처는 `'self'`와 맞지 않아 스타일시트까지 막히기 때문입니다.
 `<main>`에는 `data-cudoc-document`(문서 id), `data-cudoc-ast-hash`와
 `data-cudoc-source-hash`(라이브러리 매니페스트의 그 문서 `astHash`와 `hash`),
-`data-cudoc-site`(제목과 문서 순서의 해시로, 브라우저 저장소의 키가 됨),
-`data-cudoc-generator`가 붙습니다. 모든 `p`, `li`, `tr`, `pre`, `blockquote`, `dt`,
+`data-cudoc-site`(위의 저장소 키), `data-cudoc-generator`가 붙고, 받는 곳이 있으면
+그 JSON인 `data-cudoc-inbox`도 붙습니다.
+모든 `p`, `li`, `tr`, `pre`, `blockquote`, `dt`,
 `dd`, 제목, `aside.cudoc-callout`에는 `data-cudoc-block="<제목 id>:<16진수 8자>"`가
 붙습니다. 직전 제목의 id(첫 제목 앞은 빈 문자열)와 블록 텍스트의 공백을 접은 뒤 구한
 SHA-256 앞 여덟 자리이며, 한 절에서 같은 텍스트가 반복되면 `~2`, `~3` …을 붙입니다.
 내용 해시는 다른 곳에 블록이 끼어들거나 옮겨져도 그대로이고, 고친 블록만 새 id를
 얻어 그 메모는 인용 검색으로 물러납니다. 인쇄용 HTML, PDF, Word는 공유 트리로
-만들어지므로 바뀌지 않습니다. `object-src 'none'`과 `form-action 'none'`은 옵션이
-켜진 동안 저자의 raw `<embed>`·`<form>`에도 미칩니다.
+만들어지므로 바뀌지 않습니다. `object-src 'none'`과 `form-action 'none'`은 이 모드에서만
+저자의 raw `<embed>`·`<form>`에도 미칩니다.
 
 **런타임.** 글자를 선택하면 메모 버튼이, 블록에 마우스를 올리면 왼쪽 여백에 `+`가
 나타나고, 포인터가 여백을 건너 그 버튼으로 가는 동안 버튼은 사라지지 않습니다. 둘
-다 평문 작성 창을 엽니다. 오른쪽 아래의 둥근 토글(말풍선 아이콘과 이 문서의 메모
+다 평문 작성 창을 엽니다. 메모 버튼은 선택 영역을 따릅니다. 메모 버튼이나 작성 창이
+아닌 곳을 누르면 그 즉시 사라지고(캡처 단계의 `pointerdown`), 손을 뗄 때 다시
+나타나는 것은 `main` 안에서, 그리고 조작 요소(`button`, `select`, `input`,
+`textarea`, `label`, `summary`, `[role=button]`, 편집 가능한 텍스트) 밖에서 시작한
+누름뿐입니다. 그래서 테마 메뉴나 details 요약을 써도 버튼이 이전 선택 영역 옆에 다시
+나타나지 않습니다. 선택 영역이 접히거나 `main`을 벗어나면 사라지고
+(`selectionchange`), 터치나 펜으로 선택하면 선택 영역이 350ms 동안 움직이지 않을 때
+나타납니다. Escape로 사라지고, 키보드로 선택한 뒤 Tab을 누르면 버튼으로 초점이
+옮겨 가며, 초점이 다른 곳으로 옮겨 가면 사라집니다. 오른쪽 아래의 둥근 토글(말풍선 아이콘과 이 문서의 메모
 개수)이 패널을 엽니다. 패널은 이름 입력란(선택 사항, 입력하는 즉시 반영, 브라우저가
 기억, 기본 비움)으로 시작하고, 그 아래에 1차 동작 둘(공유 토큰 복사, 이 브라우저의
 저장 내용 지우기)과 접힌 *더 보기*에 파일 동작을 둡니다. `<id>.annotations.json`
 내려받기; `<id>.annotated.html` 저장(메모를
 `<script type="application/json" id="cudoc-annotations-data">` 블록에 넣고 모든
-`<`를 이스케이프한, 런타임 UI를 뺀 페이지 사본이며 원본과 같은 폴더에 있어야
-스타일시트가 열림); `.json`이나 `.annotated.html` 불러오기(레이어 어디에나 끌어다
+`<`를 이스케이프한, 런타임 UI를 뺀 페이지 사본이며 단일 페이지라면 어디서든 열리고
+사이트 페이지라면 원본과 같은 폴더에 있어야 스타일시트가 열림); `.json`이나 `.annotated.html` 불러오기(레이어 어디에나 끌어다
 놓아도 됨). 그 아래에 이 문서의 메모를 카드로 나열합니다. 상태·위치 알약 표식,
 작성자와 UTC 시각, 인용 구절(블록 경계는 공백으로 접고 최대 세 줄), 본문, 답글, 그리고
 이동·답글·수정·해결(또는 다시 열기)·삭제의 아이콘 버튼(도구 설명 포함)이 들어갑니다.
@@ -663,6 +804,16 @@ Firefox는 `file://`에서 거부)에서 들어오고, 같은 id는 `modified`�
 덮습니다. 768px 미만에서는
 항상 덮습니다. 언어, 배치, 이름은 브라우저마다 `cudoc-annotations:lang`, `:layout`,
 `:author` 키로 기억합니다.
+받는 곳이 있으면 패널은 토큰 옆에 *GitHub에서 제출 작성*을 더합니다. 이 동작은 메모를
+공유 토큰으로 인코딩해
+`https://github.com/<repo>/issues/new?template=<template>&title=Review%20notes%3A%20<page title>&<field>=%23cudoc-notes%3D<token>`
+주소를 만듭니다. GitHub는 긴 주소에 414로 답하면서 상한을 공개하지 않으므로, 주소가
+6,000자를 넘으면 대신 JSON 파일을 내려받고 이슈에 첨부하라고 알립니다. 그렇지 않으면
+패널이 먼저 무엇이 전달되는지(메모 본문, 인용문, 이름이 주소에 실려 GitHub로 가며
+공개 저장소에서는 공개된다는 점, 압축한 토큰은 암호화가 아니라는 점)를 보여 주고,
+독자가 확인해야 `window.open(url, "_blank", "noopener,noreferrer")`로 그 주소를
+엽니다. 페이지를 여는 것은 제출이 아니므로 아무것도 보낸 것으로 표시하지 않습니다.
+메모가 없으면 보낼 메모가 없다고 알립니다.
 `window.cudocAnnotations`가 자동화용으로 `create(exact, text)`,
 `createOnBlock(blockId, text)`, `reply(id, text)`, `list()`, `anchors()`,
 `load(text)`, `collection()`, `embeddedCopy()`, `token()`을 노출합니다.
@@ -683,7 +834,9 @@ Firefox는 `file://`에서 거부)에서 들어오고, 같은 id는 `modified`�
 복사합니다. 모르는 셀렉터 타입은 버리고 모르는 필드는 무시하며, `@context`, `type`,
 `motivation`, `purpose`, `format`이 위 값이 아니거나, 인용문이 없거나, 오프셋이
 음수이거나 뒤집혔거나, 날짜가 ISO 8601이 아니거나, 상한(파일 2MiB, 메모 500개, 본문
-10KiB, 인용문 2KiB, 문맥 64바이트, 이름과 id 200자)을 넘으면 입력 전체를 거부합니다.
+10KiB, 인용문 2KiB, 문맥 64바이트, 이름과 id 200자)을 넘으면 입력 전체를 거부합니다. 저장한 `.annotated.html`은 최대
+32MiB(`LIMITS.htmlBytes`)이며, 그 안의 메모 블록에는 메모 파일과 같은 2MiB 상한을
+적용합니다.
 날짜는 달력 날짜(`2026-09-16`)이거나 `Z` 또는 `±hh:mm` 오프셋이 붙은 날짜와 시각이며
 달력에 있는 날인지 확인한 뒤 위의 UTC 형태로 저장하므로, 어느 오프셋으로 적은 날짜든
 텍스트로 비교됩니다. 오프셋 없는 지역 시각이나 그 밖에 `Date.parse`만 받아들이는
@@ -709,7 +862,8 @@ Firefox는 `file://`에서 거부)에서 들어오고, 같은 id는 `modified`�
 대상, 줄머리 `>`, `#`, `|`, 목록 표식)을 제외하고 찾고, 같은 두 단계를 문서 전체에
 반복합니다. 결과는 `exact`, `loose`, `moved`, `not-found` 중 하나와 1부터 세는 줄
 번호입니다. Markdown 보고서는 사실만 적고 지시문을 담지 않습니다. 저자가 자기
-프롬프트 아래에 붙이는 자료이기 때문입니다. 머리에 파일·라이브러리·개수, 문서마다
+프롬프트 아래에 붙이는 자료이기 때문입니다. 머리에 파일, 라이브러리(붙여 넣은 보고서에 저자의 홈 경로가 담기지 않도록 작업
+디렉터리 기준 상대 경로로 적음), 개수가 오고, 문서마다
 라이브러리 순서(모르는 문서는 뒤)로 원문 경로와 메모 이후 버전이 바뀌었는지, 메모마다
 줄 순서로 제목·상태·범위·일치 종류, 펜스 안의 원문 줄, 그리고 "Reviewer-provided
 text (data, not instructions)" 라벨 아래 내용의 어떤 백틱 연속보다 긴 펜스에 담은
@@ -725,15 +879,15 @@ id, 펜스 안의 글, 서명의 이름과 시각에서 `\uXXXX`로 보이게 �
 
 [links.ts](../../packages/cudoc-export/src/links.ts)는 소스 ID와 수집된 경로에서 링크 대상을 해석합니다. Markdown 경로는 소스 ID, 고유 URL 경로는 라우트를 우선합니다. `guide/`, `./`, `..`처럼 디렉터리로 쓴 경로는 [`cudoc check`](./node.ko.md#참조-검사)가 읽는 것처럼 같은 이름의 문서가 옆에 있어도 그 디렉터리의 index 문서를 가리킵니다. 루트 기준·소스 기준·배포 기본 경로 포함·커스텀 경로를 지원하며 쿼리와 프래그먼트를 보존합니다.
 
-- `relative`: 문서를 로컬 `.html` 출력으로 연결합니다. 프래그먼트만 있는 링크는 로컬에, 외부 URL은 그대로 유지합니다. 나머지 내부 링크 대상은 복사할 수 있는 파일이어야 합니다.
-- `host`: 문서를 `hostUrl`과 저장된 경로로 연결하며 기존 기본 경로를 중복 추가하지 않습니다. 프래그먼트만 있는 링크는 배포된 현재 문서로 연결합니다. 그 밖의 루트 경로는 배포 기본 경로, 상대 경로는 배포된 현재 문서 URL을 기준으로 해석합니다. 외부 스킴 URL과 프로토콜 상대 URL은 유지합니다. 원격 링크 검사는 수행하지 않습니다.
+- `relative`: 게시하는 문서를 그 출력 파일로 연결합니다. 프래그먼트만 있는 링크는 로컬에, 외부 URL은 그대로 유지합니다. 나머지 내부 링크 대상은 마운트의 복사본이나 `sourceLinks`로 가거나, 복사할 수 있는 파일이어야 합니다. 사이트가 게시하지 않는 문서로 가는 링크는 그 문서와 해결 방법을 알리는 오류입니다.
+- `host`: 문서를 `hostUrl`과 저장된 경로로 연결하며 기존 기본 경로를 중복 추가하지 않습니다. 프래그먼트만 있는 링크는 배포된 현재 문서로 연결합니다. 수집하지 않은 `sourceLinks.root` 아래의 파일은 `sourceLinks.url`로 연결하고, 그 밖의 루트 경로는 배포 기본 경로, 상대 경로는 배포된 현재 문서 URL을 기준으로 해석합니다. 외부 스킴 URL과 프로토콜 상대 URL은 유지합니다. 원격 링크 검사는 수행하지 않습니다.
 - `none`: `<a>`를 `<span>`으로 바꾸고 `<a>`·`<area>`의 하이퍼링크 속성을 제거합니다. 텍스트·ID·중첩 마크업·이미지는 보존합니다. 제거한 링크의 대상은 해석하거나 복사하지 않습니다. 스크립트·이벤트 핸들러 정화가 아닌 하이퍼링크 제거입니다.
 
-본문·raw HTML·렌더러 콜백·임베드·생성된 머리말·탐색·목차·각주·자동 index를 포함한 전체 페이지에 정책을 적용합니다. 로컬 본문 바로가기 링크는 `relative`에서만 생성합니다. 수집의 `syntax.link`와 별개의 옵션입니다.
+본문·raw HTML·렌더러 콜백·임베드·각주·자동 index를 포함한 전체 페이지에 정책을 적용합니다. 페이지 틀이 만드는 머리말·탐색·언어 메뉴·목차 링크는 해석한 상태로 쓰고 `data-cudoc-final`을 달아 두며, 다시 쓰기 단계는 이 링크를 건너뛰고 속성을 제거합니다. 로컬 본문 바로가기 링크는 `relative`에서만 생성합니다. 수집의 `syntax.link`와 별개의 옵션입니다.
 
-렌더링 자원은 별도로 처리하며 로컬 자원은 모든 모드에서 로컬에 유지합니다. 대상은 모든 요소의 `src`, `srcset`의 각 후보(브라우저처럼 읽으므로 URL은 다음 공백까지 이어져 data URL 안의 쉼표는 URL에 속하고, 남는 쉼표가 만든 빈 후보는 버림), `<video>`의 `poster`, `<object>`의 `data`, 작성한 스타일시트의 `<link href>`, SVG `<image>`·`<use>`·`<feImage>`의 `href`와 `xlink:href`입니다. 라이브러리 좌표에서 찾습니다. 문서 상대 경로는 문서의 라이브러리 경로를 기준으로, 루트 상대 경로는 라이브러리 경로 그대로 해석해 그 경로를 담는 루트를 통해 디스크에 닿고, 그다음 선택적 배포 기본 경로를 제거한 URL 루트 경로로 `assetDirs`를 탐색합니다. 참조 파일은 여러 페이지와 출력이 가리켜도 한 번만 복사하고 상대 출력 URL로 연결하며 외부 자원은 그대로 유지합니다. 경로는 `cudoc-export/print`의 `urlPath`가 URL로 적는데, 파일 이름의 공백, 쉼표, `%`, `#`, `?`를 이스케이프하므로 `media/a b.png`는 `src`에서도 `srcset`에서도 `media/a%20b.png`로 적힙니다. 복사한 파일로 가는 링크도 사이트, 인쇄 HTML, Word에서 같은 방식으로 적습니다. CSS import·`url()` 의존성을 재귀적으로 묶는 번들러는 아닙니다.
+렌더링 자원은 별도로 처리하며 로컬 자원은 모든 모드에서 로컬에 유지합니다. 대상은 모든 요소의 `src`, `srcset`의 각 후보(브라우저처럼 읽으므로 URL은 다음 공백까지 이어져 data URL 안의 쉼표는 URL에 속하고, 남는 쉼표가 만든 빈 후보는 버림), `<video>`의 `poster`, `<object>`의 `data`, 작성한 스타일시트의 `<link href>`, SVG `<image>`·`<use>`·`<feImage>`의 `href`와 `xlink:href`입니다. 라이브러리 좌표에서 찾습니다. 문서 상대 경로는 문서의 라이브러리 경로를 기준으로, 루트 상대 경로는 라이브러리 경로 그대로 해석해 그 경로를 담는 루트를 통해 디스크에 닿고, 그다음 선택적 배포 기본 경로를 제거한 URL 루트 경로로 `assetDirs`를 탐색합니다. 참조 파일은 여러 페이지와 출력이 가리켜도 한 번만 복사하고 상대 출력 URL로 연결하며 외부 자원은 그대로 유지합니다. 경로는 `cudoc-export/print`의 `urlPath`가 URL로 적는데, 파일 이름의 공백, 쉼표, `%`, `#`, `?`를 이스케이프하므로 `media/a b.png`는 `src`에서도 `srcset`에서도 `media/a%20b.png`로 적힙니다. 복사한 파일로 가는 링크도 사이트, 인쇄 HTML, Word에서 같은 방식으로 적습니다. `css` 파일의 `url()` 파일은 [사이트 구성](#사이트-구성)에서 설명하는 대로 처리하고 `@import`는 거부합니다. 단일 페이지에서는 이 자원을 모두 [단일 페이지](#단일-페이지)에서 설명하는 대로 본문에 넣어 씁니다.
 
-잘못된 링크 모드·URL, 빈 입력, 없는 탐색 ID, 자산 누락, 자산·출력 충돌, 동일 출력 경로를 공유하는 서로 다른 자산, 미지원 노드, 잘못된 출력 디렉터리는 오류입니다. 모든 루트와 모든 `assetDirs` 루트를 벗어나는 로컬 렌더링 자원은 모든 정책에서 URL과 그것을 담고 있는 문서를 함께 알리는 로컬 대상 누락 오류로 보고합니다. 같은 위치를 가리키는 하이퍼링크는 그 파일을 복사하는 `relative`에서만 이렇게 보고하고, `host`에서는 배포 주소를 기준으로 해석하며, `none`에서는 제거합니다. 해당 루트 밖에서는 어떤 파일도 복사하지 않습니다. 내보내는 문서가 비공개 문서로 링크하면 `relative`에서는 두 문서를 알리는 오류입니다. 그 페이지가 출력에 없고 원문을 복사하면 공개되어 버리기 때문입니다. `host`에서는 묶은 파일을 포함한 모든 출력에서 그 페이지를 서비스하는 배포 주소를 가리키고, `none`에서는 다른 링크처럼 제거됩니다. 자원은 세 정책 모두에서 복사하므로, 자원이나 `relative`에서의 로컬 파일 링크가 비공개 문서의 파일에 닿으면 모든 정책에서 오류입니다. 경로가 아니라 파일 자체를 비교하므로, 루트를 거치든 `assetDirs` 디렉터리나 심볼릭 링크를 거치든 이름을 다르게 적든 마찬가지입니다. 오류 메시지는 `cudoc-export: <document> loads the private document <library path> as a resource (<url>), which would publish its source`입니다. 소스·라이브러리·자산 루트와 출력이 겹치면 쓰기 전에 거부합니다. 사이트는 임시 디렉터리에서 생성해 교체하므로 실패 시 이전 사이트를 보존합니다. 수집 모드에서는 라이브러리와 사이트 출력이 별개이므로 사이트 실패 시 새 라이브러리를 되돌리지는 않습니다. 재사용 모드에서는 라이브러리를 변경하지 않습니다. HTML은 정화하지 않고 React·Vue 코드는 실행하지 않습니다. 사이트 기본 구조에 클라이언트 JavaScript 의존성은 없습니다. 예외는 `annotations`나 `themeSwitch`를 켠 경우이며, 각각 더해지는 로컬 스크립트 하나는 [주석](#주석)과 [테마 전환](#테마-전환)에서 설명합니다.
+잘못된 링크 모드·URL, 빈 입력, 문서나 폴더를 가리키지 않는 탐색 항목, 자산 누락, 자산·출력 충돌, 동일 출력 경로를 공유하는 서로 다른 자산, 미지원 노드, 잘못된 출력 디렉터리는 오류입니다. 모든 루트와 모든 `assetDirs` 루트를 벗어나는 로컬 렌더링 자원은 모든 정책에서 URL과 그것을 담고 있는 문서를 함께 알리는 로컬 대상 누락 오류로 보고합니다. 같은 위치를 가리키는 하이퍼링크는 그 파일을 복사하는 `relative`에서만 이렇게 보고하고, `host`에서는 배포 주소를 기준으로 해석하며, `none`에서는 제거합니다. 해당 루트 밖에서는 어떤 파일도 복사하지 않습니다. 내보내는 문서가 비공개 문서로 링크하면 `relative`에서는 두 문서를 알리는 오류입니다. 그 페이지가 출력에 없고 원문을 복사하면 공개되어 버리기 때문입니다. `host`에서는 묶은 파일을 포함한 모든 출력에서 그 페이지를 서비스하는 배포 주소를 가리키고, `none`에서는 다른 링크처럼 제거됩니다. 자원은 세 정책 모두에서 복사하므로, 자원이나 `relative`에서의 로컬 파일 링크가 비공개 문서의 파일에 닿으면 모든 정책에서 오류입니다. 경로가 아니라 파일 자체를 비교하므로, 루트를 거치든 `assetDirs` 디렉터리나 심볼릭 링크를 거치든 이름을 다르게 적든 마찬가지입니다. 오류 메시지는 `cudoc-export: <document> loads the private document <library path> as a resource (<url>), which would publish its source`입니다. 소스·라이브러리·자산·마운트 루트와 출력이 겹치면 쓰기 전에 거부합니다. 출력은 임시 디렉터리에서 생성해 교체합니다. 실패한 실행은 이전 출력을 보존하고, 성공한 실행은 출력 전체를 교체하므로 이전 실행이나 다른 모드가 쓴 파일이 새 출력 옆에 남지 않습니다. 수집 모드에서는 라이브러리와 사이트 출력이 별개이므로 사이트 실패 시 새 라이브러리를 되돌리지는 않습니다. 재사용 모드에서는 라이브러리를 변경하지 않습니다. HTML은 정화하지 않고 React·Vue 코드는 실행하지 않습니다. 사이트 기본 구조에 클라이언트 JavaScript 의존성은 없습니다. 예외는 `mode: "annotate"`나 `themeSwitch`가 스크립트를 더하는 경우이며, [주석](#주석)과 [테마 전환](#테마-전환)에서 설명합니다.
 
 CLI([소스](../../packages/cudoc-export/src/cli.ts)):
 
@@ -743,11 +897,12 @@ cudoc-export build --config site.config.mjs
 cudoc-export build docs --library .cudoc/documents --out-dir shared-html \
   --links host --host-url https://docs.example.com/project/ --asset-dir public
 cudoc-export build docs --library .cudoc/documents --out-dir shared-html --links none
-cudoc-export build --config site.config.mjs --annotations
+cudoc-export build docs --out-dir out --mode standalone --document guide.md --strict
+cudoc-export build --config review.yml --mode annotate
 cudoc-export build docs --out-dir out --format pdf --format docx \
   --granularity both --paper Letter --landscape
 cudoc-export annotations review.annotations.json --library .cudoc/documents --out review.md
 cudoc-export install-browser
 ```
 
-`--annotations`와 `--theme-switch`는 각 옵션을 켭니다. `--format`은 반복할 수 있고 그 목록이 설정의 `formats`를 대체합니다. `--granularity`는 `granularity`를 정하고, `--paper <이름>`(이름 있는 크기: `A4`, `A5`, `A3`, `Letter`, `Legal`)과 `--landscape`는 설정의 `page` 위에 `page.paper`와 `page.orientation`을 정합니다. `cudoc-export annotations <메모 파일…> [--token 토큰]… --library <디렉터리> [--out 파일] [--json]`은 [주석](#주석)에서 설명하는 리뷰 보고서를 출력하거나 파일로 쓰며, 파일이나 라이브러리가 없거나 잘못되었을 때만 종료 코드 1을 냅니다. `cudoc-export install-browser`는 브라우저 설치기를 실행하고 그 종료 코드로 끝납니다. CLI 기본값은 `docs`, `site`입니다. ESM 설정은 객체를 기본 export하며 JSON도 지원합니다. 함수 콜백은 ESM 또는 코드 API가 필요합니다. 명시적인 소스, `--out-dir`, `--library`, `--links`, `--host-url`, `--granularity`는 설정보다 우선합니다. 반복한 `--asset-dir`는 배열로 모아 설정의 `assetDirs`를 대체하고, 반복한 `--external-path`는 설정의 `externalPaths`를 대체합니다. 설정에 `roots`가 있으면 그대로 쓰되, 명령줄에 소스 루트를 주면 그것이 `roots`를 대체합니다. 상대 경로는 실행 디렉터리 기준입니다. 성공하면 빌드 결과 JSON을 표준 출력에, 진단마다 `cudoc-export: <document>: <message>`를 표준 오류에 출력합니다. 모르는 플래그나 값이 없는 값 플래그를 포함해 오류가 나면 종료 코드는 1입니다. watch나 단일 파일 번들링 명령은 없습니다.
+`--mode`는 `mode`를 정하고, 반복한 `--document`는 설정의 목록을 대체하는 `documents` 목록이 되며, `--strict`와 `--theme-switch`는 각 옵션을 켭니다. 폐지된 `--annotations`는 `--mode annotate`를 알려 주는 메시지와 함께 실패합니다. `--format`은 반복할 수 있고 그 목록이 설정의 `formats`를 대체합니다. `--granularity`는 `granularity`를 정하고, `--paper <이름>`(이름 있는 크기: `A4`, `A5`, `A3`, `Letter`, `Legal`)과 `--landscape`는 설정의 `page` 위에 `page.paper`와 `page.orientation`을 정합니다. `cudoc-export annotations <메모 파일…> [--token 토큰]… --library <디렉터리> [--out 파일] [--json]`은 [주석](#주석)에서 설명하는 리뷰 보고서를 출력하거나 파일로 쓰며, 파일이나 라이브러리가 없거나 잘못되었을 때만 종료 코드 1을 냅니다. `cudoc-export install-browser`는 브라우저 설치기를 실행하고 그 종료 코드로 끝납니다. CLI 기본값은 `docs`, `site`입니다. ESM 설정은 객체를 기본 export하며 JSON과 YAML(`.json`, `.yml`, `.yaml`)도 지원합니다. 함수 콜백은 ESM 또는 코드 API가 필요합니다. 명시적인 소스, `--out-dir`, `--library`, `--links`, `--host-url`, `--granularity`는 설정보다 우선합니다. 반복한 `--asset-dir`는 배열로 모아 설정의 `assetDirs`를 대체하고, 반복한 `--external-path`는 설정의 `externalPaths`를 대체합니다. 설정에 `roots`가 있으면 그대로 쓰되, 명령줄에 소스 루트를 주면 그것이 `roots`를 대체합니다. 상대 경로는 실행 디렉터리 기준입니다. 성공하면 빌드 결과 JSON을 표준 출력에 출력하고, 표준 오류에는 진단마다 `cudoc-export: <document>: <message>`를, 단일 페이지의 의존 항목마다 `cudoc-export: <document>: needs a page beside it: <url>`(또는 `a file beside it`, `a remote resource`)을 출력합니다. 모르는 플래그나 값이 없는 값 플래그를 포함해 오류가 나면 종료 코드는 1입니다. watch 명령은 없습니다.
