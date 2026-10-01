@@ -65,7 +65,7 @@ const exportSite = (links: "relative" | "host" | "none") => {
     library,
     outDir,
     title: "Fixture export",
-    navigation: ["showcase", "reference"],
+    navigation: ["showcase.md", "reference.md"],
     links,
     ...(links === "host" ? { hostUrl: DEPLOYMENT } : {}),
   })
@@ -263,7 +263,7 @@ describe(`export through ${HOST.name}`, () => {
       library,
       outDir,
       title: "Fixture export",
-      navigation: ["showcase", "reference"],
+      navigation: ["showcase.md", "reference.md"],
     })
     const tree = parse(
       fs.readFileSync(path.join(outDir, "showcase.print.html"), "utf8"),

@@ -221,7 +221,7 @@ describe("one callout colour in every format", () => {
 })
 
 describe("the tokens option on a real build", () => {
-  it("writes the overridden stylesheet and still appends the css file", async () => {
+  it("writes the overridden stylesheet and links the css file after it", async () => {
     const fs = await import("node:fs")
     const os = await import("node:os")
     const path = await import("node:path")
@@ -245,7 +245,16 @@ describe("the tokens option on a real build", () => {
       const css = fs.readFileSync(path.join(outDir, "cudoc.css"), "utf8")
       expect(css).toContain("--accent: #123456;")
       expect(css).toContain("--radius: 0px;")
-      expect(css).toContain(".extra { color: red; }")
+      // The site links the css file on its own, after the built-in sheet.
+      expect(css).not.toContain(".extra")
+      expect(
+        fs.readFileSync(path.join(outDir, "cudoc-css/1-extra.css"), "utf8"),
+      ).toBe(".extra { color: red; }\n")
+      expect(
+        fs.readFileSync(path.join(outDir, "index.html"), "utf8"),
+      ).toContain(
+        '<link rel="stylesheet" href="cudoc.css"><link rel="stylesheet" href="cudoc-css/1-extra.css">',
+      )
       // The dark palette is untouched by a light-only override.
       expect(css).toContain(`--accent: ${designTokens.colors.dark.accent};`)
     } finally {

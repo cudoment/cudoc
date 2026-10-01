@@ -9,7 +9,14 @@
   var EMBEDDED_DATA_ID = "cudoc-annotations-data";
   var FRAGMENT_KEY = "cudoc-notes";
   var LIMITS = {
+    /** A notes file, and the notes block a saved page carries. */
     fileBytes: 2 * 1024 * 1024,
+    /**
+     * A saved page: a standalone page carries its images, so it is far larger
+     * than the notes in it. The largest page a build writes plus the largest
+     * notes block fits under it.
+     */
+    htmlBytes: 32 * 1024 * 1024,
     fragmentChars: 64 * 1024,
     decodedBytes: 1024 * 1024,
     items: 500,
@@ -570,9 +577,13 @@
     return parseCollection(JSON.parse(text2));
   }
   async function readNotesFile(file) {
-    if (file.size > LIMITS.fileBytes) throw new Error(TOO_LARGE);
+    const page = /\.html?$/i.test(file.name);
+    if (file.size > (page ? LIMITS.htmlBytes : LIMITS.fileBytes))
+      throw new Error(
+        page ? `annotations: a saved page holds at most ${LIMITS.htmlBytes} bytes` : TOO_LARGE
+      );
     const text2 = await file.text();
-    return file.name.toLowerCase().endsWith(".html") || text2.trimStart().startsWith("<") ? readAnnotatedHtml(text2) : parseText(text2);
+    return page || text2.trimStart().startsWith("<") ? readAnnotatedHtml(text2) : parseText(text2);
   }
   function readAnnotatedHtml(html) {
     const parsed = new DOMParser().parseFromString(html, "text/html");
@@ -737,6 +748,7 @@ ${root.outerHTML}`;
 
   // src/browser/ui.ts
   var UI_ID = "cudoc-annotations";
+  var selfContained = () => !document.querySelector('script[src$="cudoc-annotations.js"]');
   var LANGS = ["en", "ko"];
   var STRINGS = {
     ko: {
@@ -762,6 +774,12 @@ ${root.outerHTML}`;
       download: "\uBA54\uBAA8 \uB0B4\uB824\uBC1B\uAE30 (JSON)",
       saveCopy: "\uBA54\uBAA8 \uB0B4\uC7A5 \uC0AC\uBCF8 \uC800\uC7A5",
       saveCopyHint: "\uC0AC\uBCF8\uC740 \uC6D0\uBCF8\uACFC \uAC19\uC740 \uD3F4\uB354\uC5D0 \uB450\uC5B4\uC57C \uC2A4\uD0C0\uC77C\uACFC \uBA54\uBAA8 \uAE30\uB2A5\uC774 \uC5F4\uB9BD\uB2C8\uB2E4.",
+      saveCopyHintSelf: "\uC0AC\uBCF8\uC740 \uC774 \uD30C\uC77C \uD558\uB098\uB85C \uC2A4\uD0C0\uC77C\uACFC \uBA54\uBAA8\uAE4C\uC9C0 \uC5F4\uB9BD\uB2C8\uB2E4. \uC5B4\uB290 \uD3F4\uB354\uC5D0 \uB450\uC5B4\uB3C4 \uB429\uB2C8\uB2E4.",
+      github: "GitHub\uC5D0\uC11C \uC81C\uCD9C \uC791\uC131",
+      githubNotice: "GitHub \uC774\uC288 \uC791\uC131 \uD654\uBA74\uC744 \uC0C8 \uD0ED\uC73C\uB85C \uC5FD\uB2C8\uB2E4. \uBA54\uBAA8 \uBCF8\uBB38, \uC778\uC6A9\uD55C \uBB38\uC7A5, \uC791\uC131\uC790 \uC774\uB984\uC774 \uC8FC\uC18C\uC5D0 \uB2F4\uACA8 GitHub\uB85C \uC804\uC1A1\uB418\uBA70, \uACF5\uAC1C \uC800\uC7A5\uC18C\uB77C\uBA74 \uC81C\uCD9C\uD55C \uB0B4\uC6A9\uC774 \uACF5\uAC1C\uB429\uB2C8\uB2E4. \uC555\uCD95\uD55C \uD1A0\uD070\uC740 \uC554\uD638\uD654\uAC00 \uC544\uB2D9\uB2C8\uB2E4. \uC81C\uCD9C\uC740 \uC5F4\uB9B0 \uD654\uBA74\uC5D0\uC11C \uC9C1\uC811 \uD558\uC138\uC694.",
+      githubContinue: "\uC791\uC131 \uD654\uBA74 \uC5F4\uAE30",
+      githubTooLong: "\uBA54\uBAA8\uAC00 \uB9CE\uC544 \uC8FC\uC18C\uC5D0 \uB2F4\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4. JSON \uD30C\uC77C\uC744 \uB0B4\uB824\uBC1B\uC558\uC73C\uB2C8 \uC774\uC288\uC5D0 \uCCA8\uBD80\uD574 \uC8FC\uC138\uC694.",
+      githubEmpty: "\uBCF4\uB0BC \uBA54\uBAA8\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.",
       importFile: "\uBA54\uBAA8 \uBD88\uB7EC\uC624\uAE30 (.json, .html)",
       imported: (n) => `\uBA54\uBAA8 ${n}\uAC1C\uB97C \uBD88\uB7EC\uC654\uC2B5\uB2C8\uB2E4.`,
       importFailed: (why) => `\uBD88\uB7EC\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4: ${why}`,
@@ -816,6 +834,12 @@ ${root.outerHTML}`;
       download: "Download notes (JSON)",
       saveCopy: "Save a copy with notes",
       saveCopyHint: "Keep the copy in the same folder as the original so its styles and notes load.",
+      saveCopyHintSelf: "The copy opens on its own, styles and notes included, from any folder.",
+      github: "Compose on GitHub",
+      githubNotice: "This opens GitHub's new-issue page in a new tab. The note text, the quoted passages and your name travel to GitHub in the address, and on a public repository what you submit is public. A compressed token is not encryption. Submit from the page that opens.",
+      githubContinue: "Open the issue page",
+      githubTooLong: "There are too many notes for an address. The JSON file was downloaded; attach it to the issue instead.",
+      githubEmpty: "There are no notes to send.",
       importFile: "Load notes (.json, .html)",
       imported: (n) => `Loaded ${n} notes.`,
       importFailed: (why) => `Could not load: ${why}`,
@@ -1008,6 +1032,12 @@ ${root.outerHTML}`;
           icon: "link",
           title: t.tokenWarning
         }),
+        ...handlers.onGithub ? [
+          button(t.github, "cudoc-ann-github", handlers.onGithub, {
+            icon: "link",
+            title: t.githubNotice
+          })
+        ] : [],
         button(t.clearStorage, "cudoc-ann-clear", handlers.onClearStorage, {
           icon: "trash"
         })
@@ -1020,7 +1050,7 @@ ${root.outerHTML}`;
           }),
           button(t.saveCopy, "cudoc-ann-copy", handlers.onSaveCopy, {
             icon: "copy",
-            title: t.saveCopyHint
+            title: selfContained() ? t.saveCopyHintSelf : t.saveCopyHint
           }),
           importLabel
         ])
@@ -1208,6 +1238,42 @@ ${root.outerHTML}`;
     }
     hideNoteButton() {
       this.noteButton.hidden = true;
+    }
+    focusNoteButton() {
+      this.noteButton.focus();
+    }
+    get noteButtonShown() {
+      return !this.noteButton.hidden;
+    }
+    /** Whether a node is the floating note button or inside the open composer. */
+    ownsFloating(node) {
+      return !!node && (this.noteButton.contains(node) || this.composerRoot.contains(node));
+    }
+    /** Asks before the notes leave for GitHub, in the panel rather than a dialog. */
+    confirmGithub(onContinue) {
+      const proceed = h("button", {
+        className: "cudoc-ann-button cudoc-ann-github-continue",
+        type: "button",
+        text: this.t.githubContinue
+      });
+      const cancel = h("button", {
+        className: "cudoc-ann-button",
+        type: "button",
+        text: this.t.cancel
+      });
+      proceed.onclick = () => {
+        this.tokenBox.hidden = true;
+        onContinue();
+      };
+      cancel.onclick = () => {
+        this.tokenBox.hidden = true;
+      };
+      this.tokenBox.replaceChildren(
+        h("p", { text: this.t.githubNotice }),
+        h("div", { className: "cudoc-ann-actions" }, [proceed, cancel])
+      );
+      this.tokenBox.hidden = false;
+      proceed.focus();
     }
     /**
      * The "+" in the gutter of the hovered block, centred on its first line of
@@ -1510,6 +1576,21 @@ ${root.outerHTML}`;
     } catch {
     }
   }
+  var CONTROLS = 'button, select, input, textarea, label, summary, [role="button"], [contenteditable="true"]';
+  var GITHUB_URL_CHARS = 6e3;
+  function readInbox(value) {
+    if (!value) return void 0;
+    try {
+      const parsed = JSON.parse(value);
+      const github = parsed.github;
+      if (!github || typeof github.repo !== "string" || !/^[\w.-]+\/[\w.-]+$/.test(github.repo) || typeof github.template !== "string" || !/^[\w.-]+\.ya?ml$/.test(github.template))
+        return void 0;
+      const field = typeof github.field === "string" && /^[\w-]+$/.test(github.field) ? github.field : "notes";
+      return { repo: github.repo, template: github.template, field };
+    } catch {
+      return void 0;
+    }
+  }
   function start() {
     const main = document.querySelector("main[data-cudoc-document]");
     if (!main) return;
@@ -1518,6 +1599,7 @@ ${root.outerHTML}`;
     const sourceHash = main.dataset.cudocSourceHash ?? "";
     const site = main.dataset.cudocSite ?? "";
     const generator = main.dataset.cudocGenerator ?? "cudoc-export";
+    const inbox = readInbox(main.dataset.cudocInbox);
     let lang = readPreference(LANG_KEY, LANGS, "en");
     let layout = readPreference(LAYOUT_KEY, LAYOUTS, "push");
     let t = STRINGS[lang];
@@ -1657,7 +1739,7 @@ ${root.outerHTML}`;
             type: "text/html"
           })
         );
-        ui.notify(t.saveCopyHint);
+        ui.notify(selfContained() ? t.saveCopyHintSelf : t.saveCopyHint);
       },
       onToken: async () => {
         const token = await encodeToken(items, generator);
@@ -1672,6 +1754,25 @@ ${root.outerHTML}`;
         } catch {
         }
       },
+      ...inbox ? {
+        onGithub: async () => {
+          if (!items.length) {
+            ui.notify(t.githubEmpty);
+            return;
+          }
+          const token = await encodeToken(items, generator);
+          const page = document.title || documentId;
+          const url = `https://github.com/${inbox.repo}/issues/new?template=${encodeURIComponent(inbox.template)}&title=${encodeURIComponent(`Review notes: ${page}`)}&${encodeURIComponent(inbox.field)}=${encodeURIComponent(`#cudoc-notes=${token}`)}`;
+          if (url.length > GITHUB_URL_CHARS) {
+            handlers.onDownload();
+            ui.notify(t.githubTooLong);
+            return;
+          }
+          ui.confirmGithub(() => {
+            window.open(url, "_blank", "noopener,noreferrer");
+          });
+        }
+      } : {},
       onImport: async (file) => {
         try {
           const loaded = await readNotesFile(file);
@@ -1810,13 +1911,82 @@ ${root.outerHTML}`;
         );
       });
     };
+    const hideNote = () => {
+      pending = void 0;
+      ui.hideNoteButton();
+    };
+    let pressInText = false;
+    let pressSelected = false;
+    let selectionAtPress = [];
+    let lastPointer = "mouse";
+    const selectionPoints = () => {
+      const selection = document.getSelection();
+      return selection ? [
+        selection.anchorNode,
+        selection.anchorOffset,
+        selection.focusNode,
+        selection.focusOffset
+      ] : [];
+    };
+    document.addEventListener(
+      "pointerdown",
+      (event) => {
+        lastPointer = event.pointerType || "mouse";
+        const target = event.target;
+        if (ui.ownsFloating(target)) return;
+        hideNote();
+        pressInText = !!target && main.contains(target) && !target.closest(CONTROLS) && !ui.root.contains(target);
+        pressSelected = false;
+        selectionAtPress = selectionPoints();
+      },
+      true
+    );
+    document.addEventListener(
+      "selectstart",
+      () => {
+        pressSelected = true;
+      },
+      true
+    );
     document.addEventListener("mouseup", (event) => {
-      if (ui.root.contains(event.target)) return;
+      if (ui.ownsFloating(event.target) || !pressInText) return;
+      pressInText = false;
+      const moved = selectionPoints().some(
+        (point, index2) => point !== selectionAtPress[index2]
+      );
+      if (!pressSelected && !moved) return;
       setTimeout(onSelection, 0);
+    });
+    let settle;
+    document.addEventListener("selectionchange", () => {
+      const selection = document.getSelection();
+      if (!selection || selection.isCollapsed || !selection.anchorNode || !main.contains(selection.anchorNode)) {
+        if (settle) window.clearTimeout(settle);
+        if (!ui.composerOpen) hideNote();
+        return;
+      }
+      if (lastPointer === "touch" || lastPointer === "pen") {
+        if (settle) window.clearTimeout(settle);
+        settle = window.setTimeout(onSelection, 350);
+      }
     });
     document.addEventListener("keyup", (event) => {
       if (event.shiftKey || event.key.startsWith("Arrow"))
         setTimeout(onSelection, 0);
+    });
+    document.addEventListener("keydown", (event) => {
+      if (!ui.noteButtonShown) return;
+      if (event.key === "Escape") {
+        hideNote();
+        return;
+      }
+      if (event.key === "Tab" && !event.shiftKey && !ui.ownsFloating(document.activeElement)) {
+        event.preventDefault();
+        ui.focusNoteButton();
+      }
+    });
+    document.addEventListener("focusin", (event) => {
+      if (ui.noteButtonShown && !ui.ownsFloating(event.target)) hideNote();
     });
     let hovered;
     const leaveBlock = () => {

@@ -1,10 +1,11 @@
 /**
  * What the publish workflow relies on before it runs: the comparison with npm
  * that decides what to publish, the step that creates a release npm has and
- * GitHub does not, and manifests that let every package publish without
+ * GitHub does not, the decision that a release is complete enough for the
+ * documentation site, and manifests that let every package publish without
  * resolving a sibling version that does not exist. Reads files only; the
- * registry and GitHub are replaced by functions standing in for `npm view`
- * and `gh release view`.
+ * registry and GitHub are replaced by functions standing in for `npm view`,
+ * `gh release view` and `git ls-remote`.
  */
 
 import path from "node:path"
@@ -21,6 +22,13 @@ import {
   isReleased,
   untaggedReleases,
 } from "../../scripts/untagged-releases.mjs"
+import {
+  guardDeploy,
+  later,
+  releaseState,
+  resolveRelease,
+  statedVersion,
+} from "../../scripts/site-release.mjs"
 
 type Manifest = {
   name: string
@@ -232,6 +240,166 @@ describe("the releases created after publishing", () => {
         })
       }),
     ).toThrow("could not ask GitHub about the release a@1.0.0:\nHTTP 502")
+  })
+})
+
+describe("when the documentation site deploys", () => {
+  const COMMIT = "a".repeat(40)
+  const OTHER = "b".repeat(40)
+  const packages = [...manifests.values()].filter((m) => !m.private)
+  const version = packages[0]!.version
+  const tags = packages.map((m) => `${m.name}@${version}`)
+  const [first, second] = tags as [string, string]
+  const nameOf = (tag: string) => tag.slice(0, tag.lastIndexOf("@"))
+  const complete = {
+    commit: COMMIT,
+    published: () => true,
+    commitOf: () => COMMIT,
+    tagged: () => COMMIT,
+  }
+
+  it("deploys once every public package is on npm from this commit and tagged here", () => {
+    expect(releaseState(manifests, complete)).toEqual({
+      complete: true,
+      version,
+      missing: [],
+    })
+  })
+
+  it("leaves the site alone when publishing stopped partway", () => {
+    const state = releaseState(manifests, {
+      ...complete,
+      published: (name: string) => name !== nameOf(second),
+      tagged: (tag: string) => (tag === second ? "" : COMMIT),
+    })
+    expect(state.complete).toBe(false)
+    expect(state.missing).toEqual([`${second} is not on npm`])
+  })
+
+  it("leaves it alone for a version published from another commit, or a tag elsewhere or missing", () => {
+    const foreign = releaseState(manifests, {
+      ...complete,
+      commitOf: (name: string) => (name === nameOf(first) ? OTHER : COMMIT),
+    })
+    expect(foreign.missing).toEqual([`${first} was published from ${OTHER}`])
+    const unrecorded = releaseState(manifests, {
+      ...complete,
+      commitOf: (name: string) => (name === nameOf(first) ? "" : COMMIT),
+    })
+    expect(unrecorded.missing).toEqual([
+      `${first} was published from an unrecorded commit`,
+    ])
+    const tagged = releaseState(manifests, {
+      ...complete,
+      tagged: (tag: string) =>
+        tag === first ? OTHER : tag === second ? "" : COMMIT,
+    })
+    expect(tagged.complete).toBe(false)
+    expect(tagged.missing).toEqual([
+      `${first} is tagged at ${OTHER}`,
+      `${second} is tagged nowhere`,
+    ])
+  })
+
+  it("refuses manifests that do not share one version", () => {
+    const split = new Map(manifests)
+    const [dir, manifest] = [...split].find(([, m]) => !m.private)!
+    split.set(dir, { ...manifest, version: "0.0.1" })
+    expect(() => releaseState(split, complete)).toThrow(
+      "the public packages do not share one version",
+    )
+  })
+
+  it("finds a released version's commit from its tags, and checks the packages that commit holds", () => {
+    // An older release may hold other packages than main does now: the
+    // commit's own manifests decide what has to be complete.
+    const older = new Map([
+      ["packages/a", { name: "a", version: "0.4.0" }],
+      ["packages/b", { name: "b", version: "0.4.0" }],
+    ])
+    const tags = new Map([
+      ["a@0.4.0", COMMIT],
+      ["b@0.4.0", COMMIT],
+    ])
+    const checked: string[] = []
+    const commit = resolveRelease("0.4.0", {
+      tags: () => tags,
+      manifestsAt: (at: string) => {
+        checked.push(at)
+        return older
+      },
+      state: (manifests: typeof older, options: { commit: string }) =>
+        releaseState(manifests, { ...complete, ...options }),
+    })
+    expect(commit).toBe(COMMIT)
+    expect(checked).toEqual([COMMIT])
+    const resolve = (over: Record<string, unknown>) => () =>
+      resolveRelease("0.4.0", {
+        tags: () => tags,
+        manifestsAt: () => older,
+        state: (manifests: typeof older, options: { commit: string }) =>
+          releaseState(manifests, { ...complete, ...options }),
+        ...over,
+      })
+    expect(resolve({ tags: () => new Map() })).toThrow(
+      "no tag names the version 0.4.0",
+    )
+    expect(
+      resolve({
+        tags: () =>
+          new Map([
+            ["a@0.4.0", COMMIT],
+            ["b@0.4.0", OTHER],
+          ]),
+      }),
+    ).toThrow(
+      `the tags of 0.4.0 do not name one commit:\n  a@0.4.0: ${COMMIT}\n  b@0.4.0: ${OTHER}`,
+    )
+    expect(
+      resolve({
+        state: (manifests: typeof older, options: { commit: string }) =>
+          releaseState(manifests, {
+            ...complete,
+            ...options,
+            published: (name: string) => name !== "b",
+          }),
+      }),
+    ).toThrow("the release 0.4.0 is not complete:\n  b@0.4.0 is not on npm")
+    expect(
+      resolve({
+        manifestsAt: () =>
+          new Map([["packages/a", { name: "a", version: "0.5.0" }]]),
+      }),
+    ).toThrow(`the tags of 0.4.0 name ${COMMIT}, whose packages are 0.5.0`)
+  })
+
+  it("reads the deployed version only when it is a release version", () => {
+    expect(statedVersion('{"version":"0.8.0","commit":"abc"}')).toBe("0.8.0")
+    // The site from before version.json, or a file this workflow did not
+    // write, states nothing, so it never blocks a deploy.
+    for (const text of ["<!doctype html>", "{}", '{"version":"next"}', ""])
+      expect(statedVersion(text)).toBe("")
+  })
+
+  it("refuses to put an older version over a newer one unless rolling back", () => {
+    expect(later("0.10.0", "0.9.9")).toBe(true)
+    expect(later("1.0.0", "0.99.0")).toBe(true)
+    expect(later("0.8.0", "0.8.0")).toBe(false)
+    expect(later("0.7.1", "0.8.0")).toBe(false)
+    expect(() => later("0.8", "0.8.0")).toThrow("not a release version: 0.8")
+    expect(() => guardDeploy({ version: "0.8.0", deployed: "" })).not.toThrow()
+    expect(() =>
+      guardDeploy({ version: "0.8.0", deployed: "0.8.0" }),
+    ).not.toThrow()
+    expect(() =>
+      guardDeploy({ version: "0.9.0", deployed: "0.8.0" }),
+    ).not.toThrow()
+    expect(() => guardDeploy({ version: "0.7.0", deployed: "0.8.0" })).toThrow(
+      "the site serves 0.8.0, newer than 0.7.0",
+    )
+    expect(() =>
+      guardDeploy({ version: "0.7.0", deployed: "0.8.0", rollback: true }),
+    ).not.toThrow()
   })
 })
 

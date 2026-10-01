@@ -173,6 +173,9 @@ jobs:
   release:
     name: Create the releases npm has and GitHub does not
     needs: [check, publish]
+    outputs:
+      complete: ${{ steps.state.outputs.complete }}
+      version: ${{ steps.state.outputs.version }}
     # Also when nothing was left to publish, or publishing stopped partway:
     # a version already on npm is left out of the comparison, so a release
     # that failed after its publish is created here or never.
@@ -191,3 +194,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PUBLISHED: ${{ needs.publish.outputs.published }}
         run: node scripts/untagged-releases.mjs
+      # Whether every public package is on npm from this commit and tagged
+      # here, which is when the documentation site may describe it.
+      - id: state
+        env:
+          PUBLISHED: ${{ needs.publish.outputs.published }}
+        run: node scripts/site-release.mjs state
+
+  pages:
+    name: Deploy the documentation site
+    needs: release
+    if: ${{ !cancelled() && needs.release.result == 'success' && needs.release.outputs.complete == 'true' }}
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml
+    with:
+      sha: ${{ github.sha }}
+      version: ${{ needs.release.outputs.version }}

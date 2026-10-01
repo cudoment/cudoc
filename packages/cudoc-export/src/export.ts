@@ -14,22 +14,17 @@ import path from "node:path"
 import {
   buildSite,
   type InternalOptions,
+  type SiteDiagnostic,
   type SiteOptions,
   type SiteResult,
   type StagingContext,
 } from "./index.js"
 import {
-  PRINT_STYLESHEET,
   fillVolumePageNumbers,
   printFileName,
   urlPath,
   type PrintableDocument,
 } from "./print.js"
-import {
-  ANNOTATION_SCRIPT,
-  ANNOTATION_STYLESHEET,
-  THEME_SCRIPT,
-} from "./annotations/site.js"
 import { openPrinter, type PdfOptions, type Printer } from "./pdf.js"
 import { decodeComponent } from "./links.js"
 import {
@@ -57,10 +52,13 @@ export type ExportOptions = SiteOptions & {
   docx?: DocxWriterOptions
 }
 
-/** Something a format could not carry and left out, named so it is not silent. */
-export type ExportDiagnostic = DocxDiagnostic
+/**
+ * Something a format could not carry and left out, or a navigation entry that
+ * did not do what it says, named so it is not silent.
+ */
+export type ExportDiagnostic = DocxDiagnostic | SiteDiagnostic
 
-export type ExportResult = SiteResult & {
+export type ExportResult = Omit<SiteResult, "files" | "diagnostics"> & {
   formats: ExportFormat[]
   /** Written paths relative to `outDir`, per format, in output order. */
   files: Record<ExportFormat, string[]>
@@ -96,13 +94,18 @@ const docxLink =
       case "fragment":
         return { anchor: bookmarkName(doc.id, decodeComponent(target.anchor)) }
       case "document":
-        // A private target always has `hosted`, as in the print HTML.
-        if (
-          bound &&
-          context.documents.some((entry) => entry.doc.id === target.id)
-        )
+        // A private target always has `hosted`, as in the print HTML. The
+        // volume bookmarks only what it binds; a translation or a home it
+        // leaves out is linked at its site page, which every run writes.
+        if (bound && context.order.includes(target.id))
           return {
             anchor: bookmarkName(target.id, decodeComponent(target.anchor)),
+          }
+        if (bound)
+          return {
+            href:
+              target.hosted ??
+              `${urlPath(context.pagePath(target.id))}${target.suffix}`,
           }
         return {
           href: target.hosted ?? context.assetLink(`${target.id}.docx`, doc),
@@ -159,6 +162,7 @@ export async function buildExport({
 
   const published = buildSite({
     ...site,
+    printOutputs: wantsPdf,
     afterStaging:
       wantsPdf || wantsDocx
         ? async (context) => {
@@ -181,26 +185,13 @@ export async function buildExport({
 
   const resolved = await published
 
-  files.html = fs
-    .readdirSync(resolved.outDir, { recursive: true })
-    .map(String)
-    .filter(
-      (file) =>
-        file.endsWith(".html") ||
-        file === PRINT_STYLESHEET ||
-        file === ANNOTATION_SCRIPT ||
-        file === ANNOTATION_STYLESHEET ||
-        file === THEME_SCRIPT,
-    )
-    .sort()
+  files.html = resolved.files
 
   return {
-    outDir: resolved.outDir,
-    documentCount: resolved.documentCount,
-    libraryDir: resolved.libraryDir,
+    ...resolved,
     formats,
     files,
-    diagnostics,
+    diagnostics: [...resolved.diagnostics, ...diagnostics],
   }
 }
 
@@ -334,9 +325,13 @@ async function writePdfOutputs(
             output: path.join(scratch, "front.pdf"),
             title: context.title,
           })
+          // Only the volume's own documents: a translation or a page left
+          // out of the volume is printed alone but not bound.
           measured = {
             front,
-            documents: [...counts.values()].reduce((sum, n) => sum + n, 0),
+            documents: context.order
+              .filter((id) => counts.has(id))
+              .reduce((sum, id) => sum + counts.get(id)!, 0),
           }
           fillVolumePageNumbers(
             volumeFile,

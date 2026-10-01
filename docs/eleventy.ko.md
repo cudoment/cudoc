@@ -146,7 +146,7 @@ export default { sourceRoot: "docs", outDir: ".cudoc/documents" }
 
 원본 문서를 고치신 뒤에는 수집을 다시 실행하고(수집기의 설정으로 호출한 [`watchDocuments`](./api-reference/node.ko.md#감시)가 변경마다 이를 대신하며, `compiler`를 포함해 수집기의 설정 전체를 담은 설정 파일을 주면 `cudoc collect --watch`도 그렇게 합니다) **개발 서버도 재시작**하셔야 합니다. 플러그인은 설정을 평가할 때 불러온 라이브러리를 계속 들고 있어서, 다시 불러오기 전까지는 원문이 오래되었다고 보고합니다. frontmatter는 비교 대상이 아닙니다. Eleventy는 frontmatter를 뺀 페이지를 렌더러에 넘기며, frontmatter 뒤의 본문이 수집한 내용과 같으면 최신 상태로 봅니다. → [참조 검사](./check.ko.md)
 
-## 8단계 — 독립 HTML도 내보내기 (선택)
+## 8단계 — HTML로도 내보내기 (선택)
 
 ```sh
 npm install cudoc-export
@@ -154,7 +154,7 @@ npx cudoc-export build docs --library .cudoc/documents --out-dir shared-html \
   --links host --host-url https://docs.example.com/project/
 ```
 
-Eleventy 빌드 결과와 수집 데이터는 변경되지 않습니다. → [독립 HTML](./export.ko.md)
+Eleventy 빌드 결과와 수집 데이터는 변경되지 않습니다. → [내보내기](./export.ko.md)
 
 ---
 

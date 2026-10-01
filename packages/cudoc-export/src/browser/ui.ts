@@ -10,6 +10,10 @@ import type { Anchor } from "./dom-text.js"
 
 export const UI_ID = "cudoc-annotations"
 
+/** Whether the page carries the runtime itself, as a standalone page does. */
+export const selfContained = (): boolean =>
+  !document.querySelector('script[src$="cudoc-annotations.js"]')
+
 export type Lang = "ko" | "en"
 export const LANGS: readonly Lang[] = ["en", "ko"]
 
@@ -44,6 +48,15 @@ export const STRINGS = {
     saveCopy: "메모 내장 사본 저장",
     saveCopyHint:
       "사본은 원본과 같은 폴더에 두어야 스타일과 메모 기능이 열립니다.",
+    saveCopyHintSelf:
+      "사본은 이 파일 하나로 스타일과 메모까지 열립니다. 어느 폴더에 두어도 됩니다.",
+    github: "GitHub에서 제출 작성",
+    githubNotice:
+      "GitHub 이슈 작성 화면을 새 탭으로 엽니다. 메모 본문, 인용한 문장, 작성자 이름이 주소에 담겨 GitHub로 전송되며, 공개 저장소라면 제출한 내용이 공개됩니다. 압축한 토큰은 암호화가 아닙니다. 제출은 열린 화면에서 직접 하세요.",
+    githubContinue: "작성 화면 열기",
+    githubTooLong:
+      "메모가 많아 주소에 담을 수 없습니다. JSON 파일을 내려받았으니 이슈에 첨부해 주세요.",
+    githubEmpty: "보낼 메모가 없습니다.",
     importFile: "메모 불러오기 (.json, .html)",
     imported: (n: number) => `메모 ${n}개를 불러왔습니다.`,
     importFailed: (why: string) => `불러오지 못했습니다: ${why}`,
@@ -106,6 +119,15 @@ export const STRINGS = {
     saveCopy: "Save a copy with notes",
     saveCopyHint:
       "Keep the copy in the same folder as the original so its styles and notes load.",
+    saveCopyHintSelf:
+      "The copy opens on its own, styles and notes included, from any folder.",
+    github: "Compose on GitHub",
+    githubNotice:
+      "This opens GitHub's new-issue page in a new tab. The note text, the quoted passages and your name travel to GitHub in the address, and on a public repository what you submit is public. A compressed token is not encryption. Submit from the page that opens.",
+    githubContinue: "Open the issue page",
+    githubTooLong:
+      "There are too many notes for an address. The JSON file was downloaded; attach it to the issue instead.",
+    githubEmpty: "There are no notes to send.",
     importFile: "Load notes (.json, .html)",
     imported: (n: number) => `Loaded ${n} notes.`,
     importFailed: (why: string) => `Could not load: ${why}`,
@@ -243,6 +265,8 @@ export type Handlers = {
   onDownload: () => void
   onSaveCopy: () => void
   onToken: () => void
+  /** Present when the page names a GitHub inbox. */
+  onGithub?: () => void
   onImport: (file: File) => void
   onClearStorage: () => void
   onSelect: (id: string) => void
@@ -395,6 +419,14 @@ export class Ui {
         icon: "link",
         title: t.tokenWarning,
       }),
+      ...(handlers.onGithub
+        ? [
+            button(t.github, "cudoc-ann-github", handlers.onGithub, {
+              icon: "link",
+              title: t.githubNotice,
+            }),
+          ]
+        : []),
       button(t.clearStorage, "cudoc-ann-clear", handlers.onClearStorage, {
         icon: "trash",
       }),
@@ -407,7 +439,7 @@ export class Ui {
         }),
         button(t.saveCopy, "cudoc-ann-copy", handlers.onSaveCopy, {
           icon: "copy",
-          title: t.saveCopyHint,
+          title: selfContained() ? t.saveCopyHintSelf : t.saveCopyHint,
         }),
         importLabel,
       ]),
@@ -608,6 +640,49 @@ export class Ui {
 
   hideNoteButton(): void {
     this.noteButton.hidden = true
+  }
+
+  focusNoteButton(): void {
+    this.noteButton.focus()
+  }
+
+  get noteButtonShown(): boolean {
+    return !this.noteButton.hidden
+  }
+
+  /** Whether a node is the floating note button or inside the open composer. */
+  ownsFloating(node: Node | null): boolean {
+    return (
+      !!node &&
+      (this.noteButton.contains(node) || this.composerRoot.contains(node))
+    )
+  }
+
+  /** Asks before the notes leave for GitHub, in the panel rather than a dialog. */
+  confirmGithub(onContinue: () => void): void {
+    const proceed = h("button", {
+      className: "cudoc-ann-button cudoc-ann-github-continue",
+      type: "button",
+      text: this.t.githubContinue,
+    })
+    const cancel = h("button", {
+      className: "cudoc-ann-button",
+      type: "button",
+      text: this.t.cancel,
+    })
+    proceed.onclick = () => {
+      this.tokenBox.hidden = true
+      onContinue()
+    }
+    cancel.onclick = () => {
+      this.tokenBox.hidden = true
+    }
+    this.tokenBox.replaceChildren(
+      h("p", { text: this.t.githubNotice }),
+      h("div", { className: "cudoc-ann-actions" }, [proceed, cancel]),
+    )
+    this.tokenBox.hidden = false
+    proceed.focus()
   }
 
   /**

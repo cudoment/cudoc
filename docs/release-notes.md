@@ -4,6 +4,29 @@
 
 What changed in each version, newest first. All eight packages share one version, and [Supported versions](./README.md#supported-versions) says what a minor or a patch release keeps compatible before 1.0.0.
 
+## 0.8.0
+
+- HTML export has three modes. `mode: "site"`, the default, writes the site; `mode: "standalone"` writes each document as one HTML file that carries its styles, pictures and theme menu, to send as an attachment and open from any folder; `mode: "annotate"` writes pages that collect review notes. `documents` (`--document`) picks the pages a single-page run writes, a single-page run lists what each page needs from outside in `dependencies` and on standard error, and `strict` (`--strict`) fails a page that needs anything. → [Three kinds of HTML](./export.md#three-kinds-of-html)
+- A review can be hosted: `annotate.target: "hosted"` writes a site with the review-note runtime beside its pages, its notes kept apart by a required `reviewId`, and `annotate.inbox.github` adds _Compose on GitHub_, which opens a repository's issue form with the notes filled in. A saved copy of a single page opens with its styles and notes from any folder. → [Collect feedback](./export.md#collect-feedback-on-the-exported-site)
+- `navigation` is a YAML file or a list: a file entry is that document, a folder entry everything in it, shaped with `exclude`, `order`, `page`, `depth` and `collapsed`, plus groups and links out, and `hidden` publishes a document without listing it. What the navigation lists, and the home page, is what every format publishes, and the result's `omitted` names each document left out and why. → [The navigation](./export.md#the-navigation)
+- `locales` adds languages found by file suffix, `guide.ko.md` for the Korean `guide.md`; each language draws its own navigation, home and language menu, and `ui` gives the page's words for a language cudoc does not carry. `home`, `header.links` and `toc` shape the rest of the shell, and `sourceLinks` and `mounts` send links to files that are not documents to the repository or to folders copied into the site.
+- `css` takes a list. A site links each file under `cudoc-css/` and copies what it loads beside it; a single page carries the text inline.
+- The theme switch is a menu with Light and Dark instead of a button that cycled through System, Light and Dark. Until the reader chooses, the page follows the system setting and the menu shows which one it is; its words follow the page's language, and `ui` no longer has a `system` word.
+- The floating note button goes away when the reader clicks elsewhere, presses Escape or clears the selection, and Tab reaches it from a keyboard selection.
+- The bound volume holds the default language's documents in navigation order, then the `hidden` ones, and `volume.order` moves the documents it names to the front; a translation is written as its own PDF and Word file.
+- cudoc's documentation is now a [website](https://cudoment.github.io/cudoc/index.html) built by `cudoc-export` from the README and `docs/`, with the export samples beside the guides. The publish workflow deploys it once every package of a release is on npm from that commit and tagged there, and refuses to put an older version over a newer one unless a manual run asks for a rollback.
+- The annotation report prints the library path relative to the working directory, and a saved review page may be up to 32 MiB.
+- `@cudoment/cudoc/node/library` exports `globToRegExp` and `globMatcher`, and `@cudoment/cudoc/node/resolve-embed` exports `compareNames`, `documentName` and `nfc`.
+
+To act on when upgrading:
+
+- `annotations: true` and `--annotations` are gone. `mode: "annotate"` (`--mode annotate`) replaces them and writes single pages by default; `annotate.target: "hosted"` with a `reviewId` gives the site-wide runtime the option used to add.
+- A navigation entry names a document with its extension, `guide.md`; a name without one is a folder. Documents the navigation leaves out are no longer appended after it: list them, name them in `hidden`, or leave `navigation` out to list every document. A link to a document the site does not publish is an error under `relative` links.
+- `buildSite` and `buildExport` refuse an option they do not know, naming it.
+- `css` files are linked after `cudoc.css` as files of their own rather than appended to it.
+- A home page has no contents column, and the site title in the header links to the language's home rather than the first document in the navigation.
+- The documentation site replaces the export showcase at the root of GitHub Pages; the showcase is at `showcase/`.
+
 ## 0.7.0
 
 - A [`render: { type: tree }` embed](./embedding.md#draw-a-tree-of-documents) lists documents the way their folders nest them, `X.md` above the folder `X/` or a folder's own `index.md` above the rest, with a document's sections under it when `headings` asks: one line each, the title linked and the summary beside it, levels folded in `details` that open without a script on every host and in standalone HTML, and written out as a nested list down to `print` levels in the print HTML, the PDF and Word.

@@ -10,3 +10,6 @@ dist/
 # Local host sandbox: real generator installs and their output, kept out of the
 # committed integration surface in examples/.
 /sandbox/
+
+# Built locally: the documentation site and its staging copy.
+/.cudoc/

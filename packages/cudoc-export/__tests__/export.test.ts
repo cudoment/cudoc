@@ -183,7 +183,7 @@ describe("the bound volume", () => {
       sourceRoot,
       outDir,
       libraryDir,
-      navigation: ["reference", "guide"],
+      navigation: ["reference.md", "guide.md"],
     })
     const volume = parse(read(outDir, VOLUME_FILE))
     const articles = volume.querySelectorAll("article.cudoc-doc")
@@ -1100,9 +1100,74 @@ describe("buildExport", () => {
   })
 })
 
+describe("a link from the volume to a document it does not bind", () => {
+  it("names the site page in the print HTML and Word, never a missing file or bookmark", async () => {
+    // The volume binds the default language; a translation is published,
+    // but under granularity volume it has no PDF or Word file of its own.
+    const { sourceRoot, outDir, libraryDir } = workspace({
+      "guide.md": "# Guide\n\nRead it [in Korean](guide.ko.md#setup).\n",
+      "guide.ko.md": "# 가이드\n\n## 설정 (#setup)\n\n본문.\n",
+    })
+    const result = await buildExport({
+      sourceRoot,
+      outDir,
+      libraryDir,
+      formats: ["docx"],
+      granularity: "volume",
+      locales: { en: "English", ko: "한국어" },
+      navigation: ["guide.md", "reference.md"],
+    })
+    expect(result.files.docx).toEqual([`${DEFAULT_VOLUME_NAME}.docx`])
+    expect(fs.existsSync(path.join(outDir, "guide.ko.html"))).toBe(true)
+    const printed = parse(read(outDir, VOLUME_FILE))
+      .querySelectorAll("a")
+      .map((a) => a.getAttribute("href"))
+    expect(printed).toContain("guide.ko.html#setup")
+    expect(printed).not.toContain("guide.ko.pdf")
+    const zip = await JSZip.loadAsync(
+      fs.readFileSync(path.join(outDir, `${DEFAULT_VOLUME_NAME}.docx`)),
+    )
+    const xml = (await zip.file("word/document.xml")?.async("string")) ?? ""
+    const bookmarks = [
+      ...xml.matchAll(/w:bookmarkStart[^>]*w:name="([^"]+)"/g),
+    ].map((m) => m[1]!)
+    for (const [, anchor] of xml.matchAll(/w:anchor="([^"]+)"/g))
+      expect(bookmarks).toContain(anchor)
+    const relationships =
+      (await zip.file("word/_rels/document.xml.rels")?.async("string")) ?? ""
+    expect(relationships).toContain('Target="guide.ko.html#setup"')
+  })
+})
+
 // Decided before the suite is declared, so a missing browser shows as skipped
 // cases rather than as cases that returned early and passed.
 const printing = await (await import("../src/pdf.js")).browserAvailable()
+
+describe("a single page printed as a PDF", () => {
+  const suite = printing ? it : it.skip
+
+  suite(
+    "writes the print HTML the PDF needs and keeps the page self-contained",
+    async () => {
+      const { sourceRoot, outDir, libraryDir } = workspace()
+      const result = await buildExport({
+        sourceRoot,
+        outDir,
+        libraryDir,
+        formats: ["html", "pdf"],
+        mode: "standalone",
+        documents: ["guide.md"],
+      })
+      expect(result.files.pdf).toEqual(["guide.pdf"])
+      expect(fs.existsSync(path.join(outDir, "guide.print.html"))).toBe(true)
+      expect(fs.existsSync(path.join(outDir, "reference.pdf"))).toBe(false)
+      const page = parse(read(outDir, "guide.html"))
+      expect(page.querySelectorAll("link")).toHaveLength(0)
+      expect(page.querySelector("head style")?.text).toContain("--canvas")
+    },
+    180_000,
+  )
+})
 
 describe("the volume's contents page numbers", () => {
   const suite = printing ? it : it.skip
@@ -1118,7 +1183,7 @@ describe("the volume's contents page numbers", () => {
         title: "Docs",
         formats: ["pdf"],
         granularity: "both",
-        navigation: ["guide", "reference"],
+        navigation: ["guide.md", "reference.md"],
       })
       const volume = parse(read(outDir, VOLUME_FILE))
       const numbers = volume
@@ -1129,6 +1194,34 @@ describe("the volume's contents page numbers", () => {
       expect(numbers).toHaveLength(2)
       expect(numbers[0]).toBeGreaterThan(1)
       expect(numbers[1]).toBeGreaterThan(numbers[0]!)
+    },
+    180_000,
+  )
+
+  suite(
+    "binds only the default language, and counts only what it binds",
+    async () => {
+      // A translation is printed alone and is not in the volume; counting
+      // its pages made the volume look shorter than its parts.
+      const { sourceRoot, outDir, libraryDir } = workspace({
+        "guide.ko.md": `# 가이드\n\n${"본문입니다.\n\n".repeat(80)}`,
+      })
+      const result = await buildExport({
+        sourceRoot,
+        outDir,
+        libraryDir,
+        title: "Docs",
+        formats: ["pdf"],
+        granularity: "both",
+        locales: { en: "English", ko: "한국어" },
+        navigation: ["guide.md", "reference.md"],
+      })
+      expect(result.files.pdf).toContain("guide.ko.pdf")
+      expect(
+        parse(read(outDir, VOLUME_FILE))
+          .querySelectorAll("article.cudoc-doc")
+          .map((a) => a.getAttribute("id")),
+      ).toEqual([volumeId("guide"), volumeId("reference")])
     },
     180_000,
   )
@@ -1156,7 +1249,7 @@ describe("the volume's contents page numbers", () => {
         // Long enough that every printed address wraps onto lines of its own.
         hostUrl: `https://docs.example.com/${"deployment-segment/".repeat(12)}`,
         page: { linkUrls: true },
-        navigation: ["links", "guide", "reference"],
+        navigation: ["links.md", "guide.md", "reference.md"],
       })
       expect(
         fs.existsSync(path.join(outDir, `${DEFAULT_VOLUME_NAME}.pdf`)),

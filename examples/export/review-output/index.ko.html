@@ -1,0 +1,60 @@
+<!doctype html><html lang="ko" data-cudoc-ui="{&#x22;theme&#x22;:&#x22;테마&#x22;,&#x22;light&#x22;:&#x22;라이트&#x22;,&#x22;dark&#x22;:&#x22;다크&#x22;}"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;; connect-src &#x27;none&#x27;"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Northlight 날씨 API · Northlight Weather API</title><link rel="stylesheet" href="cudoc.css"><link rel="stylesheet" href="cudoc-css/1-brand.css"><link rel="stylesheet" href="cudoc-annotations.css"><script src="cudoc-theme.js"></script></head><body><a class="skip" href="#main-content">본문으로 건너뛰기</a><header><a href="index.ko.html">Northlight Weather API</a><div class="header-end"><nav class="header-links"><a href="https://github.com/cudoment/cudoc">GitHub</a></nav><nav class="languages" aria-label="언어"><ul><li><a href="index.html" hreflang="en" lang="en">English</a></li><li><span aria-current="true" lang="ko">한국어</span></li></ul></nav></div></header><div class="layout home no-toc"><nav class="sidebar" aria-label="문서"><p class="nav-title">문서</p><ul><li><a href="index.ko.html" aria-current="page">Northlight 날씨 API</a></li><li><a href="getting-started.ko.html">시작하기</a></li><li class="nav-external"><a href="https://status.northlight.example/">상태 페이지</a></li></ul></nav><main id="main-content" data-cudoc-document="index.ko" data-cudoc-ast-hash="07e8a648d0380114fef97167210104cbe45897f08bece6db9d5ef592354f353b" data-cudoc-source-hash="17e3172672f92c9a5d77847628eb52f916a08c488579dd678dfc1e6aeb8067ce" data-cudoc-site="northlight-review-1" data-cudoc-generator="cudoc-export 0.8.0" data-cudoc-inbox="{&#x22;github&#x22;:{&#x22;repo&#x22;:&#x22;your-org/your-docs&#x22;,&#x22;template&#x22;:&#x22;cudoc-review.yml&#x22;,&#x22;field&#x22;:&#x22;notes&#x22;}}"><h1 id="northlight" data-cudoc-block="northlight:6c0ce251">Northlight 날씨 API</h1>
+<p data-cudoc-block="northlight:abf12576">Northlight는 북유럽 해안의 기상 관측소 네트워크에서 현재 날씨, 단기 예보,
+관측 기록을 제공합니다. 이 안내서는 영어 문서와 같은 폴더에 있는 한국어
+번역입니다. 파일 이름의 <code>.ko</code> 접미사가 번역 관계를 정하므로, 헤더의 언어
+전환과 왼쪽 목록이 이 페이지를 영어 페이지와 짝지어 보여 줍니다.</p>
+<aside class="cudoc-callout cudoc-callout-note" data-callout="note" data-cudoc-block="northlight:d7dceec1">
+<p class="cudoc-callout-title" data-cudoc-block="northlight:75673ea9">번역 범위</p>
+<p data-cudoc-block="northlight:8113405b">한국어로 옮긴 문서는 이 개요와 <a href="getting-started.ko.html">시작하기</a>입니다.
+레퍼런스는 영어 원문만 있으므로 한국어 목록에는 나타나지 않고, 빌드는
+이를 <code>missing-translation</code> 진단으로 알립니다.</p>
+</aside>
+<h2 id="endpoints" data-cudoc-block="endpoints:1950551b">엔드포인트 한눈에 보기</h2>
+<p data-cudoc-block="endpoints:e146af3e">아래 표는 영어 레퍼런스의 각 절에서 메서드와 경로를 읽어 옵니다. 레퍼런스가
+바뀌면 이 표도 함께 바뀝니다.</p>
+<table>
+<thead>
+<tr data-cudoc-block="endpoints:8668a489">
+<th style="min-width: 10rem">엔드포인트</th>
+<th style="min-width: 5rem">메서드</th>
+<th style="min-width: 13rem">경로</th>
+</tr>
+</thead>
+<tbody>
+<tr data-cudoc-block="endpoints:d4bb4979">
+<td><a href="reference/endpoints.html#weather-current">Current conditions</a></td>
+<td>GET</td>
+<td>/v1/weather/current</td>
+</tr>
+<tr data-cudoc-block="endpoints:f79c98a5">
+<td><a href="reference/endpoints.html#forecast-hourly">Hourly forecast</a></td>
+<td>GET</td>
+<td>/v1/forecast/hourly</td>
+</tr>
+<tr data-cudoc-block="endpoints:fad1f593">
+<td><a href="reference/endpoints.html#forecast-daily">Daily forecast</a></td>
+<td>GET</td>
+<td>/v1/forecast/daily</td>
+</tr>
+<tr data-cudoc-block="endpoints:577be01f">
+<td><a href="reference/endpoints.html#weather-history">Observation history</a></td>
+<td>GET</td>
+<td>/v1/weather/history</td>
+</tr>
+<tr data-cudoc-block="endpoints:6609f8eb">
+<td><a href="reference/endpoints.html#stations">Station directory</a></td>
+<td>GET</td>
+<td>/v1/stations</td>
+</tr>
+<tr data-cudoc-block="endpoints:1d1f05e6">
+<td><a href="reference/endpoints.html#station-detail">Station detail</a></td>
+<td>GET</td>
+<td>/v1/stations/{code}</td>
+</tr>
+<tr data-cudoc-block="endpoints:6bcd5d29">
+<td><a href="reference/endpoints.html#alerts">Weather alerts</a></td>
+<td>GET</td>
+<td>/v1/alerts</td>
+</tr>
+</tbody>
+</table><footer>Northlight Weather API</footer></main></div><script defer src="cudoc-annotations.js"></script></body></html>

@@ -1,8 +1,8 @@
 /// <reference lib="dom" />
 /**
- * The theme switch in the browser the package installs for PDF: the button,
- * the cycle, what the stylesheet does with the attribute, and that a choice
- * survives a reload. Skips, naming the command, when that browser or the
+ * The theme switch in the browser the package installs for PDF: the select,
+ * the choice, what the stylesheet does with the attribute, and that a choice
+ * survives a reload, on a site and on a standalone page. Skips, naming the command, when that browser or the
  * built script is absent.
  */
 
@@ -45,6 +45,7 @@ suite("theme switch in the browser", () => {
   let page: Page
   let home: string
   let korean: string
+  let single: string
   const errors: string[] = []
 
   beforeAll(async () => {
@@ -65,8 +66,17 @@ suite("theme switch in the browser", () => {
       title: "Demo",
       themeSwitch: true,
     })
+    buildSite({
+      sourceRoot,
+      outDir: path.join(root, "standalone"),
+      libraryDir: path.join(root, "standalone-library"),
+      title: "Demo",
+      mode: "standalone",
+      themeSwitch: true,
+    })
     home = pathToFileURL(path.join(root, "site", "index.html")).href
     korean = pathToFileURL(path.join(root, "site", "ko.html")).href
+    single = pathToFileURL(path.join(root, "standalone", "index.html")).href
     browser = await launchBrowser()
     page = await browser.newPage({ colorScheme: "light" })
     page.on("pageerror", (error) => errors.push(error.message))
@@ -88,7 +98,8 @@ suite("theme switch in the browser", () => {
   const state = () =>
     page.evaluate(() => {
       const root = document.documentElement
-      const button = document.querySelector(".theme-switch")!
+      const control = document.querySelector(".theme-switch")!
+      const select = control.querySelector("select")!
       let stored: string | null = null
       try {
         stored = localStorage.getItem("cudoc-theme")
@@ -96,9 +107,11 @@ suite("theme switch in the browser", () => {
         stored = "unavailable"
       }
       return {
-        label: button.textContent,
-        title: button.getAttribute("aria-label"),
-        icons: button.querySelectorAll("svg path").length,
+        label: select.selectedOptions[0]?.textContent,
+        title: control.getAttribute("title"),
+        name: select.getAttribute("aria-label"),
+        options: Array.from(select.options, (option) => option.textContent),
+        icons: control.querySelectorAll("svg path").length,
         theme: root.getAttribute("data-theme"),
         canvas: getComputedStyle(root).getPropertyValue("--canvas").trim(),
         scheme: getComputedStyle(root).colorScheme,
@@ -106,19 +119,25 @@ suite("theme switch in the browser", () => {
       }
     })
 
-  it("cycles system, light and dark and remembers the choice", async () => {
+  const choose = (mode: string) =>
+    page.selectOption(".theme-switch select", mode)
+
+  it("chooses light or dark and remembers the choice", async () => {
     await open(home)
     await page.evaluate(() => localStorage.clear())
     await open(home)
+    // Nothing chosen: the page follows the system, and the select shows it.
     expect(await state()).toMatchObject({
-      label: "System",
-      title: "Theme: System",
-      icons: 3,
+      label: "Light",
+      title: "Theme: Light",
+      name: "Theme",
+      options: ["Light", "Dark"],
+      icons: 9,
       theme: null,
       canvas: designTokens.colors.light.canvas,
       stored: null,
     })
-    await page.click(".theme-switch")
+    await choose("light")
     expect(await state()).toMatchObject({
       label: "Light",
       theme: "light",
@@ -126,7 +145,7 @@ suite("theme switch in the browser", () => {
       scheme: "light",
       stored: "light",
     })
-    await page.click(".theme-switch")
+    await choose("dark")
     expect(await state()).toMatchObject({
       label: "Dark",
       icons: 1,
@@ -142,13 +161,14 @@ suite("theme switch in the browser", () => {
       theme: "dark",
       canvas: designTokens.colors.dark.canvas,
     })
-    await page.click(".theme-switch")
+    await choose("light")
     expect(await state()).toMatchObject({
-      label: "System",
-      theme: null,
+      label: "Light",
+      theme: "light",
       canvas: designTokens.colors.light.canvas,
-      stored: null,
+      stored: "light",
     })
+    await page.evaluate(() => localStorage.clear())
   }, 60_000)
 
   it("follows the system when nothing is chosen, and a light choice beats a dark system", async () => {
@@ -156,10 +176,17 @@ suite("theme switch in the browser", () => {
     try {
       await open(home)
       expect(await state()).toMatchObject({
-        label: "System",
+        label: "Dark",
+        theme: null,
         canvas: designTokens.colors.dark.canvas,
+        stored: null,
       })
-      await page.click(".theme-switch")
+      // The select follows the system as it changes, until a choice.
+      await page.emulateMedia({ colorScheme: "light" })
+      await expect.poll(async () => (await state()).label).toBe("Light")
+      await page.emulateMedia({ colorScheme: "dark" })
+      await expect.poll(async () => (await state()).label).toBe("Dark")
+      await choose("light")
       expect(await state()).toMatchObject({
         label: "Light",
         canvas: designTokens.colors.light.canvas,
@@ -171,12 +198,28 @@ suite("theme switch in the browser", () => {
     }
   }, 60_000)
 
-  it("labels the button in the document's language", async () => {
+  it("labels the select in the document's language", async () => {
     await open(korean)
     expect(await state()).toMatchObject({
-      label: "시스템",
-      title: "테마: 시스템",
+      label: "라이트",
+      title: "테마: 라이트",
+      name: "테마",
+      options: ["라이트", "다크"],
     })
+  }, 60_000)
+
+  it("works the same on a standalone page, which carries the script itself", async () => {
+    await page.evaluate(() => localStorage.clear())
+    await open(single)
+    expect(
+      await page.evaluate(() => !!document.querySelector("script[src]")),
+    ).toBe(false)
+    await choose("dark")
+    expect(await state()).toMatchObject({
+      theme: "dark",
+      canvas: designTokens.colors.dark.canvas,
+    })
+    await page.evaluate(() => localStorage.clear())
   }, 60_000)
 
   it("logged no errors along the way", () => {

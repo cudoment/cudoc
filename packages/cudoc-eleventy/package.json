@@ -1,6 +1,6 @@
 {
   "name": "cudoc-eleventy",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Eleventy markdown-it library for cudoc: Markdown syntax extensions, document collection and embedding",
   "license": "MIT",
   "repository": {
@@ -43,8 +43,8 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "@cudoment/cudoc": "0.7.0",
-    "cudoc-markdown-it": "0.7.0",
+    "@cudoment/cudoc": "0.8.0",
+    "cudoc-markdown-it": "0.8.0",
     "gray-matter": "^4.0.3"
   },
   "peerDependencies": {

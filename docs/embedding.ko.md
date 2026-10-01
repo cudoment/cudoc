@@ -25,7 +25,7 @@ export default {
 npx cudoc collect --config cudoc.config.mjs
 ```
 
-문서를 수집하고 임베드를 준비합니다. 같은 입력 디렉터리와 문법 설정으로 호스트를 빌드하거나 실행합니다. [Next.js](./next.ko.md), [Docusaurus](./docusaurus.ko.md), [Nextra](./nextra.ko.md), [VitePress](./vitepress.ko.md), [Eleventy](./eleventy.ko.md) 연동에서 수집 결과를 소비하도록 설정하세요. [독립 HTML](./export.ko.md)은 빌드 명령 안에서 이 과정을 처리합니다.
+문서를 수집하고 임베드를 준비합니다. 같은 입력 디렉터리와 문법 설정으로 호스트를 빌드하거나 실행합니다. [Next.js](./next.ko.md), [Docusaurus](./docusaurus.ko.md), [Nextra](./nextra.ko.md), [VitePress](./vitepress.ko.md), [Eleventy](./eleventy.ko.md) 연동에서 수집 결과를 소비하도록 설정하세요. [HTML 내보내기](./export.ko.md)는 빌드 명령 안에서 이 과정을 처리합니다.
 
 각각 다른 경로로 서비스되는 여러 디렉터리의 문서는 `sourceRoot` 대신 `roots`로 수집합니다. `exclude`는 `**/AGENTS.md` 같은 파일을 제외하고, `private`는 수집과 검사는 하되 내보내지는 않는 문서를 표시합니다. 옵션과 ID 파생 규칙은 [수집](./api-reference/node.ko.md#수집)에서 설명합니다.
 
@@ -191,7 +191,7 @@ render:
     • Partial refunds · Refund part of a payment.
 ```
 
-`./`는 페이지가 있는 폴더이고, 페이지 자신인 `index.md`는 줄이 아니라 그 폴더를 나타냅니다. `checkout.md`처럼 옆의 폴더를 대표하는 페이지는 그 폴더를 `sources: [checkout/]`로 적습니다. 이 페이지의 `./`는 페이지가 놓인 폴더이므로, `./`를 쓰면 Checkout 자신까지 형제 문서와 함께 나열합니다. `checkout.md`는 옆의 `checkout/` 폴더를 하위로 받고, `refunds/index.md`는 자기 폴더를 대표합니다. `order`가 Overview를 맨 앞에 두고 나머지는 제목 순으로 뒤따릅니다. 아래에 다른 줄이 있는 줄은 그 줄들을 HTML `details` 요소로 접기 때문에, 모든 호스트와 독립 HTML에서 스크립트 없이 트리를 열고 닫을 수 있습니다. 인쇄 HTML, PDF, Word에는 접을 곳이 없으므로 트리를 펼친 중첩 목록으로 씁니다.
+`./`는 페이지가 있는 폴더이고, 페이지 자신인 `index.md`는 줄이 아니라 그 폴더를 나타냅니다. `checkout.md`처럼 옆의 폴더를 대표하는 페이지는 그 폴더를 `sources: [checkout/]`로 적습니다. 이 페이지의 `./`는 페이지가 놓인 폴더이므로, `./`를 쓰면 Checkout 자신까지 형제 문서와 함께 나열합니다. `checkout.md`는 옆의 `checkout/` 폴더를 하위로 받고, `refunds/index.md`는 자기 폴더를 대표합니다. `order`가 Overview를 맨 앞에 두고 나머지는 제목 순으로 뒤따릅니다. 아래에 다른 줄이 있는 줄은 그 줄들을 HTML `details` 요소로 접기 때문에, 모든 호스트와 내보낸 HTML에서 스크립트 없이 트리를 열고 닫을 수 있습니다. 인쇄 HTML, PDF, Word에는 접을 곳이 없으므로 트리를 펼친 중첩 목록으로 씁니다.
 
 ### 자주 쓰는 트리 네 가지
 

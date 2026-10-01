@@ -4,7 +4,9 @@
 
 **Write a fact once. Reuse it everywhere. Keep one source of truth across every document, every site and every index.**
 
-cudoc adds three things to the documentation you already have: Markdown syntax extensions, **document embedding**, and export of the same documents as a standalone HTML site, PDF and Word. It plugs into the site generator you already use, and authors keep writing ordinary Markdown.
+**This README is also a [website](https://cudoment.github.io/cudoc/index.html).** No static site generator was involved: `cudoc-export` built it from this file and `docs/`. It is cudoc's documentation, exported by cudoc.
+
+cudoc adds three things to the documentation you already have: Markdown syntax extensions, **document embedding**, and export of the same documents as an HTML site, single HTML pages, PDF and Word. It plugs into the site generator you already use, and authors keep writing ordinary Markdown.
 
 **Set it up:** [Next.js](./docs/next.md) · [Docusaurus](./docs/docusaurus.md) · [Nextra](./docs/nextra.md) · [VitePress](./docs/vitepress.md) · [Eleventy](./docs/eleventy.md) · [no generator yet](./docs/export.md) · [what each host asks of you](#pick-your-site-generator)
 
@@ -71,7 +73,7 @@ cudoc leaves the document whole. `reference.md` stays a page with a URL, `#limit
 
 ### And the copy is real text
 
-This is what the next section rests on. A component node is opaque to anything that is not the host: standalone HTML export, an AST dataset, a retriever reading your corpus. cudoc's resolved output is the actual content, so every destination receives the same complete document. → [Document embedding](./docs/embedding.md)
+This is what the next section rests on. A component node is opaque to anything that is not the host: HTML export, an AST dataset, a retriever reading your corpus. cudoc's resolved output is the actual content, so every destination receives the same complete document. → [Document embedding](./docs/embedding.md)
 
 ---
 
@@ -105,7 +107,7 @@ Each guide is a numbered walkthrough: install, configure, wire up collection, bu
 | **Nextra**           | [Set up Nextra →](./docs/nextra.md)         | `@cudoment/cudoc cudoc-remark cudoc-nextra`     |
 | **VitePress**        | [Set up VitePress →](./docs/vitepress.md)   | `@cudoment/cudoc cudoc-vitepress`               |
 | **Eleventy**         | [Set up Eleventy →](./docs/eleventy.md)     | `@cudoment/cudoc cudoc-eleventy`                |
-| **No generator yet** | [Standalone HTML →](./docs/export.md)       | `@cudoment/cudoc cudoc-export`                  |
+| **No generator yet** | [HTML export →](./docs/export.md)           | `@cudoment/cudoc cudoc-export`                  |
 
 No generator yet? The last row starts from an empty directory: two commands and two documents give you a complete site. → [Your first site](./docs/export.md#your-first-site-from-an-empty-directory)
 
@@ -120,7 +122,7 @@ What each host asks of your setup, before you choose (the same page gives the de
 
 Every host takes `.md`. The three MDX hosts also take `.mdx`, decided per file by its extension, and every cudoc feature behaves identically in both. → [Choosing `.md` or `.mdx`](./docs/README.md#choosing-md-or-mdx)
 
-Standalone HTML, PDF and Word are not a seventh choice you make instead of the others. They are an **extra output** available from every host, reusing the same collected documents. → [Export alongside an existing site](./docs/export.md#export-alongside-an-existing-site)
+HTML, PDF and Word export is not a seventh choice you make instead of the others. It is an **extra output** available from every host, reusing the same collected documents. → [Export alongside an existing site](./docs/export.md#export-alongside-an-existing-site)
 
 ---
 
@@ -168,17 +170,17 @@ VitePress and Eleventy load the library when their configuration is evaluated, s
 
 ### One set of documents, three destinations
 
-Your site, a shareable HTML bundle, and a machine-readable AST corpus — all from the same Markdown, all resolved the same way.
+Your site, HTML to hand over, and a machine-readable AST corpus — all from the same Markdown, all resolved the same way.
 
-| Output             | Command              | Use it for                                                |
-| ------------------ | -------------------- | --------------------------------------------------------- |
-| Your existing site | your normal build    | production docs, for people                               |
-| Standalone HTML    | `cudoc-export build` | offline handoff, air-gapped review, static deployment     |
-| AST dataset        | `cudoc dataset`      | RAG pipelines, search indexes, MCP servers, agent context |
+| Output             | Command              | Use it for                                                              |
+| ------------------ | -------------------- | ----------------------------------------------------------------------- |
+| Your existing site | your normal build    | production docs, for people                                             |
+| HTML export        | `cudoc-export build` | offline handoff, one-file attachments, review rounds, static deployment |
+| AST dataset        | `cudoc dataset`      | RAG pipelines, search indexes, MCP servers, agent context               |
 
-HTML export offers three hyperlink policies — local files, deployed URLs, or no links at all — so the same content works whether it is browsed from disk or published.
+HTML export writes a site, single pages that carry their own styles and pictures, or pages that collect review notes, and offers three hyperlink policies — local files, deployed URLs, or no links at all — so the same content works whether it is browsed from disk, attached to a message or published.
 
-A complete sample is committed with the repository: a six-document API handbook exported from [one configuration](./examples/export/showcase.config.mjs) into a site, per-document files and a bound volume with a cover and a contents page. Open [the PDF](./examples/export/showcase-output/northlight-handbook.pdf) or [the Word file](./examples/export/showcase-output/northlight-handbook.docx) directly, and clone the repository to browse [the site](./examples/export/showcase-output/index.html) from disk; the [sources](./examples/export/showcase/) show the Markdown that produced them. → [A complete example](./docs/export.md#a-complete-example)
+Complete samples are committed with the repository: a six-document API handbook exported from [one configuration](./examples/export/showcase.config.mjs) into a site in two languages, per-document files and a bound volume with a cover and a contents page, and from three more into [single pages](./examples/export/standalone-output/getting-started.html), [a page to review](./examples/export/annotate-output/getting-started.html) and [a hosted review](./examples/export/review-output/). Open [the PDF](./examples/export/showcase-output/northlight-handbook.pdf) or [the Word file](./examples/export/showcase-output/northlight-handbook.docx) directly, and browse [the site](./examples/export/showcase-output/index.html) on the documentation site or from a clone; the [sources](./examples/export/showcase/) show the Markdown that produced them. → [Complete examples](./docs/export.md#complete-examples)
 
 ---
 
@@ -190,7 +192,7 @@ Guides teach the workflow. The reference is where signatures, defaults and contr
 | -------------------------------------------------------------- | --------------------------------------------------- |
 | Syntax modes, callout types, native forms, column layouts      | [Markdown syntax](./docs/syntax.md)                 |
 | Collection setup, selection, replacement, refresh rules        | [Document embedding](./docs/embedding.md)           |
-| Link policies, assets, configuration, deployment routes        | [Standalone HTML](./docs/export.md)                 |
+| HTML modes, site structure, link policies, PDF and Word        | [Export](./docs/export.md)                          |
 | Broken links, anchors, images and embeds across a document set | [Reference checking](./docs/check.md)               |
 | Projection options, manifest format, consumer contract         | [AST datasets](./docs/dataset.md)                   |
 | Imports, signatures, option defaults, AST metadata, internals  | [API reference](./docs/api-reference/README.md)     |
