@@ -39,3 +39,12 @@ replace:
   - find: "**original**"
     replace: "_adapted_"
 ```
+
+## Outline (#outline)
+
+```cudoc-embed
+sources: [reference.md]
+render:
+  type: tree
+  headings: 2
+```

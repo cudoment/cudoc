@@ -286,7 +286,8 @@ reaches HTML and PDF only —
 Word reads no CSS — so use `tokens` for anything that should hold across formats.
 An SVG image becomes its alt text, because `docx` needs a raster fallback and
 cudoc ships no rasterizer, and the substitution is reported as
-`image-as-text`. `<details>` ships expanded. Raw HTML in a Markdown
+`image-as-text`. `<details>` ships expanded, and a tree embed as a nested list
+down to its `print` level. Raw HTML in a Markdown
 document is dropped, and every drop is reported in the result's `diagnostics`
 and on the CLI's standard error, naming the document. A table inside a footnote
 is dropped too, because a Word footnote holds paragraphs only, and reported as

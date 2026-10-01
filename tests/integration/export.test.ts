@@ -90,7 +90,7 @@ describe(`export through ${HOST.name}`, () => {
     ])
     expect(
       Object.keys(embeds.blocks).filter((key) => key.startsWith("showcase")),
-    ).toHaveLength(10)
+    ).toHaveLength(11)
   })
 
   describe("embed shapes on the exported page", () => {
@@ -117,6 +117,7 @@ describe(`export through ${HOST.name}`, () => {
       "by-title",
       "summary",
       "summary-columns",
+      "heading-tree",
       "literal-replace",
       "regex-replace",
       "root-relative",
@@ -179,6 +180,22 @@ describe(`export through ${HOST.name}`, () => {
       ).toEqual(["Retry", "Backoff", "Scopes"])
     })
 
+    it("renders a heading tree folded, with links into the source", () => {
+      const tree = section("heading-tree").querySelector(".cudoc-tree")!
+      expect(tree.getAttribute("data-cudoc-print")).toBe("2")
+      const summaries = tree.querySelectorAll("summary").map((n) => n.text)
+      expect(summaries[0]).toMatch(/^Deep reference · Sections here exist/)
+      expect(summaries.slice(1).map((text) => text.split(" · ")[0])).toEqual([
+        "Limits",
+        "Authentication",
+      ])
+      expect(tree.querySelectorAll("details[open]")).toHaveLength(1)
+      // The relative policy reaches a tree's links like any other.
+      expect(
+        tree.querySelectorAll("a").map((a) => a.getAttribute("href")),
+      ).toContain("reference.html#backoff")
+    })
+
     it("applies a literal replacement and recompiles the result", () => {
       const body = section("literal-replace")
       expect(body.querySelectorAll("em").map((n) => n.text)).toContain(
@@ -237,6 +254,28 @@ describe(`export through ${HOST.name}`, () => {
       expect(root.querySelectorAll("[data-callout]").length).toBe(6)
       expect(root.text).toContain("{value}")
     }
+  })
+
+  it("prints the heading tree as a nested list two levels deep", () => {
+    const outDir = path.join(workspace, "site-print")
+    buildSite({
+      sourceRoot: source,
+      library,
+      outDir,
+      title: "Fixture export",
+      navigation: ["showcase", "reference"],
+    })
+    const tree = parse(
+      fs.readFileSync(path.join(outDir, "showcase.print.html"), "utf8"),
+    ).querySelector(".cudoc-tree")!
+    expect(tree.querySelectorAll("details, summary")).toHaveLength(0)
+    const second = tree
+      .querySelectorAll(":scope > li > ul > li")
+      .map((item) => item.text.split(" · ")[0]!.trim())
+    expect(second).toEqual(["Limits", "Authentication", "Glossary"])
+    // print: 2 leaves out the third level.
+    expect(tree.text).not.toContain("Retry")
+    expect(tree.text).not.toContain("Scopes")
   })
 
   it("leaves the collected library untouched by an export", () => {

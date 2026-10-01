@@ -161,6 +161,7 @@ Your Next.js build and its collected data are not modified. → [Standalone HTML
 | Embed a whole document      | `sources: [reference.md]`          | [Embedding](./embedding.md#reuse-a-section)                |
 | Embed one section           | `sources: [reference.md#limits]`   | [Embedding](./embedding.md#reuse-a-section)                |
 | Heading summary table       | `select: { depth: 2 }`             | [Embedding](./embedding.md#create-a-heading-summary-table) |
+| Document tree               | `render: { type: tree }`           | [Embedding](./embedding.md#draw-a-tree-of-documents)       |
 | Replace text in the copy    | `replace: [{ find, replace }]`     | [Embedding](./embedding.md#find-and-replace)               |
 
 ## Next.js specifics

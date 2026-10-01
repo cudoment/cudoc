@@ -151,6 +151,7 @@ cudoc은 문서를 통째로 둡니다. `reference.md`는 URL을 가진 페이�
 | 한 절과 그 아래 절까지            | `sources: [reference.md#limits]`                   |
 | 아래 절을 뺀 한 절                | `includeChildren: false`                           |
 | 제목만 모은 요약 표               | `select: { depth: 2 }`와 `render: { type: table }` |
+| 폴더의 문서를 접어 두는 트리      | `sources: [guides/]`와 `render: { type: tree }`    |
 | 같은 내용을 이 페이지 문맥에 맞게 | `replace: [{ find: "...", replace: "..." }]`       |
 
 원본 문서는 손대지 않습니다. → [문서 임베딩](./docs/embedding.ko.md)

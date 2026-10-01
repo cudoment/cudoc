@@ -192,6 +192,7 @@ npx cudoc-export build content --library .cudoc/documents --out-dir shared-html 
 | 문서 전체 임베드   | `sources: [reference.md]`        | [임베딩](./embedding.ko.md#섹션-가져오기)       |
 | 한 절 임베드       | `sources: [reference.md#limits]` | [임베딩](./embedding.ko.md#섹션-가져오기)       |
 | 제목 요약 표       | `select: { depth: 2 }`           | [임베딩](./embedding.ko.md#제목-요약-표-만들기) |
+| 문서 트리          | `render: { type: tree }`         | [임베딩](./embedding.ko.md#문서-트리-그리기)    |
 | 사본의 문구 치환   | `replace: [{ find, replace }]`   | [임베딩](./embedding.ko.md#찾기바꾸기)          |
 
 ## Nextra에서 알아 둘 점

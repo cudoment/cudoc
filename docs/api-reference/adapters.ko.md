@@ -484,11 +484,20 @@ JPEG, GIF, BMP가 아니거나 로컬 파일로 해석되지 않는 이미지는
 `className: ["cudoc-page-break"]`와 `hidden: true`와 `data.cudoc.kind: "pageBreak"`를
 가진 `thematicBreak`으로 바꿉니다.
 
+**트리**도 같은 모듈의 `TREE_KIND`, `TREE_CLASS`, `TREE_PRINT_ATTRIBUTE`,
+`isTree(node)`, `treePrintDepth(value)`로 읽습니다. 트리 임베드는 바깥 목록의
+`data-cudoc-print`에서 읽은 `print` 단계까지 중첩 목록 그대로 인쇄합니다. 각 항목의
+`summary` 줄이 항목 자신의 글자가 되고, `details` 안의 목록이 그 뒤에 오며, `print`를
+넘는 단계는 뺍니다. 인쇄 HTML은 다른 details를 열기 전에 `printTrees`로 hast에서
+이렇게 바꾸고, 인쇄 스타일시트가 그 항목에 다시 글머리표를 붙입니다. Word 작성기는
+목록을 쓰기 전에 mdast에서 같은 일을 하므로, 모든 줄이 자기 단계의 목록 문단이 됩니다.
+
 **인쇄 규칙**은 화면용 스타일시트가 종이에서 갖고 있던 결함 세 가지를 고칩니다. 표가
 `display: block`이라 `table-header-group`이 조용히 무효였고, `pre`와 콜아웃이
 `break-inside: avoid`를 약속했지만 쪽보다 큰 블록에서는 지킬 수 없었으며, 본문 색을
 검정으로 덧칠했습니다. 빌더는 모든 `<details>`를 열어 두기도 합니다. Chrome이 닫힌
-`<details>`를 summary만 인쇄하기 때문입니다.
+`<details>`를 summary만 인쇄하기 때문입니다. 트리의 `<details>`는 위에서 설명한 대로
+먼저 펼친 목록으로 바꿉니다.
 
 하위 경로: `cudoc-export/docx`는 `buildDocx`, `writeDocx`, `bookmarkName`과
 `DocxWriterOptions`, `DocxComponentRenderer`를 포함한 `Docx*` 타입을,
@@ -500,7 +509,7 @@ JPEG, GIF, BMP가 아니거나 로컬 파일로 해석되지 않는 이미지는
 `PdfOptions`, `PrintJob`, `Printer` 타입을, `cudoc-export/print`는
 `writePrintOutputs`, `printStylesheet`, `fillVolumePageNumbers`,
 `resolveVolumeOptions`, `namespaceIds`, `namespaceDocument`, `volumeId`,
-`volumePrefix`, `printFileName`, `openDetails`, `tableColumns`, `dropLeadingBreaks`,
+`volumePrefix`, `printFileName`, `openDetails`, `printTrees`, `tableColumns`, `dropLeadingBreaks`,
 `wrapWideTables`, `localizeAssets`, `srcSetCandidate`, `urlPath`, `PRINT_STYLESHEET`, `DEFAULT_VOLUME_NAME`, `VOLUME_FILE`과
 `PrintableDocument`, `PrintOutputOptions`, `VolumeOptions`,
 `ResolvedVolumeOptions`, `AssetMark`, `CopiedAsset` 타입을 공개합니다.

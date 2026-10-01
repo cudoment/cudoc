@@ -257,7 +257,7 @@ for (const host of HOST_CASES) {
       const code = all.filter((n) => n.type === "code")
       expect(code.some((n) => n.lang === "js")).toBe(true)
       expect(code.some((n) => !n.lang)).toBe(true)
-      expect(code.filter((n) => n.lang === "cudoc-embed")).toHaveLength(10)
+      expect(code.filter((n) => n.lang === "cudoc-embed")).toHaveLength(11)
       const aligned = all.find(
         (n) => n.type === "table" && Array.isArray(n.align) && n.align[1],
       )

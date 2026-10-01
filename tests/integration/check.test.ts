@@ -129,6 +129,22 @@ const CASES: Case[] = [
     },
   },
   {
+    code: "unmatched-tree-order",
+    severity: "warning",
+    // The tree's first level is the reference document alone.
+    markdown:
+      "# A (#a)\n\n```cudoc-embed\nsources: [reference.md]\nrender:\n  type: tree\n  order: [Nowhere, ...]\n```\n",
+    also: (result) => {
+      expect(result.issues[0]!.message).toContain('order names "Nowhere"')
+      expect(result.issues[0]!.available).toEqual(["Reference"])
+      // On the entry's line inside the fence.
+      expect(result.issues[0]!.position?.start).toEqual({
+        line: 7,
+        column: 11,
+      })
+    },
+  },
+  {
     code: "cyclic-embed",
     // The document embeds itself whole, so the copy holds the block again.
     markdown: "# A (#a)\n\n```cudoc-embed\nsources: [subject.md]\n```\n",
@@ -191,6 +207,7 @@ for (const host of HOST_CASES) {
     let imported: Awaited<ReturnType<typeof attempt>>
     let rewrittenComponent: Attempt
     let rewrittenCycle: Attempt
+    let tree: Attempt
 
     let scenario = 0
     const collect = async (files: Record<string, string>) => {
@@ -286,6 +303,11 @@ for (const host of HOST_CASES) {
           "# L (#l)\n\n## Loop (#loop)\n\n```cudoc-embed\nsources: [reference.md#limits]\n```\n",
         "subject.md":
           "# A (#a)\n\n```cudoc-embed\nsources: [loop.md#loop]\nreplace:\n  - find: reference.md#limits\n    replace: subject.md\n```\n",
+      })
+      tree = await attempt({
+        "reference.md": TARGET,
+        "subject.md":
+          "# A (#a)\n\n```cudoc-embed\nsources: [/ghost/, reference.md#nosuch, reference]\nrender: { type: tree }\n```\n",
       })
     }, 120_000)
 
@@ -414,6 +436,20 @@ for (const host of HOST_CASES) {
       expect(rewrittenComponent.result.issues).toEqual([])
     })
 
+    it("reports the sources of a tree that name nothing", () => {
+      if ("rejected" in tree) throw new Error(tree.rejected)
+      expect(
+        tree.result.issues.map((issue) => [issue.code, issue.reference]),
+      ).toEqual([
+        ["missing-embed-source", "/ghost/"],
+        ["missing-embed-anchor", "reference.md#nosuch"],
+      ])
+      expect(tree.result.issues[0]!.message).toContain(
+        "no documents in folder /ghost/",
+      )
+      expect(tree.result.issues[1]!.available).toContain("limits")
+    })
+
     it("follows a cycle that only the rewritten copy makes", () => {
       // `loop.md#loop` embeds the reference; the rule points that nested
       // embed back at the subject, which embeds the loop again.
@@ -449,6 +485,7 @@ describe("diagnostic coverage", () => {
       "unportable-embed-component": true,
       "imported-embed-component": true,
       "cyclic-embed": true,
+      "unmatched-tree-order": true,
     } satisfies Record<ReferenceIssueCode, true>)
 
     // Three are asserted separately, because whether they can occur at all

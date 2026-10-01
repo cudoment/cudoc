@@ -2,7 +2,11 @@ import path from "node:path"
 import type { Root } from "mdast"
 import { fromHtml } from "hast-util-from-html"
 import { parse as parseYaml } from "yaml"
-import { collectSections, type SectionSelection } from "../sections.js"
+import {
+  collectSections,
+  type CollectedSection,
+  type SectionSelection,
+} from "../sections.js"
 import {
   idToken,
   nodeText,
@@ -14,8 +18,16 @@ import {
   findParentHeading,
   getHeadingAnchorId,
 } from "../internal/core/query/sections.js"
+import { TREE_CLASS, TREE_KIND, TREE_PRINT_ATTRIBUTE } from "../paged.js"
 import type { Library, StoredDocument } from "./library.js"
 import { sourceFileOf } from "./roots.js"
+import {
+  compareCodePoints,
+  compareNames,
+  documentName,
+  hierarchyOf,
+  nfc,
+} from "./tree.js"
 import { parseSrcSet } from "./local-target.js"
 import { transformedSection } from "./replace.js"
 import {
@@ -64,13 +76,61 @@ export type TableColumn =
       /** A CSS length written onto the header cell's `style` as `min-width`. */
       minWidth?: string
     }
+/**
+ * A tree of documents and their headings: a document's children are the
+ * documents of the folder it stands for, and with `headings` its sections.
+ */
+export type TreeRender = {
+  type: "tree"
+  /** Levels whose items start unfolded on the web. Default 1. */
+  open?: number
+  /** Levels the print HTML, the PDF and Word show. Default: every level. */
+  print?: number
+  /** Levels the tree holds. Default: every level. */
+  depth?: number
+  /**
+   * Heading levels under each document's title that become its children:
+   * 1 takes `##`, 2 takes `##` and `###`, up to 5. Default 0, documents only.
+   */
+  headings?: number
+  /** Names the first level puts first, in order; `...` stands for the rest. */
+  order?: string[]
+  /** What one line shows, joined with ` · `. Default `[link, summary]`. */
+  columns?: TableColumn[]
+}
 export type EmbedSpec = {
   sources: string[]
   select?: SectionSelection
-  render?: "section" | { type: "table"; columns?: TableColumn[] }
+  render?: "section" | { type: "table"; columns?: TableColumn[] } | TreeRender
   replace?: Replacement[]
 }
 export type EmbedContext = { documentId: string; prefix?: string }
+
+/** One line of a tree: a document, or a heading inside one. */
+export type TreeNode = {
+  /** The document id, followed by `#` and the anchor for a heading. */
+  id: string
+  kind: "document" | "heading"
+  documentId: string
+  /** The heading's anchor; absent on a document. */
+  anchorId?: string
+  /**
+   * A document's file name without the extension, the folder's name for an
+   * index document, or a heading's text; in NFC. `order` matches it.
+   */
+  name: string
+  /** The document's `#` title, else its `title` front matter, else its name; a heading's text. */
+  title: string
+  /** The node's own address: the document route, plus the anchor for a heading. */
+  url: string
+  /** The library path of the document the node is or is in. */
+  sourcePath: string
+  /** 1 for the first level. */
+  level: number
+  /** One cell per column, empty ones included. */
+  cells: ExtractedCell[]
+  children: TreeNode[]
+}
 
 /** What a cell shows: text, and a link when the column or extractor gives one. */
 export type ExtractedCell = { text: string; url?: string }
@@ -87,16 +147,39 @@ export type EmbedRow = {
  * A function the collection config registers to compute a cell. `version`
  * enters the library configuration, so changing what the function returns
  * for the same input invalidates prepared embeds.
+ *
+ * In a tree, `node` is the line being computed. Its children are complete,
+ * cells included, because a tree computes its deepest lines first, so a value
+ * that totals the levels below, such as the open tasks under a node, adds up
+ * what `node.children` hold. Its own `cells` are filled after every column
+ * has run.
  */
 export type TableExtractor = {
   version: string
   extract: (
     row: EmbedRow,
-    context: { library: Library; documentId: string; column: TableColumn },
+    context: {
+      library: Library
+      documentId: string
+      column: TableColumn
+      node?: TreeNode
+    },
   ) => string | ExtractedCell | undefined
 }
 
 const SPEC_KEYS = ["sources", "select", "render", "replace"]
+const TABLE_KEYS = ["type", "columns"]
+const TREE_KEYS = [
+  "type",
+  "open",
+  "print",
+  "depth",
+  "headings",
+  "order",
+  "columns",
+]
+/** The `order` entry that stands for every name the list does not give. */
+const REST = "..."
 const SELECTION_KEYS = ["anchors", "titles", "depth", "includeChildren"]
 const REPLACEMENT_KEYS = ["find", "replace", "regex", "flags"]
 const COLUMN_KEYS = ["header", "value", "link", "minWidth"]
@@ -174,6 +257,47 @@ const validateColumn = (column: unknown, at: string) => {
     throw new Error(`cudoc: ${at}.value.skipTablesWithHeaders must be strings`)
 }
 
+const validateTree = (render: Record<string, unknown>) => {
+  const count = (key: string, least: number, most?: number) => {
+    const value = render[key]
+    if (value === undefined) return
+    if (
+      !Number.isInteger(value) ||
+      (value as number) < least ||
+      (most !== undefined && (value as number) > most)
+    )
+      throw new Error(
+        `cudoc: render.${key} must be ${
+          most === undefined
+            ? `an integer of at least ${least}`
+            : `an integer from ${least} to ${most}`
+        }`,
+      )
+  }
+  count("open", 0)
+  count("print", 1)
+  count("depth", 1)
+  count("headings", 0, 5)
+  const order = render.order
+  if (order === undefined) return
+  if (
+    !Array.isArray(order) ||
+    order.some((name) => typeof name !== "string" || !name.trim())
+  )
+    throw new Error("cudoc: render.order must be a list of names")
+  const seen = new Set<string>()
+  for (const name of order as string[]) {
+    const key = nfc(name)
+    if (seen.has(key))
+      throw new Error(
+        name === REST
+          ? `cudoc: render.order has ${REST} twice; it stands for every name not listed, once`
+          : `cudoc: render.order names "${name}" twice`,
+      )
+    seen.add(key)
+  }
+}
+
 export function parseEmbedSpec(value: string): EmbedSpec {
   const spec = parseYaml(value, { maxAliasCount: 100 })
   if (!spec || typeof spec !== "object" || Array.isArray(spec))
@@ -194,15 +318,16 @@ export function parseEmbedSpec(value: string): EmbedSpec {
       !spec.render ||
       typeof spec.render !== "object" ||
       Array.isArray(spec.render) ||
-      spec.render.type !== "table"
+      !["table", "tree"].includes(spec.render.type)
     )
       throw new Error(
-        'cudoc: render must be "section" or a mapping with type: table',
+        'cudoc: render must be "section" or a mapping with type: table or type: tree',
       )
+    const known = spec.render.type === "tree" ? TREE_KEYS : TABLE_KEYS
     for (const key of Object.keys(spec.render))
-      if (!["type", "columns"].includes(key))
+      if (!known.includes(key))
         throw new Error(
-          `cudoc: render: unknown key "${key}". Known keys: type, columns`,
+          `cudoc: render: unknown key "${key}". Known keys: ${known.join(", ")}`,
         )
     if (spec.render.columns !== undefined) {
       if (!Array.isArray(spec.render.columns) || !spec.render.columns.length)
@@ -210,6 +335,19 @@ export function parseEmbedSpec(value: string): EmbedSpec {
       spec.render.columns.forEach((column: unknown, index: number) =>
         validateColumn(column, `render.columns[${index}]`),
       )
+    }
+    if (spec.render.type === "tree") {
+      validateTree(spec.render)
+      // A tree copies no section text, so neither would change anything,
+      // and an author who wrote one expects it to.
+      if (spec.select !== undefined)
+        throw new Error(
+          "cudoc: select does not apply to a tree; its levels come from folders, and render.headings adds sections",
+        )
+      if (spec.replace !== undefined)
+        throw new Error(
+          "cudoc: replace does not apply to a tree, which copies no section text",
+        )
     }
   }
   if (spec.select) {
@@ -305,11 +443,16 @@ export function parseEmbedBlock(
   }
 }
 
-export function resolveDocumentReference(
-  library: Library,
+/**
+ * What a source names, read without looking anything up: the library path it
+ * spells, relative to `from` or from the top with a leading `/`, and its
+ * anchor, percent-decoded. A URL, a backslash and a climb out of the library
+ * fail here.
+ */
+const sourcePath = (
   reference: string,
   from: string,
-): { document: StoredDocument; anchor?: string } {
+): { pathname: string; target: string; anchor?: string } => {
   const hash = reference.indexOf("#")
   const pathname = hash < 0 ? reference : reference.slice(0, hash)
   let anchor: string | undefined
@@ -325,21 +468,94 @@ export function resolveDocumentReference(
     throw new Error(
       `cudoc: embed source must be a local document: ${reference}`,
     )
-  const id = (
-    pathname
-      ? pathname.startsWith("/")
-        ? pathname.slice(1)
-        : path.posix.join(path.posix.dirname(from), pathname)
-      : from
-  ).replace(/\.mdx?$/i, "")
+  const target = pathname
+    ? pathname.startsWith("/")
+      ? pathname.slice(1)
+      : path.posix.join(path.posix.dirname(from), pathname)
+    : from
+  const id = target.replace(/\.mdx?$/i, "")
   if (id === ".." || id.startsWith("../"))
     throw new Error(`cudoc: embed source escapes root: ${reference}`)
+  return { pathname, target, ...(anchor === undefined ? {} : { anchor }) }
+}
+
+export function resolveDocumentReference(
+  library: Library,
+  reference: string,
+  from: string,
+): { document: StoredDocument; anchor?: string } {
+  const { target, anchor } = sourcePath(reference, from)
+  const id = target.replace(/\.mdx?$/i, "")
   const document = documentIndex(library).byId.get(id)
   if (!document)
     throw new Error(
       `cudoc: missing document ${reference} referenced from ${from}`,
     )
   return { document, anchor }
+}
+
+/**
+ * Whether a tree on `page` lists private documents: only when the page is
+ * private itself. One that names no collected document counts as public.
+ */
+const listsPrivate = (library: Library, page: string): boolean =>
+  documentIndex(library).byId.get(page)?.private === true
+
+/** Where a tree starts: the documents of a folder, or one document or section. */
+export type TreeSource =
+  | { folder: string; documents: StoredDocument[] }
+  | { document: StoredDocument; anchor?: string }
+
+/**
+ * Reads one source of a tree. A path ending in `/` names a folder, and the
+ * documents directly below it become the tree's first level; any other path
+ * names a document, or with `#anchor` one of its sections, as for any embed.
+ * Ids are matched in NFC, so a source names a document whose file name is
+ * stored in NFD. A folder holding no document fails, and so does a document
+ * path that is really a folder, with a hint to add the `/`. Given `page`,
+ * the document the tree lands on, a folder whose documents are all private
+ * fails too unless that page is private, since the tree leaves them out.
+ */
+export function resolveTreeSource(
+  library: Library,
+  reference: string,
+  from: string,
+  page?: string,
+): TreeSource {
+  const { pathname, target, anchor } = sourcePath(reference, from)
+  const hierarchy = hierarchyOf(library)
+  if (pathname.endsWith("/")) {
+    if (anchor !== undefined)
+      throw new Error(`cudoc: a folder source takes no anchor: ${reference}`)
+    const normal = path.posix.normalize(target || ".").replace(/\/+$/, "")
+    if (normal === ".." || normal.startsWith("../"))
+      throw new Error(`cudoc: embed source escapes root: ${reference}`)
+    const folder = normal === "." ? "" : normal
+    const documents = hierarchy.below(folder)
+    if (!documents.length)
+      throw new Error(
+        `cudoc: no documents in folder ${reference} referenced from ${from}`,
+      )
+    if (
+      page !== undefined &&
+      !listsPrivate(library, page) &&
+      documents.every((document) => document.private)
+    )
+      throw new Error(
+        `cudoc: folder ${reference} referenced from ${from} holds only private documents, which a tree on ${page} leaves out`,
+      )
+    return { folder, documents }
+  }
+  const id = target.replace(/\.mdx?$/i, "")
+  const document = documentIndex(library).byId.get(id) ?? hierarchy.document(id)
+  if (document) return { document, ...(anchor === undefined ? {} : { anchor }) }
+  throw new Error(
+    `cudoc: missing document ${reference} referenced from ${from}${
+      hierarchy.below(path.posix.normalize(id)).length
+        ? `; a folder source ends with /, as in ${pathname}/`
+        : ""
+    }`,
+  )
 }
 
 const visitNodes = (node: DocumentNode, fn: (node: DocumentNode) => void) => {
@@ -749,6 +965,8 @@ export function extractCell(
   column: TableColumn,
   row: EmbedRow,
   context: EmbedContext,
+  /** The tree line the cell is for, handed to an extractor. */
+  node?: TreeNode,
 ): { cell: ExtractedCell; problem?: string } {
   const spec = columnSpec(column)
   const where = `${row.document.id}${row.section.anchorId ? `#${row.section.anchorId}` : ""}`
@@ -796,6 +1014,7 @@ export function extractCell(
       library,
       documentId: context.documentId,
       column,
+      ...(node ? { node } : {}),
     })
     const text = typeof result === "string" ? result : result?.text
     if (!text)
@@ -890,6 +1109,379 @@ export function buildEmbedTable(
   } as unknown as Root
 }
 
+/** The default line of a tree: the title linked to its node, then the summary. */
+export const DEFAULT_TREE_COLUMNS: TableColumn[] = ["link", "summary"]
+
+/** Whether a column is computed by a registered function, which may read anything. */
+const usesExtractor = (columns: TableColumn[]): boolean =>
+  columns.some(
+    (column) =>
+      typeof column === "object" &&
+      typeof column.value === "object" &&
+      "extractor" in column.value,
+  )
+
+/** Whether an `order` entry names a node: its name, or its title, in NFC. */
+export const namesTreeNode = (
+  entry: string,
+  node: Pick<TreeNode, "name" | "title">,
+): boolean => {
+  const name = nfc(entry)
+  return node.name === name || nfc(node.title) === name
+}
+
+/**
+ * A document's `#` title, from the top-level block at `from` on: a `#`
+ * heading there, or one inside a top-level `header` element, where Docusaurus
+ * puts the heading it reads the page title from.
+ */
+const titleHeading = (
+  tree: Root,
+  from = 0,
+): { heading: CollectedSection["heading"]; index: number } | undefined => {
+  for (let index = from; index < tree.children.length; index++) {
+    const node = tree.children[index] as unknown as DocumentNode
+    const heading =
+      node.type === "heading"
+        ? node
+        : node.data?.hName === "header"
+          ? node.children?.find((child) => child.type === "heading")
+          : undefined
+    if (heading?.depth === 1)
+      return {
+        heading: heading as unknown as CollectedSection["heading"],
+        index,
+      }
+  }
+  return undefined
+}
+
+/** Heading depths from `from` to the deepest `headings` reaches, `##` being 2. */
+const headingDepths = (from: number, headings: number): number[] => {
+  const depths: number[] = []
+  for (let depth = Math.max(from, 2); depth <= headings + 1; depth++)
+    depths.push(depth)
+  return depths
+}
+
+/**
+ * The lines of a tree, without cells when `cells` is false, and every
+ * document they were read from.
+ */
+function buildTree(
+  library: Library,
+  sources: string[],
+  render: TreeRender,
+  from: string,
+  context: EmbedContext,
+  cells = true,
+): { nodes: TreeNode[]; documents: Set<string> } {
+  const hierarchy = hierarchyOf(library)
+  const depth = render.depth ?? Infinity
+  const headings = render.headings ?? 0
+  const columns = render.columns ?? DEFAULT_TREE_COLUMNS
+  const rows = new Map<TreeNode, EmbedRow>()
+  const documents = new Set<string>()
+  // A page that is not private lists no private document it was not asked
+  // for by name: a folder or a parent would otherwise put one on it, and the
+  // export, which leaves private documents out, could not link to it.
+  const privateListed = listsPrivate(library, context.documentId)
+  const listed = (document: StoredDocument) =>
+    !document.private || privateListed
+
+  const create = (
+    row: EmbedRow,
+    kind: TreeNode["kind"],
+    name: string,
+    level: number,
+  ): TreeNode => {
+    documents.add(row.document.id)
+    const node: TreeNode = {
+      id: `${row.document.id}${row.section.anchorId ? `#${row.section.anchorId}` : ""}`,
+      kind,
+      documentId: row.document.id,
+      ...(row.section.anchorId ? { anchorId: row.section.anchorId } : {}),
+      name,
+      title: row.section.title,
+      url: row.url,
+      sourcePath: row.document.sourcePath,
+      level,
+      cells: [],
+      children: [],
+    }
+    rows.set(node, row)
+    return node
+  }
+
+  /** The headings of `sections` nested by depth under a line at `level`. */
+  const nest = (
+    document: StoredDocument,
+    sections: CollectedSection[],
+    level: number,
+  ): TreeNode[] => {
+    const top: TreeNode[] = []
+    // A heading past `depth` is still pushed, without a node, so the ones
+    // under it are left out with it rather than moved up a level.
+    const stack: { depth: number; level: number; node?: TreeNode }[] = []
+    for (const section of sections) {
+      while (stack.length && stack.at(-1)!.depth >= section.heading.depth)
+        stack.pop()
+      const above = stack.at(-1)
+      const at = (above?.level ?? level) + 1
+      const node =
+        at <= depth && (!above || above.node)
+          ? headingNode(document, section, at)
+          : undefined
+      stack.push({ depth: section.heading.depth, level: at, node })
+      if (node) (above ? above.node!.children : top).push(node)
+    }
+    return top
+  }
+
+  const headingNode = (
+    document: StoredDocument,
+    section: CollectedSection,
+    level: number,
+  ): TreeNode => {
+    const row = buildEmbedRow(document, section.anchorId, section.tree)
+    return create(row, "heading", nfc(row.section.title), level)
+  }
+
+  /** A section a source names, with the headings of its own below it. */
+  const sectionNode = (
+    document: StoredDocument,
+    section: CollectedSection,
+  ): TreeNode => {
+    const node = headingNode(document, section, 1)
+    const depths = headingDepths(section.heading.depth + 1, headings)
+    if (1 < depth && depths.length)
+      node.children = nest(
+        document,
+        collectSections(section.tree, { depth: depths }),
+        1,
+      )
+    return node
+  }
+
+  const documentNode = (document: StoredDocument, level: number): TreeNode => {
+    // The `#` title is the line's title, and what follows it, up to the next
+    // `#`, is what the line summarizes; anything above it, such as an
+    // outliner's property lines, is not.
+    const tree = document.tree
+    const found = titleHeading(tree)
+    const name = documentName(document.id)
+    const named =
+      typeof document.frontmatter.title === "string"
+        ? document.frontmatter.title.trim()
+        : ""
+    const title =
+      (found && visibleHeadingText(found.heading as unknown as DocumentNode)) ||
+      named ||
+      name
+    const node = create(
+      {
+        document,
+        section: {
+          title,
+          tree: found
+            ? {
+                ...tree,
+                children: tree.children.slice(
+                  found.index,
+                  titleHeading(tree, found.index + 1)?.index,
+                ),
+              }
+            : tree,
+        },
+        url: document.route,
+      },
+      "document",
+      name,
+      level,
+    )
+    if (level >= depth) return node
+    const sections = headings
+      ? nest(
+          document,
+          collectSections(tree, { depth: headingDepths(2, headings) }),
+          level,
+        )
+      : []
+    node.children = [
+      ...sections,
+      ...sorted(
+        hierarchy
+          .children(document)
+          .filter(listed)
+          .map((child) => documentNode(child, level + 1)),
+      ),
+    ]
+    return node
+  }
+
+  const first: TreeNode[] = []
+  for (const reference of sources) {
+    const source = resolveTreeSource(
+      library,
+      reference,
+      from,
+      context.documentId,
+    )
+    if ("folder" in source)
+      first.push(
+        ...sorted(
+          source.documents
+            .filter(listed)
+            .map((document) => documentNode(document, 1)),
+        ),
+      )
+    else if (source.anchor === undefined)
+      first.push(documentNode(source.document, 1))
+    else
+      first.push(
+        ...collectSections(source.document.tree, {
+          anchors: [source.anchor],
+        }).map((section) => sectionNode(source.document, section)),
+      )
+  }
+
+  let nodes = first
+  if (render.order?.length) {
+    const order = render.order
+    const rest = order.indexOf(REST)
+    const rank = (node: TreeNode) => {
+      const at = order.findIndex(
+        (entry, index) => index !== rest && namesTreeNode(entry, node),
+      )
+      return at >= 0 ? at : rest >= 0 ? rest : order.length
+    }
+    nodes = first
+      .map((node, index) => ({ node, index, rank: rank(node) }))
+      .sort((a, b) => a.rank - b.rank || a.index - b.index)
+      .map(({ node }) => node)
+  }
+
+  if (cells) {
+    // Deepest first, so an extractor finds the lines below complete.
+    const fill = (node: TreeNode) => {
+      node.children.forEach(fill)
+      const row = rows.get(node)!
+      node.cells = columns.map(
+        (column) => extractCell(library, column, row, context, node).cell,
+      )
+    }
+    nodes.forEach(fill)
+  }
+  return { nodes, documents }
+}
+
+/** Documents in the order a tree lists them: by title, then name, then id. */
+const sorted = (nodes: TreeNode[]): TreeNode[] =>
+  nodes.sort(
+    (a, b) =>
+      compareNames(a.title, b.title) ||
+      compareNames(a.name, b.name) ||
+      compareCodePoints(a.id, b.id),
+  )
+
+/**
+ * The lines of a tree embed as data, the same lines the renderer draws, for
+ * a program that writes the tree in a form of its own, such as an outliner's
+ * blocks. `spec` is an embed whose render is a tree; sources resolve from
+ * `context.documentId`, which extractors also receive. Nodes come in the
+ * order the tree shows them, every level down to `depth`, whatever `open`
+ * and `print` say; equal input gives equal output, order and all.
+ */
+export function resolveTree(
+  library: Library,
+  input: EmbedSpec,
+  context: EmbedContext,
+): TreeNode[] {
+  const spec = parseEmbedSpec(JSON.stringify(input))
+  if (typeof spec.render !== "object" || spec.render.type !== "tree")
+    throw new Error("cudoc: resolveTree needs an embed whose render is a tree")
+  return buildTree(
+    library,
+    spec.sources,
+    spec.render,
+    context.documentId,
+    context,
+  ).nodes
+}
+
+/**
+ * The mdast a tree renders to: nested lists, an item with children wrapped
+ * in a `details` element whose `summary` is the item's line, open down to
+ * `open` levels. Portable elements only, so it works without a script on
+ * every host. The outer list carries the `cudoc-tree` class, `data.cudoc.kind`
+ * `tree` and, when `print` is set, `data-cudoc-print`, which the print HTML
+ * and Word read.
+ */
+export function buildEmbedTree(nodes: TreeNode[], render: TreeRender): Root {
+  const open = render.open ?? 1
+  const text = (value: string): DocumentNode => ({ type: "text", value })
+  const line = (node: TreeNode): DocumentNode => {
+    const shown = node.cells.filter((cell) => cell.text)
+    // A line has to say something: with every column empty, the title.
+    return {
+      type: "paragraph",
+      children: (shown.length ? shown : [{ text: node.title }]).flatMap(
+        (cell: ExtractedCell, index) => [
+          ...(index ? [text(" · ")] : []),
+          cell.url
+            ? { type: "link", url: cell.url, children: [text(cell.text)] }
+            : text(cell.text),
+        ],
+      ),
+    }
+  }
+  const list = (items: TreeNode[], outer: boolean): DocumentNode => ({
+    type: "list",
+    ordered: false,
+    spread: false,
+    ...(outer
+      ? {
+          data: {
+            hProperties: {
+              className: [TREE_CLASS],
+              ...(render.print ? { [TREE_PRINT_ATTRIBUTE]: render.print } : {}),
+            },
+            cudoc: { kind: TREE_KIND },
+          },
+        }
+      : {}),
+    children: items.map((node) =>
+      node.children.length
+        ? {
+            type: "listItem",
+            spread: false,
+            children: [
+              {
+                type: "blockquote",
+                data: {
+                  hName: "details",
+                  ...(node.level <= open
+                    ? { hProperties: { open: true } }
+                    : {}),
+                },
+                children: [
+                  { ...line(node), data: { hName: "summary" } },
+                  list(node.children, false),
+                ],
+              },
+            ],
+          }
+        : {
+            type: "listItem",
+            spread: false,
+            data: { hProperties: { className: [`${TREE_CLASS}-leaf`] } },
+            children: [line(node)],
+          },
+    ),
+  })
+  return { type: "root", children: [list(nodes, true)] } as unknown as Root
+}
+
 /** Resolve a configured embed from immutable persisted documents. */
 export function resolveEmbed(
   library: Library,
@@ -909,6 +1501,15 @@ export function resolveEmbed(
   // block is still current; `*` when an extractor ran, which may read anything.
   const dependencies = new Set<string>()
   const expand = (spec: EmbedSpec, from: string): Root => {
+    // A tree copies no section, so nothing in it expands or cycles; what it
+    // depends on is every document a line was read from.
+    if (typeof spec.render === "object" && spec.render.type === "tree") {
+      const tree = buildTree(library, spec.sources, spec.render, from, context)
+      tree.documents.forEach((id) => dependencies.add(id))
+      if (usesExtractor(spec.render.columns ?? DEFAULT_TREE_COLUMNS))
+        dependencies.add("*")
+      return buildEmbedTree(tree.nodes, spec.render)
+    }
     const children: Root["children"] = []
     const rows: EmbedRow[] = []
     for (const source of spec.sources) {
@@ -987,15 +1588,7 @@ export function resolveEmbed(
     }
     if (spec.render && spec.render !== "section") {
       const columns = spec.render.columns ?? DEFAULT_TABLE_COLUMNS
-      if (
-        columns.some(
-          (column) =>
-            typeof column === "object" &&
-            typeof column.value === "object" &&
-            "extractor" in column.value,
-        )
-      )
-        dependencies.add("*")
+      if (usesExtractor(columns)) dependencies.add("*")
       return buildEmbedTable(library, columns, rows, context)
     }
     return { type: "root", children }

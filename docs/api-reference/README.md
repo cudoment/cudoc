@@ -64,8 +64,8 @@ Prefixes below are relative to `@cudoment/cudoc` unless a full package name is s
 | `/node/storage`                                                    | Filesystem and staged output helpers                            | [Storage](./node.md#storage)                                   |
 | `/embed`, `/node/export-ast`, `/node/load-ast-file`, `/node/paths` | Individual AST snapshots and path helpers                       | [Individual snapshots](./node.md#individual-ast-snapshots)     |
 | `/transforms/table-cell-list`, `/transforms/table-column-layout`   | Low-level syntax transforms                                     | [Core helpers](./document.md#core-helpers)                     |
-| `/styles.css`                                                      | Theme-aware callout and badge stylesheet                        | [Host stylesheet](./document.md#host-stylesheet)               |
-| `/paged`                                                           | Page-break constants the paginated writers share                | [Paginated output](./adapters.md#paginated-output)             |
+| `/styles.css`                                                      | Theme-aware callout, badge and tree stylesheet                  | [Host stylesheet](./document.md#host-stylesheet)               |
+| `/paged`                                                           | Page-break and tree constants the paginated writers share       | [Paginated output](./adapters.md#paginated-output)             |
 | `cudoc-remark` and its subpaths                                    | remark integration, capture, TOC and embed runtime              | [remark](./adapters.md#remark)                                 |
 | `cudoc-docusaurus`, `cudoc-nextra`                                 | Host plugin arrays                                              | [MDX hosts](./adapters.md#docusaurus-and-nextra)               |
 | `cudoc-markdown-it`                                                | Shared markdown-it pipeline for host adapters                   | [markdown-it](./adapters.md#markdown-it)                       |
