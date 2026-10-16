@@ -95,10 +95,11 @@ describe("a standalone page", () => {
       'url("data:image/png;base64,',
     )
     expect(result.dependencies).toEqual([])
-    // A single page has no navigation, and no home to link the title to.
+    // A single page has no navigation, and no home to link the title to;
+    // with no heading to list, it has no contents either.
     expect(page.querySelector("nav.sidebar")).toBeNull()
     expect(page.querySelector("header a")).toBeNull()
-    expect(html).toContain('class="layout single"')
+    expect(html).toContain('class="layout single no-toc"')
   })
 
   it.each([

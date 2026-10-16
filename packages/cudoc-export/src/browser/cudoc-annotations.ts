@@ -523,7 +523,7 @@ function start(): void {
   // A press anywhere but on the note button or in the composer dismisses
   // the button at once, before the selection it belonged to changes. Only a
   // press that started in the document's text and made a selection of its
-  // own brings it back on release: a control such as the theme select, an
+  // own brings it back on release: a control such as the theme menu, an
   // image or anything else that leaves the old selection in place must not
   // bring the button back beside it.
   let pressInText = false

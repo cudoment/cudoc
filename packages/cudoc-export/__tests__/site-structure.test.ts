@@ -361,7 +361,7 @@ describe("the navigation", () => {
 describe("the home page", () => {
   it("writes the home document as index.html and points every link at it", () => {
     const p = project({
-      "docs/README.md": doc("Project", "[Guide](guide.md)"),
+      "docs/README.md": doc("Project", "[Guide](guide.md)\n\n## Start\n\nx"),
       "docs/guide.md": doc("Guide", "[Back](README.md)"),
     })
     p.build({ home: "README.md" })
@@ -374,8 +374,14 @@ describe("the home page", () => {
     expect(guide.querySelector("header a")!.getAttribute("href")).toBe(
       "index.html",
     )
-    // The home page has no contents column.
-    expect(p.read("index.html")).toContain('class="layout home no-toc"')
+    // The home document lists its contents like any other page.
+    const home = parse(p.read("index.html"))
+    expect(home.querySelector(".layout")!.getAttribute("class")).toBe(
+      "layout home",
+    )
+    expect(home.querySelectorAll(".toc li").map((li) => li.text)).toEqual([
+      "Start",
+    ])
   })
 
   it("refuses a home beside an index.md, which would take the same file", () => {
@@ -411,6 +417,9 @@ describe("the home page", () => {
     expect(p.read("index.html")).toContain(
       '<main id="main-content" class="landing">',
     )
+    // Its list is the body, which takes the whole width without a sidebar.
+    expect(p.read("index.html")).toContain('class="layout home no-toc no-nav"')
+    expect(p.read("a.html")).toContain('class="layout no-toc"')
   })
 })
 
@@ -454,9 +463,16 @@ describe("languages", () => {
       korean.querySelector("nav.sidebar")!.getAttribute("aria-label"),
     ).toBe("문서")
     expect(korean.querySelector(".toc .nav-title")!.text).toBe("이 페이지 목차")
+    // A menu whose summary names the page's language and opens the others.
+    expect(
+      korean.querySelector(".languages details.menu > summary")!.text,
+    ).toBe("한국어")
+    expect(
+      korean.querySelector(".languages summary")!.getAttribute("aria-label"),
+    ).toBe("언어: 한국어")
     expect(
       korean
-        .querySelectorAll(".languages a, .languages span")
+        .querySelectorAll(".languages .menu-list li > *")
         .map((el) => [el.text, el.getAttribute("href") ?? "current"]),
     ).toEqual([
       ["English", "guide.html"],
@@ -483,7 +499,10 @@ describe("languages", () => {
   })
 
   it("takes the words of a language cudoc does not know from the locale", () => {
-    const p = project({ "docs/a.md": doc("A"), "docs/a.ja.md": doc("エー") })
+    const p = project({
+      "docs/a.md": doc("A"),
+      "docs/a.ja.md": doc("エー", "## 一\n\nx"),
+    })
     p.build({
       locales: {
         en: "English",
@@ -584,6 +603,7 @@ describe("the rest of the shell", () => {
     const p = project({
       "docs/a.md": doc("A", "## One\n\nx\n\n### Two\n\ny\n\n#### Three\n\nz"),
       "docs/b.md": "---\ntoc: false\n---\n# B\n\n## Hidden\n\nx\n",
+      "docs/c.md": doc("C", "No headings below the title."),
     })
     p.build({
       header: { links: [{ title: "GitHub", url: "https://github.com/" }] },
@@ -598,6 +618,9 @@ describe("the rest of the shell", () => {
       "Two",
     ])
     expect(p.read("b.html")).not.toContain('class="toc"')
+    // A page with no heading to list draws no empty contents column.
+    expect(p.read("c.html")).not.toContain('class="toc"')
+    expect(p.read("c.html")).toContain('class="layout no-toc"')
     expect(() => p.build({ navgation: ["a.md"] } as never)).toThrow(
       /unknown option navgation/,
     )

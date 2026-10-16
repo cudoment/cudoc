@@ -92,8 +92,9 @@ review-note runtime over `file://` in the browser the PDF printer installs, and
 skips, naming the command, when that browser or the built bundle
 (`npm run build --workspace packages/cudoc-export`) is absent.
 `packages/cudoc-export/__tests__/theme-browser.test.ts` does the same for the
-theme switch: the button, the system/light/dark cycle and the remembered
-choice.
+header menus: the theme menu's light and dark choice, the system setting it
+follows and the remembered choice, and the language menu, which closes on a
+press elsewhere without a script and on Escape or a focus move with one.
 
 Two suites also guard against the table drifting from what ships: `embedding`
 asserts its row count matches the embed blocks in the fixture, and `check`
