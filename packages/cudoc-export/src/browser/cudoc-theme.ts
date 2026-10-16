@@ -1,7 +1,7 @@
 /**
- * The theme switch: a select in the site header that chooses light or dark,
+ * The theme switch: a menu in the site header that chooses light or dark,
  * remembered per browser. Until the reader chooses, the page follows the
- * system setting and the select shows which of the two that is. The
+ * system setting and the menu shows which of the two that is. The
  * stylesheet does the work through `data-theme` on `<html>`; this script only
  * sets that attribute, and it runs from `<head>` so a remembered choice is in
  * place before the first paint rather than flashing the other theme.
@@ -99,45 +99,62 @@ const CHOICES: Choice[] = ["light", "dark"]
 
 const dark = window.matchMedia?.("(prefers-color-scheme: dark)")
 
-/** The theme in effect: the reader's choice, else the system's. */
-const current = (): Choice => stored() ?? (dark?.matches ? "dark" : "light")
+/**
+ * The theme in effect: the reader's choice, which `data-theme` holds even
+ * when storage refuses to keep it, else the system's.
+ */
+const current = (): Choice => {
+  const chosen = root.getAttribute("data-theme")
+  if (chosen === "light" || chosen === "dark") return chosen
+  return dark?.matches ? "dark" : "light"
+}
 
 /**
- * A native select: the browser gives it keyboard use, a screen reader's
- * announcement, the phone's own picker and closing when the reader looks
- * elsewhere, none of which a hand-made menu would get right everywhere.
+ * A `<details>` menu drawn like the language menu beside it: the browser
+ * opens and closes it from the keyboard and announces it as expanded or
+ * collapsed, and the stylesheet closes it on a click elsewhere. A choice is a
+ * button marked `aria-pressed`.
  */
 function mount(): void {
-  const header = document.querySelector("body > header")
+  const header = document.querySelector<HTMLElement>("body > header")
   if (!header || header.querySelector(".theme-switch")) return
-  const control = document.createElement("label")
-  control.className = "theme-switch"
-  const select = document.createElement("select")
-  select.setAttribute("aria-label", STRINGS.theme)
-  for (const mode of CHOICES) {
-    const option = document.createElement("option")
-    option.value = mode
-    option.textContent = STRINGS[mode]
-    select.append(option)
-  }
+  const menu = document.createElement("details")
+  menu.className = "menu theme-switch"
+  const summary = document.createElement("summary")
+  const label = document.createElement("span")
+  label.className = "menu-label"
+  summary.append(label)
+  const list = document.createElement("ul")
+  list.className = "menu-list"
+  const buttons = CHOICES.map((mode) => {
+    const button = document.createElement("button")
+    button.type = "button"
+    button.value = mode
+    button.append(icon(mode), STRINGS[mode])
+    button.addEventListener("click", () => {
+      remember(mode)
+      apply(mode)
+      render()
+      menu.open = false
+      summary.focus()
+    })
+    const item = document.createElement("li")
+    item.append(button)
+    list.append(item)
+    return button
+  })
   const render = () => {
     const mode = current()
-    select.value = mode
-    // Only the icon is replaced, so the select keeps focus while it is used.
-    control.querySelector("svg")?.remove()
-    control.prepend(icon(mode))
-    control.title = `${STRINGS.theme}: ${STRINGS[mode]}`
+    // Only the icon and the words change, so focus stays where it is.
+    summary.querySelector("svg")?.remove()
+    summary.prepend(icon(mode))
+    label.textContent = STRINGS[mode]
+    summary.setAttribute("aria-label", `${STRINGS.theme}: ${STRINGS[mode]}`)
+    for (const button of buttons)
+      button.setAttribute("aria-pressed", String(button.value === mode))
   }
-  select.addEventListener("change", () => {
-    const choice = select.value as Choice
-    remember(choice)
-    apply(choice)
-    render()
-  })
-  // Before any choice the select shows the system's theme as it changes.
-  dark?.addEventListener?.("change", () => {
-    if (!stored()) render()
-  })
+  // Before any choice the menu shows the system's theme as it changes.
+  dark?.addEventListener?.("change", render)
   // A choice made in another tab of the same site applies here too.
   window.addEventListener("storage", (event) => {
     if (event.key === KEY || event.key === null) {
@@ -145,9 +162,27 @@ function mount(): void {
       render()
     }
   })
-  control.append(select)
+  // Escape, or focus moving elsewhere, closes the open menu of the header,
+  // the language menu's included.
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return
+    const open = header.querySelector<HTMLDetailsElement>("details.menu[open]")
+    if (!open) return
+    open.open = false
+    open.querySelector("summary")?.focus()
+  })
+  header.addEventListener("focusout", (event) => {
+    const left = (event.target as Element).closest?.("details.menu")
+    const next = event.relatedTarget as Node | null
+    // Without a next element the press was on something that takes no
+    // focus: the stylesheet's layer answers a press outside the menu, and a
+    // press inside it, as Safari gives a button, must leave it open.
+    if (left instanceof HTMLDetailsElement && next && !left.contains(next))
+      left.open = false
+  })
+  menu.append(summary, list)
   render()
-  ;(header.querySelector(".header-end") ?? header).append(control)
+  ;(header.querySelector(".header-end") ?? header).append(menu)
 }
 
 if (document.readyState === "loading")

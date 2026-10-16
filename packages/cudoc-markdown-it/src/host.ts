@@ -61,9 +61,13 @@ export type MarkdownItHost = {
    * Splits frontmatter that the host removes before markdown-it sees the source.
    *
    * Only needed by a host that strips frontmatter outside markdown-it, so the
-   * collector has to do the same to reach the same token stream.
+   * collector has to do the same to reach the same token stream. `context` is
+   * the collected document, for naming it in an error.
    */
-  frontmatter?: (source: string) => {
+  frontmatter?: (
+    source: string,
+    context: { id: string; filePath: string },
+  ) => {
     body: string
     data: Record<string, unknown>
   }

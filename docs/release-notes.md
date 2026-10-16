@@ -4,6 +4,23 @@
 
 What changed in each version, newest first. All eight packages share one version, and [Supported versions](./README.md#supported-versions) says what a minor or a patch release keeps compatible before 1.0.0.
 
+## 0.9.0
+
+- `cudoc-eleventy` no longer depends on `gray-matter`. It splits front matter by the same rules Eleventy's gray-matter does, so collection still renders the text Eleventy renders, and reads YAML front matter with the YAML parser the other hosts use and `---json` front matter as JSON. → [markdown-it internals](./api-reference/adapters.md#markdown-it)
+- A `MarkdownItHost`'s `frontmatter` hook receives the collected document's `id` and `filePath` as a second argument.
+- The Docusaurus guide pins `postcss-selector-parser` 7.1.6 and `tinypool` 2.2.0 beside its other `overrides`.
+- The examples are tested on Next.js 16.4.2, Nextra 4.6.0 on Next.js 15.5.28 and Eleventy 3.1.7, whose dependencies carry none of the advisories `npm audit` reports for Eleventy 3.1.6. → [Supported versions](./README.md#supported-versions)
+- An exported site's home document lists its contents on the right like every other page, a page with no heading to list leaves that column out instead of drawing it empty, and a generated landing page uses the whole width instead of the sidebar's narrow column. → [Home, header and contents](./export.md#home-header-and-contents)
+- The language menu is a drop-down that shows the page's language and opens the others, and the theme menu is the same drop-down instead of the browser's own select. Both are drawn in the site's colours, and a press elsewhere closes them without a script; with `themeSwitch`, Escape does too.
+
+To act on when upgrading:
+
+- An Eleventy page whose front matter is JavaScript (`---js`) fails collection, naming the file, instead of having its front matter evaluated. Write it as YAML.
+- An Eleventy page's front matter is read as YAML 1.2, as on the other hosts: a date is collected as the text it was written as rather than as a date, `<<` is an ordinary key rather than a merge, and front matter that is not a mapping fails collection, naming the file.
+- A Docusaurus site that follows the guide adds the two new `overrides` and installs again.
+- Next.js is supported from 16.4, the release the example is now tested on; a site on Next.js 16.3 upgrades to stay supported.
+- A `css` file that restyled the language links (`.languages ul`, `.languages a`) or the theme select (`.theme-switch select`) restyles `.menu > summary` and the `.menu-list` items instead.
+
 ## 0.8.0
 
 - HTML export has three modes. `mode: "site"`, the default, writes the site; `mode: "standalone"` writes each document as one HTML file that carries its styles, pictures and theme menu, to send as an attachment and open from any folder; `mode: "annotate"` writes pages that collect review notes. `documents` (`--document`) picks the pages a single-page run writes, a single-page run lists what each page needs from outside in `dependencies` and on standard error, and `strict` (`--strict`) fails a page that needs anything. → [Three kinds of HTML](./export.md#three-kinds-of-html)

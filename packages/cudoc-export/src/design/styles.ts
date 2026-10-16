@@ -114,7 +114,7 @@ header > a,
 header > span {
   flex: none;
 }
-/* Header links, the language switch and the theme select, at the right. */
+/* Header links, the language menu and the theme menu, at the right. */
 .header-end {
   display: flex;
   align-items: center;
@@ -141,64 +141,151 @@ header > span {
   background: none;
   color: var(--accent);
 }
-.languages ul {
-  display: flex;
-  gap: var(--space-1);
-  list-style: none;
+/*
+ * The language and theme menus: a <details> whose summary shows the current
+ * choice and opens a list under it. The language menu is written into the
+ * page; cudoc-theme.js adds the theme menu when themeSwitch is on.
+ */
+.menu {
+  position: relative;
+  max-inline-size: none;
   margin: 0;
   padding: 0;
-}
-.languages a,
-.languages span {
-  display: block;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius);
-  color: var(--muted);
-}
-.languages [aria-current] {
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-weight: 600;
-}
-/* The theme select, added by cudoc-theme.js when themeSwitch is on. */
-.theme-switch {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  margin-left: auto;
-  height: 1.875rem;
-  color: var(--muted);
-  font-size: var(--text-xs);
+  background: none;
+  border: 0;
+  border-radius: 0;
+  font-size: var(--text-sm);
   font-weight: 500;
   letter-spacing: 0;
 }
-.header-end .theme-switch {
-  margin-left: 0;
+header > .menu {
+  margin-left: auto;
 }
-.theme-switch svg {
-  position: absolute;
-  left: var(--space-2);
-  width: 1rem;
-  height: 1rem;
-  pointer-events: none;
-}
-.theme-switch select {
-  height: 100%;
-  padding: 0 var(--space-3) 0 calc(var(--space-2) + 1.375rem);
+.menu > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 1.875rem;
+  padding: 0 var(--space-3) 0 var(--space-2);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--paper);
-  color: inherit;
-  font: inherit;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  white-space: nowrap;
+  list-style: none;
   cursor: pointer;
+  user-select: none;
+  transition:
+    border-color var(--ease),
+    color var(--ease);
 }
-.theme-switch select:hover {
+.menu > summary::-webkit-details-marker {
+  display: none;
+}
+.menu > summary:hover,
+.menu[open] > summary {
+  margin: 0;
   border-color: var(--accent);
   color: var(--accent);
 }
-.theme-switch select:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+.menu svg {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+}
+/* The chevron, pointing down while the menu is closed and up while open. */
+.menu > summary::after {
+  content: "";
+  flex: none;
+  width: 0.375rem;
+  height: 0.375rem;
+  margin: 0 0 0.1875rem var(--space-1);
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform var(--ease);
+}
+.menu[open] > summary::after {
+  transform: translateY(0.1875rem) rotate(225deg);
+}
+/*
+ * While a menu is open, a clear layer over the page takes a click anywhere
+ * else and closes it, without a script. The list sits above the layer, and
+ * the header rises above the review runtime's controls (z-index 39 to 43) so
+ * the layer covers them too.
+ */
+.menu[open] > summary::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  cursor: default;
+}
+header:has(.menu[open]) {
+  z-index: 44;
+}
+.menu-list {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  z-index: 2;
+  min-width: max(100%, 9rem);
+  margin: 0;
+  padding: var(--space-1);
+  list-style: none;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.menu-list li {
+  margin: 0;
+}
+.menu-list a,
+.menu-list span,
+.menu-list button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.menu-list a:hover,
+.menu-list button:hover {
+  background: var(--wash);
+  color: var(--ink);
+  text-decoration: none;
+}
+.menu-list [aria-current],
+.menu-list [aria-pressed="true"],
+.menu-list [aria-pressed="true"]:hover {
+  color: var(--accent);
+  font-weight: 600;
+}
+/* The page's own language, and every entry once links are removed. */
+.menu-list span {
+  cursor: default;
+}
+/* A check after the current choice. */
+.menu-list [aria-current]::after,
+.menu-list [aria-pressed="true"]::after {
+  content: "";
+  flex: none;
+  width: 0.5rem;
+  height: 0.25rem;
+  margin: 0 0 0.125rem auto;
+  border-left: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
 }
 .layout {
   display: grid;
@@ -314,7 +401,12 @@ nav a[aria-current="page"] {
 .layout.single.no-toc {
   grid-template-columns: minmax(0, 58rem);
 }
+/* A generated landing page: its list of documents is the body. */
+.layout.no-nav {
+  grid-template-columns: minmax(0, 1fr);
+}
 .landing {
+  width: 100%;
   max-width: 44rem;
   margin: 0 auto;
   padding: var(--space-12) var(--space-6) 30vh;
@@ -626,7 +718,8 @@ footer {
     gap: var(--space-6);
   }
   .layout.single,
-  .layout.single.no-toc {
+  .layout.single.no-toc,
+  .layout.no-nav {
     grid-template-columns: minmax(0, 1fr);
   }
   .toc {
@@ -662,7 +755,10 @@ footer {
   .header-links {
     display: none;
   }
-  nav a {
+  nav a,
+  .menu-list a,
+  .menu-list span,
+  .menu-list button {
     min-height: 2.75rem;
     display: flex;
     align-items: center;

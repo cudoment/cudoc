@@ -4,6 +4,23 @@
 
 버전마다 바뀐 내용을 최신 버전부터 정리합니다. 여덟 패키지는 모두 같은 버전을 쓰며, 1.0.0 전까지 부 버전과 수 버전이 유지하는 호환 범위는 [지원 버전](./README.ko.md#지원-버전)에 있습니다.
 
+## 0.9.0
+
+- `cudoc-eleventy`가 더 이상 `gray-matter`에 의존하지 않습니다. Eleventy의 gray-matter와 같은 규칙으로 frontmatter를 분리하므로 수집 단계에서도 Eleventy가 렌더링하는 본문을 그대로 렌더링하며, YAML frontmatter는 다른 호스트와 같은 YAML 파서로, `---json` frontmatter는 JSON으로 읽습니다. → [markdown-it 내부 동작](./api-reference/adapters.ko.md#markdown-it)
+- `MarkdownItHost`의 `frontmatter` 훅이 두 번째 인수로 수집 중인 문서의 `id`와 `filePath`를 받습니다.
+- Docusaurus 가이드가 기존 `overrides`에 `postcss-selector-parser` 7.1.6과 `tinypool` 2.2.0을 더해 고정합니다.
+- 예제는 Next.js 16.4.2, Next.js 15.5.28 기반의 Nextra 4.6.0, Eleventy 3.1.7에서 검증합니다. Eleventy 3.1.7의 의존성에는 Eleventy 3.1.6에서 `npm audit`가 보고하는 보안 권고가 없습니다. → [지원 버전](./README.ko.md#지원-버전)
+- 내보낸 사이트의 홈 문서도 다른 페이지처럼 오른쪽에 목차를 표시합니다. 나열할 제목이 없는 페이지는 빈 목차 열을 그리지 않고, 생성된 랜딩 페이지는 사이드바의 좁은 열 대신 화면 폭 전체를 씁니다. → [홈, 헤더, 목차](./export.ko.md#홈-헤더-목차)
+- 언어 메뉴는 페이지의 언어를 보여 주고 다른 언어를 펼쳐 보이는 드롭다운이 되었고, 테마 메뉴도 브라우저의 기본 select 대신 같은 드롭다운을 씁니다. 두 메뉴 모두 사이트의 색으로 그려지고, 메뉴 밖을 누르면 스크립트 없이 닫히며, `themeSwitch`를 켜면 Escape로도 닫힙니다.
+
+업그레이드할 때 확인할 사항:
+
+- frontmatter를 JavaScript(`---js`)로 쓴 Eleventy 페이지는 frontmatter를 실행하는 대신 파일 경로를 알리며 수집에 실패합니다. YAML로 바꿔 쓰십시오.
+- Eleventy 페이지의 frontmatter는 다른 호스트와 마찬가지로 YAML 1.2로 읽습니다. 날짜는 날짜 값이 아니라 작성한 텍스트 그대로 수집되고, `<<`는 병합이 아닌 일반 키로 읽히며, 매핑이 아닌 frontmatter는 파일 경로를 알리며 수집에 실패합니다.
+- 가이드를 따라 만든 Docusaurus 사이트는 새 `overrides` 두 개를 더하고 다시 설치하십시오.
+- Next.js는 이제 예제가 검증하는 16.4부터 지원합니다. Next.js 16.3을 쓰는 사이트는 계속 지원을 받으려면 16.4 이상으로 올리십시오.
+- 언어 링크(`.languages ul`, `.languages a`)나 테마 select(`.theme-switch select`)의 모양을 바꾸던 `css` 파일은 이제 `.menu > summary`와 `.menu-list`의 항목을 대상으로 고쳐 쓰십시오.
+
 ## 0.8.0
 
 - HTML 내보내기에 세 가지 모드가 생겼습니다. 기본값인 `mode: "site"`는 사이트를 쓰고, `mode: "standalone"`은 문서마다 스타일, 그림, 테마 메뉴를 품은 HTML 파일 하나를 써서 첨부 파일로 보내고 어느 폴더에서든 열 수 있게 합니다. `mode: "annotate"`는 리뷰 메모를 받는 페이지를 씁니다. 단일 페이지를 쓸 때 `documents`(`--document`)로 쓸 페이지를 고르고, 단일 페이지 실행은 페이지마다 바깥에서 필요로 하는 것을 `dependencies`와 표준 오류로 알려 주며, `strict`(`--strict`)를 켜면 무엇이든 필요한 페이지가 있을 때 실패합니다. → [HTML의 세 가지 형태](./export.ko.md#html의-세-가지-형태)

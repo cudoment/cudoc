@@ -5,8 +5,8 @@
  * adapter through `cudoc-markdown-it`, so the two markdown-it hosts cannot
  * quietly diverge. What is specific to Eleventy is described in the host
  * definition below: it passes the page data object as the markdown-it env, and
- * it strips front matter with gray-matter before markdown-it ever sees the
- * source, so collection has to strip it the same way.
+ * it strips front matter before markdown-it ever sees the source, so
+ * collection has to strip it the same way.
  *
  * Eleventy runs Liquid over Markdown before markdown-it by default. cudoc reads
  * source positions out of the token stream, so a site using cudoc must set
@@ -16,7 +16,6 @@
 
 import markdownIt from "markdown-it"
 import type MarkdownIt from "markdown-it"
-import matter from "gray-matter"
 import {
   installHostPlugin,
   createHostCompiler,
@@ -25,6 +24,7 @@ import {
   type MarkdownItHost,
 } from "cudoc-markdown-it"
 import type { DocumentCompiler } from "@cudoment/cudoc/node/library"
+import { splitFrontmatter } from "./frontmatter.js"
 
 export type EleventyOptions = HostPluginOptions
 
@@ -57,10 +57,7 @@ const eleventy: MarkdownItHost = {
   compilerEnv: ({ id, filePath }) => ({
     page: { inputPath: filePath, filePathStem: `/${id}` },
   }),
-  frontmatter: (source) => {
-    const parsed = matter(source)
-    return { body: parsed.content, data: parsed.data }
-  },
+  frontmatter: (source, { filePath }) => splitFrontmatter(source, filePath),
 }
 
 /**

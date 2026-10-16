@@ -2,9 +2,11 @@
  * The page around a document: the header, the navigation on the left (LNB),
  * the contents of the page on the right (RNB) and the footer.
  *
- * Three layouts share it. A site page has all of them; the home page drops
- * the contents column; a single page, standalone or for review, has no
- * navigation, since the other documents are not beside it. Every link here
+ * Three layouts share it. A site page has all of them, the home document
+ * included; a generated landing page lists the navigation in its body instead
+ * of beside it, and has no contents; a single page, standalone or for review,
+ * has no navigation, since the other documents are not beside it. A page with
+ * no heading to list has no contents column. Every link here
  * is written as a source path or an output path and goes through the link
  * policy with the rest of the page, so `none` removes it and `host` points
  * it at the deployment.
@@ -81,6 +83,28 @@ const tocList = (toc: ShellToc): string =>
     )
     .join("")}</ul>`
 
+/** A globe, drawn like the theme menu's sun and moon on a 24-unit grid. */
+const GLOBE =
+  '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>'
+
+/**
+ * The language menu: a `<details>` whose summary names the page's language
+ * and opens the list of the others. It needs no script; the stylesheet draws
+ * it as the theme menu is drawn and closes it on a click elsewhere.
+ */
+const languageMenu = (languages: ShellLanguage[], ui: UiStrings): string => {
+  const current =
+    languages.find((language) => language.current) ?? languages[0]!
+  const name = escapeHtml(`${ui.language}: ${current.label}`)
+  return `<nav class="languages" aria-label="${escapeHtml(ui.language)}"><details class="menu"><summary aria-label="${name}">${GLOBE}<span class="menu-label">${escapeHtml(current.label)}</span></summary><ul class="menu-list">${languages
+    .map((language) =>
+      language.current
+        ? `<li><span aria-current="true" lang="${escapeHtml(language.lang)}">${escapeHtml(language.label)}</span></li>`
+        : `<li><a data-cudoc-final href="${escapeHtml(language.href)}" hreflang="${escapeHtml(language.lang)}" lang="${escapeHtml(language.lang)}">${escapeHtml(language.label)}</a></li>`,
+    )
+    .join("")}</ul></details></nav>`
+}
+
 export function renderShell(page: ShellPage): string {
   const { ui } = page
   const headerEnd =
@@ -94,17 +118,7 @@ export function renderShell(page: ShellPage): string {
                 )
                 .join("")}</nav>`
             : ""
-        }${
-          page.languages.length
-            ? `<nav class="languages" aria-label="${escapeHtml(ui.language)}"><ul>${page.languages
-                .map((language) =>
-                  language.current
-                    ? `<li><span aria-current="true" lang="${escapeHtml(language.lang)}">${escapeHtml(language.label)}</span></li>`
-                    : `<li><a data-cudoc-final href="${escapeHtml(language.href)}" hreflang="${escapeHtml(language.lang)}" lang="${escapeHtml(language.lang)}">${escapeHtml(language.label)}</a></li>`,
-                )
-                .join("")}</ul></nav>`
-            : ""
-        }</div>`
+        }${page.languages.length ? languageMenu(page.languages, ui) : ""}</div>`
       : ""
   const title = page.homeHref
     ? `<a data-cudoc-final href="${escapeHtml(page.homeHref)}">${escapeHtml(page.siteTitle)}</a>`
@@ -114,6 +128,7 @@ export function renderShell(page: ShellPage): string {
     ...(page.layout === "single" ? ["single"] : []),
     ...(page.layout === "home" ? ["home"] : []),
     ...(page.toc ? [] : ["no-toc"]),
+    ...(page.navigation || page.layout === "single" ? [] : ["no-nav"]),
   ].join(" ")
   const sidebar = page.navigation
     ? `<nav class="sidebar" aria-label="${escapeHtml(ui.documents)}"><p class="nav-title">${escapeHtml(ui.documents)}</p>${navList(page.navigation)}</nav>`

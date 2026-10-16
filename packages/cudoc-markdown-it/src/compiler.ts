@@ -31,7 +31,7 @@ export function createHostCompiler(
       )
     // A host that strips frontmatter outside markdown-it never shows it to the
     // token stream, so the collector strips it the same way and keeps the data.
-    const split = host.frontmatter?.(source)
+    const split = host.frontmatter?.(source, context)
     const env: Record<string, unknown> = {
       ...host.compilerEnv?.(context),
       cudocCollect: true,
