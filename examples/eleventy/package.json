@@ -7,7 +7,7 @@
     "build": "npm run sync && node collect.mjs && eleventy"
   },
   "dependencies": {
-    "@11ty/eleventy": "3.1.6",
+    "@11ty/eleventy": "3.1.7",
     "@cudoment/cudoc": "file:../../packages/cudoc",
     "cudoc-eleventy": "file:../../packages/cudoc-eleventy",
     "cudoc-markdown-it": "file:../../packages/cudoc-markdown-it",

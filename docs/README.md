@@ -25,18 +25,18 @@ cudoc needs Node.js 20 or later, and every package is ESM. The table gives, for 
 
 | Host       | Tested with                            | Supported                              | Declared peer range                                     |
 | ---------- | -------------------------------------- | -------------------------------------- | ------------------------------------------------------- |
-| Next.js    | Next.js 16.3.8 with `@next/mdx` 16.3.8 | Next.js 16.3 and later 16.x            | no host peer: `cudoc-remark` is a remark plugin         |
+| Next.js    | Next.js 16.4.2 with `@next/mdx` 16.4.2 | Next.js 16.4 and later 16.x            | no host peer: `cudoc-remark` is a remark plugin         |
 | Docusaurus | Docusaurus 3.10.2                      | 3.10 and later 3.x                     | `@docusaurus/core` `^3.10.0`                            |
-| Nextra     | Nextra 4.6.0 on Next.js 15.5.25        | Nextra 4.6 and later 4.x on Next.js 15 | no host peer: `cudoc-nextra` is a set of remark plugins |
+| Nextra     | Nextra 4.6.0 on Next.js 15.5.28        | Nextra 4.6 and later 4.x on Next.js 15 | no host peer: `cudoc-nextra` is a set of remark plugins |
 | VitePress  | VitePress 1.6.4                        | 1.6.4 and later 1.x                    | `vitepress` `^1.6.4`, `markdown-it` `^14.1.0`           |
-| Eleventy   | Eleventy 3.1.6                         | Eleventy 3.1 and later 3.x             | `@11ty/eleventy` `^3.1.0`, `markdown-it` `^14.1.0`      |
+| Eleventy   | Eleventy 3.1.7                         | Eleventy 3.1 and later 3.x             | `@11ty/eleventy` `^3.1.0`, `markdown-it` `^14.1.0`      |
 
 **Tested** is the exact release the [runnable examples](../examples/README.md) lock and that continuous integration builds, checks, and follows each guide against. **Supported** means a failure on that release is a defect to report and fix, although only the tested release is run. A declared range starts where support starts, so where an adapter names its host as a peer, npm installs it only beside a supported host release: it raises the host to one the site's own range allows, or refuses with `ERESOLVE`, as it does beside Docusaurus 3.5.
 
 A few integration details depend on the host's own version, and are the ones to re-check when you upgrade it:
 
 - **Docusaurus.** The [collector](./docusaurus.md#step-5--add-the-collector) runs Docusaurus's own MDX processor from `@docusaurus/mdx-loader/lib/processor.js`, which is an internal module rather than a public API, and the library loader is a webpack rule whose `include` has to name the content directory.
-- **Nextra.** The adapter hands Nextra plugin functions, which Turbopack cannot serialize, so the site builds and serves with webpack, where the [library loader](./nextra.md#step-4--add-the-embed-plugin-and-the-library-loader) is registered.
+- **Nextra.** The adapter hands Nextra plugin functions, which Turbopack cannot serialize, so the site builds and serves with webpack, where the [library loader](./nextra.md#step-4--add-the-embed-plugin-and-the-library-loader) is registered. Nextra 4.6.1 builds no page beside zod 4.4 or later, which its `^4.1.12` range installs today: `nextra-theme-docs` checks the layout's props without `children` and fails with `expected nonoptional, received undefined → at children`. That is a Nextra defect rather than a cudoc one, so the example stays on 4.6.0, which pins its own zod.
 - **Next.js.** Plugin names are strings with JSON options, which both Turbopack and webpack accept; both are tested.
 - **VitePress development server.** VitePress 1 runs Vite 5, which has published advisories for its development server, the worst a `server.fs.deny` bypass on Windows, and no Vite 5 release fixes them. They concern `vitepress dev` only, not the site `vitepress build` writes; keep the development server on your own machine or a trusted network. The [examples](../examples/README.md#build-an-example) list each advisory still reported and why it stays.
 - **VitePress and Eleventy.** The plugin holds the library it loaded when the configuration was evaluated, so the dev server is restarted after a recollection ([VitePress](./vitepress.md#step-6--collect-before-every-build), [Eleventy](./eleventy.md#step-7--collect-before-every-build)).

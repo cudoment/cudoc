@@ -25,18 +25,18 @@ cudoc에는 Node.js 20 이상이 필요하며 모든 패키지는 ESM입니다. 
 
 | 호스트     | 검증한 버전                        | 지원 범위                            | 선언한 피어 범위                                              |
 | ---------- | ---------------------------------- | ------------------------------------ | ------------------------------------------------------------- |
-| Next.js    | Next.js 16.3.8, `@next/mdx` 16.3.8 | Next.js 16.3 이상의 16.x             | 호스트 피어 없음: `cudoc-remark`는 remark 플러그인입니다      |
+| Next.js    | Next.js 16.4.2, `@next/mdx` 16.4.2 | Next.js 16.4 이상의 16.x             | 호스트 피어 없음: `cudoc-remark`는 remark 플러그인입니다      |
 | Docusaurus | Docusaurus 3.10.2                  | 3.10 이상의 3.x                      | `@docusaurus/core` `^3.10.0`                                  |
-| Nextra     | Nextra 4.6.0, Next.js 15.5.25      | Next.js 15에서 Nextra 4.6 이상의 4.x | 호스트 피어 없음: `cudoc-nextra`는 remark 플러그인 모음입니다 |
+| Nextra     | Nextra 4.6.0, Next.js 15.5.28      | Next.js 15에서 Nextra 4.6 이상의 4.x | 호스트 피어 없음: `cudoc-nextra`는 remark 플러그인 모음입니다 |
 | VitePress  | VitePress 1.6.4                    | 1.6.4 이상의 1.x                     | `vitepress` `^1.6.4`, `markdown-it` `^14.1.0`                 |
-| Eleventy   | Eleventy 3.1.6                     | Eleventy 3.1 이상의 3.x              | `@11ty/eleventy` `^3.1.0`, `markdown-it` `^14.1.0`            |
+| Eleventy   | Eleventy 3.1.7                     | Eleventy 3.1 이상의 3.x              | `@11ty/eleventy` `^3.1.0`, `markdown-it` `^14.1.0`            |
 
 **검증한 버전**은 [실행 가능한 예제](../examples/README.md)가 잠가 둔 정확한 버전이며, 지속적 통합이 이 버전으로 빌드하고 검사하고 각 가이드를 그대로 따라 해 봅니다. **지원 범위**에 드는 버전에서 생긴 문제는 결함으로 받아서 고치지만, 실제로 실행해 보는 버전은 검증한 버전뿐입니다. 선언한 피어 범위는 지원 범위가 시작하는 버전에서 시작합니다. 따라서 어댑터가 호스트를 피어로 선언한 경우, npm은 지원하는 호스트 버전 옆에만 어댑터를 설치합니다. 사이트가 선언한 범위 안에서 호스트를 지원 버전으로 올리거나, Docusaurus 3.5에서처럼 `ERESOLVE`로 설치를 거부합니다.
 
 호스트 버전에 따라 달라지는 연동 조건은 다음과 같으며, 호스트를 올릴 때 다시 확인할 부분입니다.
 
 - **Docusaurus.** [수집기](./docusaurus.ko.md#5단계--수집기-추가)는 공개 API가 아닌 내부 모듈 `@docusaurus/mdx-loader/lib/processor.js`에서 Docusaurus 자체 MDX 프로세서를 가져와 실행합니다. 라이브러리 로더는 webpack 규칙이며 `include`에 콘텐츠 디렉터리를 적어야 합니다.
-- **Nextra.** 어댑터가 Nextra에 플러그인 함수를 넘기는데 Turbopack은 이를 직렬화하지 못하므로, 사이트는 webpack으로 빌드하고 서비스하며 [라이브러리 로더](./nextra.ko.md#4단계--임베드-플러그인과-라이브러리-로더-추가)도 webpack에 등록합니다.
+- **Nextra.** 어댑터가 Nextra에 플러그인 함수를 넘기는데 Turbopack은 이를 직렬화하지 못하므로, 사이트는 webpack으로 빌드하고 서비스하며 [라이브러리 로더](./nextra.ko.md#4단계--임베드-플러그인과-라이브러리-로더-추가)도 webpack에 등록합니다. Nextra 4.6.1은 zod를 `^4.1.12` 범위로 받는데, 지금 이 범위로 설치되는 zod 4.4 이상과 함께 쓰면 페이지를 하나도 빌드하지 못합니다. `nextra-theme-docs`가 `children`을 뺀 레이아웃 props를 검사하다가 `expected nonoptional, received undefined → at children`으로 실패하기 때문입니다. cudoc이 아닌 Nextra의 결함이므로, 예제는 zod를 자체적으로 고정한 4.6.0에 머뭅니다.
 - **Next.js.** 플러그인 이름을 문자열로, 옵션을 JSON으로 쓰므로 Turbopack과 webpack 모두에서 동작하며, 두 번들러를 모두 검증합니다.
 - **VitePress 개발 서버.** VitePress 1은 Vite 5에서 실행되는데, Vite 5의 개발 서버에는 Windows에서 `server.fs.deny`를 우회할 수 있는 문제를 비롯한 보안 공지가 나와 있으며 이를 고친 Vite 5 릴리스는 없습니다. 이 공지는 `vitepress dev`에만 해당하고 `vitepress build`가 만드는 사이트에는 해당하지 않습니다. 개발 서버는 자기 컴퓨터나 신뢰할 수 있는 네트워크에서만 실행하십시오. 아직 보고되는 공지와 남겨 둔 이유는 [예제 문서](../examples/README.md#build-an-example)에 정리했습니다.
 - **VitePress와 Eleventy.** 플러그인은 설정을 평가할 때 불러온 라이브러리를 계속 들고 있으므로, 다시 수집한 뒤에는 개발 서버를 재시작합니다([VitePress](./vitepress.ko.md#6단계--빌드-전마다-수집-실행), [Eleventy](./eleventy.ko.md#7단계--빌드-전마다-수집-실행)).
