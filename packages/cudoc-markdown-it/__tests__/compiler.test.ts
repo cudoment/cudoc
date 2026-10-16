@@ -64,12 +64,16 @@ describe("createHostCompiler", () => {
   it("shifts offsets past frontmatter the host strips outside markdown-it", () => {
     const frontmatter = "---\ntitle: Guide\n---\n\n"
     const source = `${frontmatter}# Title\n\nBody paragraph.\n`
+    const named: { id: string; filePath: string }[] = []
     const splitting: MarkdownItHost = {
       ...host,
-      frontmatter: (input) => ({
-        body: input.slice(frontmatter.length),
-        data: { title: "Guide" },
-      }),
+      frontmatter: (input, document) => {
+        named.push({ id: document.id, filePath: document.filePath })
+        return {
+          body: input.slice(frontmatter.length),
+          data: { title: "Guide" },
+        }
+      },
     }
     const result = createHostCompiler(renderer(splitting), splitting)(
       source,
@@ -81,6 +85,8 @@ describe("createHostCompiler", () => {
     expect(paragraph?.position?.start.offset).toBe(source.indexOf("Body"))
     expect(paragraph?.position?.start.line).toBe(7)
     expect(result.frontmatter).toEqual({ title: "Guide" })
+    // The hook is told which document it splits, so an error can name it.
+    expect(named).toEqual([{ id: "guide", filePath: "guide.md" }])
   })
 
   it("shifts a diagnostic's line past the frontmatter as it shifts the tree", () => {
