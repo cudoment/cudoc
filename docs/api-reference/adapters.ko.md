@@ -131,15 +131,15 @@ type TokenConversion = {
 
 `MarkdownItHost`는 호스트 생성기마다 다른 동작을 모두 명시합니다.
 
-| 필드                      | 필수   | 효과                                                                                              |
-| ------------------------- | ------ | ------------------------------------------------------------------------------------------------- |
-| `adapter`                 | 예     | 패키지 이름이며 공통 파이프라인이 발생시키는 모든 오류의 접두사로 사용됩니다.                     |
-| `host`                    | 예     | `normalizeDocument`에 전달되어 네이티브 문법을 선택하는 `Host` 값입니다.                          |
-| `documentId(env)`         | 예     | 호스트의 markdown-it env에서 읽는 수집 문서 ID이며 임베드가 이 값을 기준으로 해석됩니다.          |
-| `compilerEnv(context)`    | 아니오 | 호스트 빌드 밖에서 실행되는 수집 과정에서 그 env를 다시 구성합니다.                               |
-| `token(token, context)`   | 아니오 | 호스트 자체 markdown-it 플러그인이 만든 토큰을 공통 변환보다 먼저 처리합니다.                     |
-| `resolveInlineAttributes` | 아니오 | 링크 목적지를 렌더러 규칙에서 확정하는 호스트를 위해 인라인 토큰 사본을 먼저 렌더링합니다.        |
-| `frontmatter(source)`     | 아니오 | markdown-it 밖에서 frontmatter를 제거하는 호스트를 위해 수집도 같은 토큰에 도달하도록 분리합니다. |
+| 필드                           | 필수   | 효과                                                                                                                                                                                        |
+| ------------------------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `adapter`                      | 예     | 패키지 이름이며 공통 파이프라인이 발생시키는 모든 오류의 접두사로 사용됩니다.                                                                                                               |
+| `host`                         | 예     | `normalizeDocument`에 전달되어 네이티브 문법을 선택하는 `Host` 값입니다.                                                                                                                    |
+| `documentId(env)`              | 예     | 호스트의 markdown-it env에서 읽는 수집 문서 ID이며 임베드가 이 값을 기준으로 해석됩니다.                                                                                                    |
+| `compilerEnv(context)`         | 아니오 | 호스트 빌드 밖에서 실행되는 수집 과정에서 그 env를 다시 구성합니다.                                                                                                                         |
+| `token(token, context)`        | 아니오 | 호스트 자체 markdown-it 플러그인이 만든 토큰을 공통 변환보다 먼저 처리합니다.                                                                                                               |
+| `resolveInlineAttributes`      | 아니오 | 링크 목적지를 렌더러 규칙에서 확정하는 호스트를 위해 인라인 토큰 사본을 먼저 렌더링합니다.                                                                                                  |
+| `frontmatter(source, context)` | 아니오 | markdown-it 밖에서 frontmatter를 제거하는 호스트를 위해 수집도 같은 토큰에 도달하도록 분리합니다. `context`에는 수집 중인 문서의 `id`와 `filePath`가 있어서 오류에 문서를 밝힐 수 있습니다. |
 
 `tokensToAst`는 실제 markdown-it 토큰을 호스트 처리 후 mdast로 변환하며 Markdown을 두 번 파싱하지 않습니다. 모든 호스트가 공통으로 만드는 블록·인라인 토큰, 담고 있는 문자로 바꾸는 `emoji` 토큰(VitePress가 켜는 markdown-it-emoji), `github_alert_*`, `markdown-it-container` 블록을 처리합니다. `container_details_*`는 펼칠 수 있는 `details` 인용문이 되고, 컨테이너 이름이 대소문자 구분 없이 `note`, `tip`, `important`, `warning`, `caution`, `info`, `danger`이거나, 콜아웃 타입의 별칭인 호스트 이름 `default`, `error`, `warn`이거나, 등록한 `calloutTypes` 항목이면 콜아웃이 됩니다. VitePress의 `code-group`, `raw`나 사이트가 등록한 컨테이너처럼 그 밖의 컨테이너는 호스트 방식으로 열고 닫습니다. 여는 토큰과 닫는 토큰은 각각 호스트가 렌더링하는 `html` 노드가 되고, 그 사이의 내용은 페이지의 나머지와 똑같이 변환하므로 코드 그룹이나 상자 안의 제목 앵커와 임베드도 그대로 동작합니다. 호스트의 `token` 훅이 공통 변환보다 먼저 호출되므로 호스트 고유 요소가 기본 변환을 대체할 수 있습니다. 표 셀 인라인 파싱도 같은 설정의 파서를 사용합니다. 링크와 이미지는 `href`, `src`를 포함한 토큰 속성을 `hProperties`로 유지하고 토큰의 `title`을 자기 필드로 가집니다. 이미지의 `alt`는 mdast가 읽듯이 레이블을 일반 텍스트로 읽은 값이며(코드와 엔터티는 유지하고, 소프트 줄바꿈은 줄바꿈 문자로, 하드 줄바꿈은 빈 문자열로 읽습니다), markdown-it이 속성 사이에 남겨 두는 빈 `alt` 자리 표시는 그 텍스트를 덮어쓰므로 뺍니다. 제목이 호스트 방식으로 ID를 지정하는 것은 코드 스팬 밖, 끝에 `{#id}`가 있을 때뿐이므로 ``## Write `{#id}` here``는 문법을 사용하는 것이 아니라 설명하는 제목입니다.
 
@@ -172,16 +172,16 @@ createMarkdownRenderer( // cudoc-eleventy 전용
 ): MarkdownIt
 ```
 
-| 호스트    | 사이트와 수집기가 공유하는 렌더러           | 문서 ID                                       | 호스트 정의                                    |
-| --------- | ------------------------------------------- | --------------------------------------------- | ---------------------------------------------- |
-| VitePress | `vitepress`의 `createMarkdownRenderer`      | 읽은 파일. `env.realPath`·`path`에서 구합니다 | `<Badge>` 토큰 변환, `resolveInlineAttributes` |
-| Eleventy  | `cudoc-eleventy`의 `createMarkdownRenderer` | `env.page.filePathStem`                       | gray-matter frontmatter 분리, 재작성 소스 검사 |
+| 호스트    | 사이트와 수집기가 공유하는 렌더러           | 문서 ID                                       | 호스트 정의                                                |
+| --------- | ------------------------------------------- | --------------------------------------------- | ---------------------------------------------------------- |
+| VitePress | `vitepress`의 `createMarkdownRenderer`      | 읽은 파일. `env.realPath`·`path`에서 구합니다 | `<Badge>` 토큰 변환, `resolveInlineAttributes`             |
+| Eleventy  | `cudoc-eleventy`의 `createMarkdownRenderer` | `env.page.filePathStem`                       | gray-matter 규칙에 따른 frontmatter 분리, 재작성 소스 검사 |
 
 VitePress는 제공하는 페이지 경로를 `env.relativePath`에 넣는데, `rewrites`와 동적 라우트에서는 이 값이 페이지를 읽은 파일과 다르고, 수집은 문서를 파일 기준으로 이름 붙입니다. 그래서 어댑터는 두 값이 다르면 원본 디렉터리(`env.path`에서 `env.relativePath`를 뺀 부분) 아래의 `env.realPath`에서, 같으면 `env.relativePath`에서 `.md`를 뗀 값을 ID로 씁니다. 경로가 바뀐 페이지도 수집된 문서 기준으로 임베드를 해석합니다.
 
 VitePress는 일부 링크를 인라인 렌더링 시점에 확정하므로 정의에 `resolveInlineAttributes`를 설정하고, 파이프라인이 토큰 사본을 렌더링해 URL을 얻으면서 원본 토큰에 base 경로가 두 번 적용되는 것을 방지합니다. `token` 훅은 정적인 `<Badge type="tip" text="1.0" />`을 cudoc 배지로 변환하며, Vue 바인딩이 붙은 배지는 컴포넌트가 실행되기 전까지 문구를 알 수 없으므로 원본 HTML로 남깁니다. 지원하는 정적 컨테이너·링크·배지를 처리하고 동적 Vue 표현식은 평가하지 않습니다.
 
-Eleventy는 페이지 데이터 객체를 markdown-it env로 전달하고 markdown-it보다 먼저 gray-matter로 frontmatter를 제거하므로, 정의에서 `documentId`와 `frontmatter`를 모두 제공합니다. `createMarkdownRenderer`는 Eleventy 자체 렌더러 기본값(`html: true`, 들여쓰기 코드 블록 비활성화)을 적용하고 사이트의 `configure` 콜백을 실행한 뒤 cudoc을 마지막에 설치하므로, 사이트가 등록한 fence 렌더러를 감싸게 됩니다. 사이트 설정 두 가지는 권고가 아니라 계약입니다. 첫째로 `markdownTemplateEngine: false`가 필요한데, `page.rawInput`을 markdown-it이 읽는 방식대로 읽은 텍스트(그래서 `\r\n` 줄 끝도 일치합니다)가 markdown-it이 받은 텍스트와 다르면, 다른 엔진이 소스를 이미 다시 쓴 것으로 보고 어댑터가 오류를 발생시키기 때문입니다. 둘째로 제목 퍼머링크를 제목 안쪽에 삽입해야 하는데, 제목을 감싸는 퍼머링크는 cudoc이 `(#id)` 앵커를 읽는 제목 본문을 제목 밖으로 옮겨 버리기 때문입니다. 네이티브 문법은 사이트가 등록한 플러그인에서 나오므로 `{#id}`에는 `markdown-it-attrs`, `::: warning 제목`에는 `markdown-it-container`가 필요합니다. 임베드가 있는 페이지를 env에 Eleventy 페이지 데이터 없이 렌더링하면 `the markdown-it env carries no Eleventy page data`로 실패하고, `page.filePathStem`이 없으면 그 값을 알리며 실패합니다. 기본 export는 markdown-it 플러그인입니다. `eleventyConfig.addPlugin`에 넘기면 Eleventy 설정 객체를 받게 되므로 `this is a markdown-it plugin, not an Eleventy plugin` 오류를 발생시키며 `setLibrary`를 쓰라고 안내합니다.
+Eleventy는 페이지 데이터 객체를 markdown-it env로 전달하고 markdown-it보다 먼저 gray-matter로 frontmatter를 제거하므로, 정의에서 `documentId`와 `frontmatter`를 모두 제공합니다. 어댑터는 gray-matter에 의존하지 않고, Eleventy의 기본 frontmatter 옵션에서 gray-matter가 따르는 규칙대로 파일을 나누므로 수집 단계에서도 Eleventy가 렌더링하는 것과 같은 본문을 렌더링합니다. 바이트 순서 표시(BOM)를 제거하고, 파일 맨 앞의 `---`로 블록을 열되 `----`는 블록으로 보지 않으며, 여는 줄의 나머지를 언어로 읽습니다. 블록은 `---`로 시작하는 첫 줄에서 닫히고, 그 뒤의 줄바꿈 하나를 뺍니다. 사이트가 `setFrontMatterParsingOptions`로 요약(excerpt)이나 다른 구분자를 지정하면 Eleventy는 수집 단계와 다른 본문을 렌더링하고, 다른 기본 언어를 지정하면 언어를 표기하지 않은 블록을 Eleventy는 그 언어로 읽지만 수집은 YAML로 읽습니다. 데이터는 다른 호스트에서 frontmatter를 읽을 때처럼 `yaml`을 사용해 YAML 1.2로 읽으므로, 날짜는 작성한 텍스트 그대로 남고 `<<`는 병합이 아닌 일반 키로 읽힙니다. YAML(`---yaml`이나 `---yml`로 표기한 경우 포함)과 `---json`을 읽으며, Eleventy의 `---js`를 비롯한 다른 언어는 읽으려면 실행해야 하므로 파일 경로를 알리며 실패합니다. 매핑이 아닌 frontmatter도 마찬가지로 실패합니다. `createMarkdownRenderer`는 Eleventy 자체 렌더러 기본값(`html: true`, 들여쓰기 코드 블록 비활성화)을 적용하고 사이트의 `configure` 콜백을 실행한 뒤 cudoc을 마지막에 설치하므로, 사이트가 등록한 fence 렌더러를 감싸게 됩니다. 사이트 설정 두 가지는 권고가 아니라 계약입니다. 첫째로 `markdownTemplateEngine: false`가 필요한데, `page.rawInput`을 markdown-it이 읽는 방식대로 읽은 텍스트(그래서 `\r\n` 줄 끝도 일치합니다)가 markdown-it이 받은 텍스트와 다르면, 다른 엔진이 소스를 이미 다시 쓴 것으로 보고 어댑터가 오류를 발생시키기 때문입니다. 둘째로 제목 퍼머링크를 제목 안쪽에 삽입해야 하는데, 제목을 감싸는 퍼머링크는 cudoc이 `(#id)` 앵커를 읽는 제목 본문을 제목 밖으로 옮겨 버리기 때문입니다. 네이티브 문법은 사이트가 등록한 플러그인에서 나오므로 `{#id}`에는 `markdown-it-attrs`, `::: warning 제목`에는 `markdown-it-container`가 필요합니다. 임베드가 있는 페이지를 env에 Eleventy 페이지 데이터 없이 렌더링하면 `the markdown-it env carries no Eleventy page data`로 실패하고, `page.filePathStem`이 없으면 그 값을 알리며 실패합니다. 기본 export는 markdown-it 플러그인입니다. `eleventyConfig.addPlugin`에 넘기면 Eleventy 설정 객체를 받게 되므로 `this is a markdown-it plugin, not an Eleventy plugin` 오류를 발생시키며 `setLibrary`를 쓰라고 안내합니다.
 
 임베드된 내용은 호스트의 토큰이 아니라 cudoc의 트리에 접합되므로, 목차가 얼마나 완전한지는 목차가 무엇을 읽는지에 달려 있습니다. VitePress 기본 테마는 브라우저에서 렌더링된 제목으로 개요를 만들므로, ID를 유지하는 임베드된 제목이 개요에 들어갑니다. 페이지 안의 `[[toc]]`는 호스트의 토큰으로 렌더링되므로 페이지 자신의 제목만 나열합니다. Eleventy에는 자체 목차가 없습니다. markdown-it 규칙으로 만드는 목차는 페이지 자신의 제목만 보고, 렌더링된 HTML로 만드는 목차는 임베드된 제목도 봅니다.
 

@@ -45,7 +45,7 @@
   "dependencies": {
     "@cudoment/cudoc": "0.8.0",
     "cudoc-markdown-it": "0.8.0",
-    "gray-matter": "^4.0.3"
+    "yaml": "^2.9.0"
   },
   "peerDependencies": {
     "@11ty/eleventy": "^3.1.0",

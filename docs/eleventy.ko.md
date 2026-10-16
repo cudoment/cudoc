@@ -184,6 +184,8 @@ Eleventy 빌드 결과와 수집 데이터는 변경되지 않습니다. → [�
 
 **Markdown만 다룹니다.** `.md`를 작성하십시오. React `.mdx`는 처리되지 않습니다. → [`.md`와 `.mdx` 선택](./README.ko.md#md와-mdx-선택)
 
+**frontmatter는 YAML이나 JSON으로 작성합니다.** 수집은 Eleventy가 기본 frontmatter 옵션으로 분리하는 방식과 같게 frontmatter를 분리하고, 기본값인 YAML과 `---json`을 읽습니다. JavaScript frontmatter(`---js`)는 코드를 실행해야 읽을 수 있으므로 수집이 파일 경로를 알리며 실패합니다. 그런 페이지의 frontmatter는 YAML로 작성하십시오. `setFrontMatterParsingOptions`는 기본값으로 두십시오. 요약(excerpt)이나 다른 구분자를 지정하면 Eleventy가 렌더링하는 본문이 바뀌어 수집 결과와 더 이상 일치하지 않고, 다른 기본 언어를 지정하면 언어를 표기하지 않은 frontmatter를 Eleventy는 그 언어로 읽지만 수집은 YAML로 읽습니다. → [markdown-it 내부 동작](./api-reference/adapters.ko.md#markdown-it)
+
 **사이트 플러그인의 렌더링은 그대로 유지됩니다.** 코드 블록은 사이트가 등록한 fence 렌더러를 거치고, 사이트 자체의 `::: demo`처럼 이름이 콜아웃 타입이 아닌 `markdown-it-container`는 그 플러그인이 렌더링하는 대로 열리고 닫히며, 그 안의 내용은 cudoc이 페이지의 나머지와 똑같이 읽으므로 안에 둔 제목 앵커와 임베드도 동작합니다. cudoc은 자신이 정규화하는 부분만 바꿉니다.
 
 **목차와 임베드된 제목.** Eleventy에는 자체 목차가 없습니다. markdown-it 플러그인으로 만드는 목차는 토큰을 읽으므로 페이지 자신의 제목만 나열하고, Eleventy transform처럼 렌더링된 HTML로 만드는 목차는 임베드로 들어온 제목도 나열합니다.

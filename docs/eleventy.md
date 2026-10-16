@@ -184,6 +184,8 @@ Your Eleventy build and its collected data are not modified. → [Export](./expo
 
 **Markdown only.** Write `.md`. React `.mdx` is not processed. → [Choosing `.md` or `.mdx`](./README.md#choosing-md-or-mdx)
 
+**YAML or JSON front matter.** Collection splits front matter the way Eleventy does with its default front-matter options, and reads YAML, the default, or `---json`. JavaScript front matter (`---js`) would have to run to be read, so collection fails on it, naming the file; write that page's front matter as YAML. Leave `setFrontMatterParsingOptions` at its defaults: an excerpt or other delimiters change the text Eleventy renders, so collection no longer matches it, and another default language has Eleventy read front matter that names no language differently from collection, which reads it as YAML. → [markdown-it internals](./api-reference/adapters.md#markdown-it)
+
 **Your plugins keep their rendering.** A code block goes through the fence renderer your site registered, and a `markdown-it-container` whose name is not a callout type, such as a site's own `::: demo`, opens and closes as that plugin renders it, around content cudoc reads like the rest of the page, so a heading anchor or an embed inside it still works. cudoc replaces only what it normalizes.
 
 **Tables of contents and embedded headings.** Eleventy has none of its own. One built by a markdown-it plugin reads the tokens and lists the page's own headings; one built from the rendered HTML, such as an Eleventy transform, also lists headings that arrive through an embed.
