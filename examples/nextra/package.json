@@ -16,7 +16,7 @@
     "@cudoment/cudoc": "file:../../packages/cudoc",
     "cudoc-nextra": "file:../../packages/cudoc-nextra",
     "cudoc-remark": "file:../../packages/cudoc-remark",
-    "next": "15.5.25",
+    "next": "15.5.28",
     "nextra": "4.6.0",
     "nextra-theme-docs": "4.6.0",
     "react": "^19.2.0",

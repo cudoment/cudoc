@@ -10,12 +10,14 @@ Follow the steps in order. Steps 1â€“3 enable the Markdown extensions. Steps 4â€
 npm install @cudoment/cudoc cudoc-remark cudoc-docusaurus
 ```
 
-Docusaurus 3.10 depends on `serialize-javascript` 6 through its webpack plugins and on `uuid` 8 through its development server. `npm audit` reports advisories for both, and Docusaurus's own ranges do not let npm choose the fixed releases. The [example site](../examples/docusaurus/package.json) builds and runs its development server with the fixed releases pinned, so add the same `overrides` to `package.json`, beside any it already has, and install again:
+Docusaurus 3.10 depends on `serialize-javascript` 6 through its webpack plugins, on `uuid` 8 through its development server, on `postcss-selector-parser` 6 through its CSS minifier and on `tinypool` 1 for building pages on worker threads. `npm audit` reports advisories for all four, and Docusaurus's own ranges do not let npm choose the fixed releases. The [example site](../examples/docusaurus/package.json) builds and runs its development server with the fixed releases pinned, so add the same `overrides` to `package.json`, beside any it already has, and install again:
 
 ```json
 {
   "overrides": {
+    "postcss-selector-parser": "7.1.6",
     "serialize-javascript": "7.1.2",
+    "tinypool": "2.2.0",
     "uuid": "11.1.1"
   }
 }

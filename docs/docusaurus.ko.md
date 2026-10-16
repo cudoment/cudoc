@@ -10,12 +10,14 @@
 npm install @cudoment/cudoc cudoc-remark cudoc-docusaurus
 ```
 
-Docusaurus 3.10은 webpack 플러그인을 통해 `serialize-javascript` 6에, 개발 서버를 통해 `uuid` 8에 의존합니다. `npm audit`은 두 패키지 모두에 보안 권고를 보고하지만, Docusaurus가 선언한 버전 범위로는 npm이 수정판을 고를 수 없습니다. [예제 사이트](../examples/docusaurus/package.json)는 수정판을 고정한 상태로 빌드와 개발 서버 실행을 확인했으므로, 같은 `overrides`를 `package.json`에 기존 항목과 함께 추가하고 다시 설치하십시오.
+Docusaurus 3.10은 webpack 플러그인을 통해 `serialize-javascript` 6에, 개발 서버를 통해 `uuid` 8에, CSS 압축기를 통해 `postcss-selector-parser` 6에 의존하며, 작업자 스레드에서 페이지를 빌드할 때 `tinypool` 1을 씁니다. `npm audit`은 네 패키지 모두에 보안 권고를 보고하지만, Docusaurus가 선언한 버전 범위로는 npm이 수정판을 고를 수 없습니다. [예제 사이트](../examples/docusaurus/package.json)는 수정판을 고정한 상태로 빌드와 개발 서버 실행을 확인했으므로, 같은 `overrides`를 `package.json`에 기존 항목과 함께 추가하고 다시 설치하십시오.
 
 ```json
 {
   "overrides": {
+    "postcss-selector-parser": "7.1.6",
     "serialize-javascript": "7.1.2",
+    "tinypool": "2.2.0",
     "uuid": "11.1.1"
   }
 }

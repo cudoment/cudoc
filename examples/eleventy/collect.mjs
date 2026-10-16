@@ -12,5 +12,5 @@ await collectDocuments({
   routeSuffix: "/",
   syntax,
   compiler: createDocumentCompiler(md),
-  compilerId: "eleventy-3.1.6-portable-v1",
+  compilerId: "eleventy-3.1.7-portable-v1",
 })

@@ -129,8 +129,8 @@ fixtures here are only ever read.
 
 `npm run typecheck` covers this directory and `packages/*/__tests__/` through
 [`tsconfig.test.json`](../tsconfig.test.json). The packages' own projects compile
-`src` alone, and vitest strips types with esbuild instead of checking them, so
-without that project a test could contradict a compiler contract and still pass.
+`src` alone, and vitest strips types instead of checking them, so without that
+project a test could contradict a compiler contract and still pass.
 It allows JavaScript so that `release.test.ts` can import the release scripts it
 tests.
 

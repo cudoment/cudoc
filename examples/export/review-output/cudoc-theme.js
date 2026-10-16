@@ -70,45 +70,71 @@
   }
   var CHOICES = ["light", "dark"];
   var dark = window.matchMedia?.("(prefers-color-scheme: dark)");
-  var current = () => stored() ?? (dark?.matches ? "dark" : "light");
+  var current = () => {
+    const chosen = root.getAttribute("data-theme");
+    if (chosen === "light" || chosen === "dark") return chosen;
+    return dark?.matches ? "dark" : "light";
+  };
   function mount() {
     const header = document.querySelector("body > header");
     if (!header || header.querySelector(".theme-switch")) return;
-    const control = document.createElement("label");
-    control.className = "theme-switch";
-    const select = document.createElement("select");
-    select.setAttribute("aria-label", STRINGS.theme);
-    for (const mode of CHOICES) {
-      const option = document.createElement("option");
-      option.value = mode;
-      option.textContent = STRINGS[mode];
-      select.append(option);
-    }
+    const menu = document.createElement("details");
+    menu.className = "menu theme-switch";
+    const summary = document.createElement("summary");
+    const label = document.createElement("span");
+    label.className = "menu-label";
+    summary.append(label);
+    const list = document.createElement("ul");
+    list.className = "menu-list";
+    const buttons = CHOICES.map((mode) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.value = mode;
+      button.append(icon(mode), STRINGS[mode]);
+      button.addEventListener("click", () => {
+        remember(mode);
+        apply(mode);
+        render();
+        menu.open = false;
+        summary.focus();
+      });
+      const item = document.createElement("li");
+      item.append(button);
+      list.append(item);
+      return button;
+    });
     const render = () => {
       const mode = current();
-      select.value = mode;
-      control.querySelector("svg")?.remove();
-      control.prepend(icon(mode));
-      control.title = `${STRINGS.theme}: ${STRINGS[mode]}`;
+      summary.querySelector("svg")?.remove();
+      summary.prepend(icon(mode));
+      label.textContent = STRINGS[mode];
+      summary.setAttribute("aria-label", `${STRINGS.theme}: ${STRINGS[mode]}`);
+      for (const button of buttons)
+        button.setAttribute("aria-pressed", String(button.value === mode));
     };
-    select.addEventListener("change", () => {
-      const choice = select.value;
-      remember(choice);
-      apply(choice);
-      render();
-    });
-    dark?.addEventListener?.("change", () => {
-      if (!stored()) render();
-    });
+    dark?.addEventListener?.("change", render);
     window.addEventListener("storage", (event) => {
       if (event.key === KEY || event.key === null) {
         apply(stored());
         render();
       }
     });
-    control.append(select);
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      const open = header.querySelector("details.menu[open]");
+      if (!open) return;
+      open.open = false;
+      open.querySelector("summary")?.focus();
+    });
+    header.addEventListener("focusout", (event) => {
+      const left = event.target.closest?.("details.menu");
+      const next = event.relatedTarget;
+      if (left instanceof HTMLDetailsElement && next && !left.contains(next))
+        left.open = false;
+    });
+    menu.append(summary, list);
     render();
-    (header.querySelector(".header-end") ?? header).append(control);
+    (header.querySelector(".header-end") ?? header).append(menu);
   }
   if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", mount);
