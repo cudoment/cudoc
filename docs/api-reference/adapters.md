@@ -290,7 +290,7 @@ A callout is drawn in `--accent` and `--wash` unless its type is in the severity
 
 Type scales from the browser's own base size rather than a fixed pixel root, so a reader's font-size setting is respected: `html` is `font-size: 100%` and body copy is `--text-base` (0.9375rem) at `--leading-body` (1.7). The font stacks name IBM Plex Sans and JetBrains Mono first and fall through to the platform UI and Korean faces; nothing is fetched, so the export stays usable from `file://` and offline. Prose is bounded to `--measure` (72ch) while headings, tables, code blocks and callouts use the full content column.
 
-The page shell is a sticky header with a sticky document sidebar and heading TOC beside that column, collapsing to two columns at 1024px and to one at 768px, where navigation targets grow to 2.75rem. Tables use horizontal rules, alternating row backgrounds, label-style headers and tabular figures rather than a full border grid, and scroll horizontally instead of widening the page. Interactive states transition over `--ease`, which `prefers-reduced-motion` collapses to 1ms. `css` files load after these styles, so a site restyles the export by redefining properties rather than rewriting rules. Prefer `tokens` for a change that should hold across formats: it is data, and a writer that emits no CSS reads the same object, while `css` reaches only the outputs that load a stylesheet. `resolveTokens` merges one level into each group, so redefining a single colour keeps the rest of the palette, and it replaces a font stack whole rather than merging it. `--radius`, `--measure`, `--head-h` and `--ease` and the dark palette have no counterpart outside CSS. The print block drops the header and both navigation columns, removes the measure bound, keeps the reading colour, repeats table headers across pages, and lets a code line wider than the page wrap instead of scaling every page down to fit it; the separate print stylesheet, `cudoc-print.css`, adds the option-dependent rules described below, so the site's own print block never changes with an option.
+The page shell is a sticky header with a sticky document sidebar and heading TOC beside that column, collapsing to two columns at 1024px and to one at 768px, where navigation targets and menu items grow to 2.75rem. Tables use horizontal rules, alternating row backgrounds, label-style headers and tabular figures rather than a full border grid, and scroll horizontally instead of widening the page. Interactive states transition over `--ease`, which `prefers-reduced-motion` collapses to 1ms. `css` files load after these styles, so a site restyles the export by redefining properties rather than rewriting rules. Prefer `tokens` for a change that should hold across formats: it is data, and a writer that emits no CSS reads the same object, while `css` reaches only the outputs that load a stylesheet. `resolveTokens` merges one level into each group, so redefining a single colour keeps the rest of the palette, and it replaces a font stack whole rather than merging it. `--radius`, `--measure`, `--head-h` and `--ease` and the dark palette have no counterpart outside CSS. The print block drops the header and both navigation columns, removes the measure bound, keeps the reading colour, repeats table headers across pages, and lets a code line wider than the page wrap instead of scaling every page down to fit it; the separate print stylesheet, `cudoc-print.css`, adds the option-dependent rules described below, so the site's own print block never changes with an option.
 
 ### Site structure
 
@@ -336,7 +336,7 @@ The first language is the default and has no suffix. Another's suffix defaults t
 
 **Homes and output paths.** A language's home is the translation of `home`, which must exist in every language, or of `index`. It is written to `index.html` in the default language and `index.<code>.html` in the others, and every other document to `<id>.html`. A document whose own file would be a home's file and is not that home is an error. A language without a home gets a generated landing page that lists its navigation. Single pages write no home: every document, `index` included, is `<id>.html`.
 
-**The shell.** A site page has a header (the site title linking to the language's home, `header.links`, a language menu when there are two or more languages, the theme menu), the navigation sidebar, the main column and, unless `toc` or the page's front matter turns it off or the page is a home, the contents of headings down to `toc.depth`. The language menu links each other language to the same document's published translation, else to that language's home. Groups are `<details>` elements, open unless `collapsed`, and open around the current page. A single page has the title, `header.links`, the theme menu and the contents, without navigation, home link or language menu. Links the shell generates carry `data-cudoc-final` while the page is assembled, so the link policy does not rewrite them a second time; the attribute is removed from authored content and does not reach the written page.
+**The shell.** A site page has a header (the site title linking to the language's home, `header.links`, a language menu when there are two or more languages, the theme menu), the navigation sidebar, the main column and, unless `toc` or the page's front matter turns it off or the page has no heading to list, the contents of headings down to `toc.depth`. A home document is such a page too; a generated landing page lists the navigation in its body, across the whole width, instead of beside it. The language menu is a `<details class="menu">` inside `<nav class="languages">`: its summary shows a globe and the page's language, labelled "<language>: <label>" from the `ui` strings, and opens a `.menu-list` that marks the page's own language `aria-current` and links each other language to the same document's published translation, else to that language's home. It needs no script: while it is open, the summary's `::before` is a transparent layer over the viewport under the list, and the header rises above the review runtime's controls, so a press anywhere else lands on the summary and closes it without reaching the page. Groups are `<details>` elements, open unless `collapsed`, and open around the current page. A single page has the title, `header.links`, the theme menu and the contents, without navigation, home link or language menu. Links the shell generates carry `data-cudoc-final` while the page is assembled, so the link policy does not rewrite them a second time; the attribute is removed from authored content and does not reach the written page.
 
 **Stylesheets.** `css` files are parsed with css-tree. An `@import` is refused. Each `url()` resolves like a rendering resource from the stylesheet's own directory and must stay inside a root, an `assetDirs` directory or that directory. In a site the files are linked after `cudoc.css` as `cudoc-css/<n>-<name>.css`, in the order given, and what they load is copied to `cudoc-css/files/<first 12 hex digits of its SHA-256>-<name>`, so a rebuild names the same content the same way; a remote `url()` is kept. On a single page their text goes into the page's one `<style>`, each `url()` becomes a `data:` URL, and a remote `url()` is refused. No copied resource may be written under `cudoc-css/`.
 
@@ -723,11 +723,17 @@ stylesheet reads (`warn` for `warning`; `danger` for `caution`, `danger` and
 ### Theme switch
 
 `themeSwitch: true` (CLI `--theme-switch`) adds a theme menu to every page's
-header, a native `<select>` with Light and Dark beside a sun or moon icon, so
-the browser supplies keyboard use, a screen reader's announcement and a phone's
-own picker. Until the reader chooses, the page follows the system setting and
-the select shows which of the two that is, following a change of the setting
-while the page is open. In a site it ships one reserved file at the output
+header, a `<details class="menu theme-switch">` drawn like the language menu:
+its summary shows a sun or moon and the theme in effect, and its list holds a
+Light and a Dark button, the one in effect marked `aria-pressed="true"`. A
+choice closes the menu and returns focus to the summary. The browser opens and
+closes the menu from the keyboard and announces it as expanded or collapsed,
+the stylesheet's layer closes it on a press elsewhere, and the script closes
+the open menu of the header, the language menu included, on Escape (focus
+returns to its summary) or when focus moves to an element outside it. Until
+the reader chooses, the page follows the system setting and the menu shows
+which of the two that is, following a change of the setting while the page is
+open. In a site it ships one reserved file at the output
 root, `cudoc-theme.js`, copied from the package's `dist/browser/`, which every
 page loads with a plain `<script src>` at the end of `<head>`, without `defer`,
 so a remembered choice is applied before the body paints; a single page carries
@@ -740,8 +746,11 @@ effort, as for annotations, and a change in another tab is followed through
 the `storage` event). The menu is created by the script, so a page without the script has
 none. Its words come from `data-cudoc-ui` on `<html>`, which the builder writes
 from the page language's `ui` strings (`theme`, `light`, `dark`), and
-otherwise from the document's `lang` (`ko`, else English); the tooltip is
-"<theme>: <mode>". Off by default; the default output stays script-free and
+otherwise from the document's `lang` (`ko`, else English); the summary's
+accessible name is "<theme>: <mode>", and neither summary has a tooltip, which
+the open menu's layer would show over the whole page. The menu marks the theme
+`data-theme` holds, so a choice the browser refuses to store is still the one
+shown for the page. Off by default; the default output stays script-free and
 follows the system setting.
 
 ### Annotations
