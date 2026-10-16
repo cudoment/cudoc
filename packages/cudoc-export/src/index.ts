@@ -1531,7 +1531,17 @@ export function buildSite(input: InternalOptions) {
         const ui = uiFor(code, lang)
         const file = outputPath(doc.id)
         const isHome = !singlePages && plan.homes.get(code) === doc
-        const showToc = !isHome && tocDepth > 0 && doc.frontmatter.toc !== false
+        // A page with no heading to list has no contents column.
+        const toc =
+          tocDepth > 0 && doc.frontmatter.toc !== false
+            ? headings
+                .filter((node) => node.depth! <= tocDepth)
+                .map((node) => ({
+                  depth: node.depth!,
+                  id: String(node.data?.hProperties?.id ?? ""),
+                  text: visibleHeadingText(node),
+                }))
+            : []
         const body = structuredClone(hast)
         if (singlePages) inlineBody(body, doc)
         else localizeAssets(body, (asset) => fromPage(doc, asset))
@@ -1563,17 +1573,7 @@ export function buildSite(input: InternalOptions) {
                   doc.id,
                 ),
               }),
-          ...(showToc
-            ? {
-                toc: headings
-                  .filter((node) => node.depth! <= tocDepth)
-                  .map((node) => ({
-                    depth: node.depth!,
-                    id: String(node.data?.hProperties?.id ?? ""),
-                    text: visibleHeadingText(node),
-                  })),
-              }
-            : {}),
+          ...(toc.length ? { toc } : {}),
           mainAttributes,
           body: toHtml(body),
           footer: title,

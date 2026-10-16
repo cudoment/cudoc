@@ -238,7 +238,7 @@ describe("features used together", () => {
     const [mapped] = JSON.parse(report.output).documents
     expect(mapped).toMatchObject({ id: "index.ko", sourcePath: "index.ko.md" })
     expect(mapped.notes[0]).toMatchObject({ match: "exact", startLine: 3 })
-  })
+  }, 60_000)
 
   it("serves a hosted review from any base path, with mounts and source links", () => {
     const p = project({

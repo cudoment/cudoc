@@ -68,6 +68,17 @@ describe("actual Eleventy markdown-it renderer", () => {
     expect(source.split("\n")[start.line - 1]).toBe("## Portable (#portable)")
   })
 
+  it("names the collected file whose front matter it cannot read", () => {
+    const compile = createDocumentCompiler(createMarkdownRenderer({}, native))
+    expect(() =>
+      compile('---js\n{ title: "Guide" }\n---\n\n# Guide\n', {
+        id: "guide",
+        filePath: "./docs/guide.md",
+        options: {},
+      }),
+    ).toThrow("cudoc-eleventy: ./docs/guide.md has js front matter")
+  })
+
   it("rejects a source another template engine already rewrote", () => {
     const md = createMarkdownRenderer({}, native)
     expect(() =>

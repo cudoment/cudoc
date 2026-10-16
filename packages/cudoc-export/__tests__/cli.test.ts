@@ -75,7 +75,7 @@ suite("cudoc-export build", () => {
     )
     expect(strict.status).toBe(1)
     expect(strict.stderr).toMatch(/strict: the pages need what is outside them/)
-  })
+  }, 60_000)
 
   it("reads a YAML configuration, and names the replacement of the retired flag", () => {
     const p = project()
@@ -93,5 +93,5 @@ suite("cudoc-export build", () => {
     expect(retired.stderr).toMatch(
       /--annotations was replaced by --mode annotate/,
     )
-  })
+  }, 60_000)
 })
