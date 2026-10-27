@@ -31,10 +31,21 @@ export function formatCheckResult(result: CheckResult): string {
   const width = Math.max(
     ...result.issues.map((issue) => location(issue).length),
   )
+  // In the order they appear in the file; an issue about the whole document
+  // or about a file has no place and comes first.
+  const place = (issue: ReferenceIssue) =>
+    issue.position
+      ? [issue.position.start.line, issue.position.start.column]
+      : [0, 0]
   const lines: string[] = []
   for (const [sourcePath, issues] of byDocument) {
     lines.push(sourcePath)
-    for (const issue of issues) {
+    const ordered = [...issues].sort((a, b) => {
+      const [lineA, columnA] = place(a)
+      const [lineB, columnB] = place(b)
+      return lineA! - lineB! || columnA! - columnB!
+    })
+    for (const issue of ordered) {
       lines.push(
         `  ${location(issue).padStart(width)}  ${issue.severity.padEnd(7)} ${issue.code.padEnd(20)} ${issue.reference}`,
       )
@@ -53,6 +64,10 @@ export function formatCheckResult(result: CheckResult): string {
       } else if (issue.available) {
         lines.push(`  ${" ".repeat(width)}  available: none`)
       }
+      if (issue.suggestions?.length)
+        lines.push(
+          `  ${" ".repeat(width)}  did you mean: ${issue.suggestions.join(", ")}`,
+        )
     }
     lines.push("")
   }
@@ -61,8 +76,16 @@ export function formatCheckResult(result: CheckResult): string {
     errors ? `${errors} error${errors === 1 ? "" : "s"}` : "",
     warnings ? `${warnings} warning${warnings === 1 ? "" : "s"}` : "",
   ].filter(Boolean)
+  // An unused file is reported under its own path, which is no document.
+  const paths = (inDocument: boolean) =>
+    new Set(
+      result.issues
+        .filter((issue) => Boolean(issue.documentId) === inDocument)
+        .map((issue) => issue.sourcePath),
+    ).size
+  const files = paths(false)
   lines.push(
-    `${counts.join(", ")} in ${byDocument.size} of ${result.documentCount} documents`,
+    `${counts.join(", ")} in ${paths(true)} of ${result.documentCount} documents${files ? ` and ${files} file${files === 1 ? "" : "s"}` : ""}`,
   )
   return lines.join("\n")
 }

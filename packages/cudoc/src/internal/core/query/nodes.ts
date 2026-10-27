@@ -14,6 +14,7 @@
 
 import type { Node, Parent } from "unist"
 import type { DocumentNode } from "../../../document.js"
+import { referencedCharacter } from "../references.js"
 
 /** Reading order, not tree depth: `before` walks towards the start. */
 export type Direction = "before" | "after"
@@ -127,6 +128,9 @@ const textOfNode = (node: Node, options: NodeTextOptions): string => {
     return String((node as { value?: unknown }).value ?? "")
   }
   if (isLineBreak(node)) return "\n"
+  // A brace a VitePress library keeps as its reference reads as the brace.
+  const character = referencedCharacter(node)
+  if (character !== undefined) return character
   if (!hasChildren(node)) return ""
 
   if (!KNOWN_PARENTS.has(node.type) && !includeUnknown) return ""
@@ -220,7 +224,8 @@ const elementName = (node: Node): string | undefined =>
     : (node as DocumentNode).data?.hName
 
 const isBlock = (node: Node): boolean =>
-  BLOCK_TYPES.has(node.type) || BLOCK_ELEMENTS.has(elementName(node) ?? "")
+  (BLOCK_TYPES.has(node.type) && referencedCharacter(node) === undefined) ||
+  BLOCK_ELEMENTS.has(elementName(node) ?? "")
 
 const hasChildren = (node: Node): node is Parent =>
   "children" in node && Array.isArray((node as Parent).children)

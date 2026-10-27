@@ -1,8 +1,8 @@
 # @cudoment/cudoc
 
-Markdown document semantics, compilation, AST queries, cross-document embedding, reference checking, dataset projection and the `cudoc` command line.
+`@cudoment/cudoc` is the core of cudoc: document semantics, compilation, AST queries, cross-document embedding, reference checking, datasets and the `cudoc` CLI.
 
-ESM · Node.js 20+
+ESM · Node.js 22+
 
 ```sh
 npm install @cudoment/cudoc
@@ -13,17 +13,28 @@ import { compileDocument } from "@cudoment/cudoc/markdown"
 import { renderDocument } from "@cudoment/cudoc/render"
 
 const { tree } = compileDocument(
-  "## Setup (#setup)\n\n> [!NOTE] Requirements\n> Node.js 20+.",
+  "## Setup (#setup)\n\n> [!NOTE] Requirements\n> Node.js 22+.",
   { format: "md", syntax: {} },
 )
 const html = renderDocument(tree)
 ```
 
-The root and query APIs provide reusable AST operations. Import compilation from `/markdown`, rendering from `/render`, and collection from `/node/library`. Node entry points belong in build/server code. `/embed` handles individual AST snapshots; complete libraries and fenced embeds use the explicit `node/*` APIs. The core has no React runtime dependency.
+Each API has its own entry point, and the Node entry points belong in build or server code:
 
-Choose `host`, `cudoc` or `both` independently for `headingAnchor`, `badge`, `tableCellList`, `callout` and `link`. The representative callout is `> [!NOTE] Title`. Authors do not register cudoc React components in the recommended setup. Syntax-only rendering needs no stored JSON; cross-document embedding requires document collection.
+| Import                               | From                       |
+| ------------------------------------ | -------------------------- |
+| Reusable AST operations              | the root and `/query`      |
+| Compilation                          | `/markdown`                |
+| Rendering                            | `/render`                  |
+| Collection                           | `/node/library`            |
+| One AST snapshot                     | `/embed`                   |
+| Complete libraries and fenced embeds | the explicit `node/*` APIs |
 
-- [Usage guide](https://github.com/cudoment/cudoc/tree/main/README.md#pick-your-site-generator) · [한국어 가이드](https://github.com/cudoment/cudoc/tree/main/README.ko.md#쓰시는-생성기를-고르세요)
+The core has no React runtime dependency.
+
+Each of `headingAnchor`, `badge`, `tableCellList`, `tableCellSpan`, `tableNote`, `callout`, `link`, `codeMeta` and `tabs` takes `host`, `cudoc`, `both` or `off` independently. The representative callout is `> [!NOTE] Title`. Authors do not register any cudoc components in the recommended setup. Syntax-only rendering needs no stored JSON; cross-document embedding requires document collection.
+
+- [Usage guide](https://github.com/cudoment/cudoc/tree/main/README.md#pick-your-site-generator) · [한국어 가이드](https://github.com/cudoment/cudoc/tree/main/README.ko.md#사이트-생성기-고르기)
 - [Markdown syntax](https://github.com/cudoment/cudoc/tree/main/docs/syntax.md)
 - [Embedding](https://github.com/cudoment/cudoc/tree/main/docs/embedding.md)
 - [Reference checking](https://github.com/cudoment/cudoc/tree/main/docs/check.md)

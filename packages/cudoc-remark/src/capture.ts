@@ -6,7 +6,9 @@ import {
   type CapturedImage,
 } from "@cudoment/cudoc/document"
 import type { CompiledDocument } from "@cudoment/cudoc/markdown"
+import { frontmatterOf } from "@cudoment/cudoc/query"
 import { importedNames, importedNamesFromSource } from "@cudoment/cudoc/mdx"
+import { withoutPresentation } from "@cudoment/cudoc/present"
 
 export type CompilerCaptureOptions = {
   /**
@@ -19,6 +21,21 @@ export type CompilerCaptureOptions = {
    * are recorded this way: a link keeps the path it was written with.
    */
   aliases?: Record<string, string>
+}
+
+/**
+ * The front matter a host parsed itself and left on the file, as Docusaurus
+ * leaves `frontMatter`, when it holds anything. A collector that hands the
+ * host none, or a host that parses none, leaves the tree's own to be read.
+ */
+const hostFrontmatter = (data: Record<string, unknown>) => {
+  const given = data.frontMatter ?? data.frontmatter
+  return given &&
+    typeof given === "object" &&
+    !Array.isArray(given) &&
+    Object.keys(given).length
+    ? (given as Record<string, unknown>)
+    : undefined
 }
 
 /**
@@ -50,10 +67,15 @@ export function createCompilerCapture(options: CompilerCaptureOptions = {}) {
     return alias ? `${alias[1]}${url.slice(alias[0].length)}` : url
   }
   let current: Root | undefined
+  let written: Root["children"] = []
   let result: CompiledDocument | undefined
   const images = new Map<object, CapturedImage>()
   const remark: Plugin<[], Root> = () => (tree) => {
     current = tree
+    // Kept now: a host plugin that runs later may turn the node into
+    // something else, as Nextra turns it into a `metadata` export. It is
+    // parsed only when the host leaves no front matter of its own.
+    written = tree.children.filter((node) => node.type === "yaml")
     images.clear()
     visit(tree, "image", (node: Image) => {
       images.set(node, {
@@ -77,6 +99,9 @@ export function createCompilerCapture(options: CompilerCaptureOptions = {}) {
       visit(tree, "image", (node: Image) => {
         node.url = portable(node.url)
       })
+    // Markup cudoc added for the screen is not part of the document. Taken
+    // off first: what it wrapped is lowered with the rest.
+    withoutPresentation(tree)
     lowerNativeElements(tree)
     // A host may have hoisted the ESM out of the tree already, so the source
     // is read as well; the two agree when both are present.
@@ -93,9 +118,9 @@ export function createCompilerCapture(options: CompilerCaptureOptions = {}) {
     )
     result = {
       tree,
-      frontmatter: (file.data.frontMatter ??
-        file.data.frontmatter ??
-        {}) as Record<string, unknown>,
+      frontmatter:
+        hostFrontmatter(file.data as Record<string, unknown>) ??
+        frontmatterOf({ type: "root", children: written }),
       diagnostics: [],
       ...(imports.length ? { imports } : {}),
     }

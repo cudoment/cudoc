@@ -1,8 +1,10 @@
 # cudoc-export
 
-Add optional HTML, PDF and Word output alongside your documentation host (Next.js, Docusaurus, Nextra, VitePress or Eleventy), reusing its collected content and prepared embeds. All three read one set of design tokens, so they share one appearance. Keep the primary site and document sources unchanged. The generated directory can be deployed or shared as local files, and can also be built without another host.
+`cudoc-export` exports the documents of a Next.js, Docusaurus, Nextra, VitePress or Eleventy site, or hostless Markdown, as HTML, PDF and Word with one look.
 
-ESM · Node.js 20+
+The export reuses the host's collected content and prepared embeds and leaves the primary site and the document sources unchanged. All three formats read one set of design tokens. The generated directory can be deployed or shared as local files.
+
+ESM · Node.js 22+
 
 ```sh
 npm install @cudoment/cudoc cudoc-export
@@ -19,9 +21,13 @@ const result = buildSite({
 })
 ```
 
-The CLI equivalent is `npx cudoc-export build docs --out-dir site`. Open `site/index.html` and share the whole directory. The builder handles collection, embeds, local assets, navigation, TOC and code highlighting. Use a nonexistent output path initially; existing output must be owned by cudoc. The generated shell needs no JavaScript or CDN (unless `themeSwitch: true` adds the theme menu's script; it is a local file that makes no network request), and does not execute React components.
+The CLI equivalent is `npx cudoc-export build docs --out-dir site`. Open `site/index.html` and share the whole directory. The builder handles collection, embeds, local assets, navigation, TOC and code highlighting. Use a nonexistent output path initially; existing output must be owned by cudoc.
 
-`navigation` (a YAML file or a list) decides what the site lists and publishes, `locales` adds languages found by file suffix, and `home`, `header`, `toc`, `css`, `sourceLinks` and `mounts` shape the rest. `mode: "standalone"` writes each document as one HTML file that carries its styles and pictures, to send on its own, and `mode: "annotate"` writes pages that collect review notes, as single files or, with `annotate.target: "hosted"`, as a site with a GitHub issue form as its inbox.
+The generated shell needs no JavaScript or CDN and does not execute React components. `themeSwitch: true` adds the theme menu's script, a local file that makes no network request.
+
+`navigation` (a YAML file or a list) decides what the site lists and publishes, `locales` adds languages found by file suffix, and `home`, `header`, `toc`, `css`, `sourceLinks` and `mounts` shape the rest.
+
+`mode: "standalone"` writes each document as one HTML file that carries its styles and pictures, to send on its own. `mode: "annotate"` writes pages that collect review notes, as single files or, with `annotate.target: "hosted"`, as a site with a GitHub issue form as its inbox.
 
 To export alongside an existing site, first run that host's collector and embed preparation, then reuse its library:
 
@@ -35,6 +41,18 @@ buildSite({
   assetDirs: ["public"],
 })
 ```
+
+`library` reads the collected AST and prepared embeds without recompiling or modifying them. Recollect after edits. Keep syntax/compiler options in the collector, and use separate host and HTML output directories. Add `assetDirs` for host asset roots such as `public` or `static`; use `renderOptions.components` for explicit HTML rendering of custom component nodes.
+
+`links` chooses the hyperlink policy. The policy covers body content, embeds, raw HTML, navigation and TOC, and local images and CSS remain local under every policy:
+
+| `links`      | Hyperlinks become                                                               |
+| ------------ | ------------------------------------------------------------------------------- |
+| `"relative"` | relative paths, for local files (the default)                                   |
+| `"host"`     | the primary deployment's collected document routes; external URLs are kept      |
+| `"none"`     | plain text with labels and formatting kept; external hyperlinks are removed too |
+
+CLI equivalents are `--library`, `--links`, `--host-url` and repeatable `--asset-dir`.
 
 For PDF and Word alongside the site, call `buildExport` with the same options plus `formats` and `granularity`; the bound volume opens with a cover and a contents page, and `page` sets paper, running header and footer for both formats:
 
@@ -51,17 +69,17 @@ await buildExport({
 })
 ```
 
-The CLI equivalent is `npx cudoc-export build docs --out-dir out --format html --format pdf --format docx --granularity both`. The PDF is printed from the print-ready HTML the build always writes, by a headless Chromium the package's install script fetches; set `CUDOC_SKIP_BROWSER_DOWNLOAD=1` to skip that download and `npx cudoc-export install-browser` to fetch it later. npm 12 and later run the install script only once the project approves it with `npm install-scripts approve cudoc-export` and installs again; `npx cudoc-export install-browser` works either way.
+The CLI equivalent is `npx cudoc-export build docs --out-dir out --format html --format pdf --format docx --granularity both`. The PDF is printed from the print-ready HTML the build always writes, by a headless Chromium the package's install script fetches; set `CUDOC_SKIP_BROWSER_DOWNLOAD=1` to skip that download and `npx cudoc-export install-browser` to fetch it later.
 
-`library` reads the collected AST and prepared embeds without recompiling or modifying them. Recollect after edits. Keep syntax/compiler options in the collector, and use separate host and HTML output directories. Add `assetDirs` for host asset roots such as `public` or `static`; use `renderOptions.components` for explicit HTML rendering of custom component nodes.
+npm 12 and later run the install script only once the project approves it with `npm install-scripts approve cudoc-export` and installs again; `npx cudoc-export install-browser` works either way.
 
-Choose `links: "relative"` (default) for local files, `"host"` for the primary deployment's collected document routes, or `"none"` to remove all hyperlinks while preserving labels and formatting. The policy covers body content, embeds, raw HTML, navigation and TOC. Local images and CSS remain local; `host` keeps external URLs, while `none` removes those hyperlinks too. CLI equivalents are `--library`, `--links`, `--host-url` and repeatable `--asset-dir`.
-
-Choose `host`, `cudoc` or `both` independently for `headingAnchor`, `badge`, `tableCellList`, `callout` and `link`. The representative callout is `> [!NOTE] Title`. Authors do not register cudoc React components in the recommended setup. Syntax-only rendering needs no stored JSON; cross-document embedding requires document collection.
+Each of `headingAnchor`, `badge`, `tableCellList`, `tableCellSpan`, `tableNote`, `callout`, `link`, `codeMeta` and `tabs` takes `host`, `cudoc`, `both` or `off` independently. The representative callout is `> [!NOTE] Title`. Authors do not register any cudoc components in the recommended setup. Syntax-only rendering needs no stored JSON; cross-document embedding requires document collection.
 
 ## See the output
 
-The repository keeps finished exports of a six-document API handbook, built by [`showcase.config.mjs`](https://github.com/cudoment/cudoc/blob/main/examples/export/showcase.config.mjs) and three configurations beside it from [these Markdown sources](https://github.com/cudoment/cudoc/tree/main/examples/export/showcase), so each output can be opened before anything is installed. The [documentation site](https://cudoment.github.io/cudoc/index.html), itself exported by `cudoc-export`, serves the [site](https://cudoment.github.io/cudoc/showcase/index.html), a [standalone page](https://cudoment.github.io/cudoc/samples/standalone/getting-started.html) and a [page to review](https://cudoment.github.io/cudoc/samples/annotate/getting-started.html); the other formats are in the repository:
+The repository keeps finished exports of a six-document API handbook, so each output can be opened before anything is installed. They are built by [`showcase.config.mjs`](https://github.com/cudoment/cudoc/blob/main/examples/export/showcase.config.mjs) and three configurations beside it from [these Markdown sources](https://github.com/cudoment/cudoc/tree/main/examples/export/showcase).
+
+The [documentation site](https://cudoment.github.io/cudoc/index.html), itself exported by `cudoc-export`, serves the [site](https://cudoment.github.io/cudoc/showcase/index.html), a [standalone page](https://cudoment.github.io/cudoc/samples/standalone/getting-started.html) and a [page to review](https://cudoment.github.io/cudoc/samples/annotate/getting-started.html); the other formats are in the repository:
 
 | Format           | One document                                                                                                                           | Bound volume                                                                                                                                   |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |

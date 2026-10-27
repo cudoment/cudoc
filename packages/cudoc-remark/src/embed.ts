@@ -15,11 +15,13 @@
  * estree is parsed again here for every expression node the block contains.
  */
 
+import fs from "node:fs"
+import path from "node:path"
 import type { Root } from "mdast"
 import type { Plugin } from "unified"
 import { Parser } from "acorn"
 import jsx from "acorn-jsx"
-import type { DocumentNode } from "@cudoment/cudoc/document"
+import type { DocumentNode, Host } from "@cudoment/cudoc/document"
 // The roots module alone: a host loads its configuration, and this plugin
 // with it, in a runtime that cannot import the compiler stack behind
 // `node/library`.
@@ -29,6 +31,10 @@ import {
   type SourceRoot,
 } from "@cudoment/cudoc/node/roots"
 import { expandPreparedEmbeds } from "@cudoment/cudoc/node/prepare-embeds"
+import {
+  presentDocument,
+  type PresentationTarget,
+} from "@cudoment/cudoc/present"
 import { stripLibraryMarker } from "./loader.js"
 
 export type EmbedPluginOptions = {
@@ -113,10 +119,26 @@ export function restoreExpressions(
   visit(node)
 }
 
+/**
+ * The host the library was collected for, which is the host drawing the
+ * page: spliced content is presented the way the page's own was.
+ */
+const collectedHost = (outDir: string): Host => {
+  try {
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(outDir, "manifest.json"), "utf8"),
+    ) as { options?: { host?: Host } }
+    return manifest.options?.host ?? "markdown"
+  } catch {
+    return "markdown"
+  }
+}
+
 /** Splice prepared embeds into the current host compilation. */
 const embed: Plugin<[EmbedPluginOptions?], Root> =
   (options = {}) =>
   (tree, file) => {
+    let spliced = false
     expandPreparedEmbeds(
       tree,
       // Resolved only when a fence is met: a file outside every root is fine
@@ -140,8 +162,18 @@ const embed: Plugin<[EmbedPluginOptions?], Root> =
           source: stripLibraryMarker(String(file.value)),
         }
       },
-      (block, documentId) =>
-        restoreExpressions(block as unknown as DocumentNode, documentId),
+      (block, documentId) => {
+        spliced = true
+        restoreExpressions(block as unknown as DocumentNode, documentId)
+      },
     )
+    if (spliced)
+      presentDocument(
+        tree,
+        (file.data.cudocPresentation as PresentationTarget | undefined) ?? {
+          host: collectedHost(options.outDir ?? ".cudoc/documents"),
+          format: file.extname === ".md" ? "md" : "mdx",
+        },
+      )
   }
 export default embed

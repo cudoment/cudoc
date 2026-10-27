@@ -78,6 +78,8 @@ const vitePress: MarkdownItHost = {
   token: badgeToken,
   // VitePress resolves links in renderer rules, after its core token passes.
   resolveInlineAttributes: true,
+  // VitePress's own text_join keeps `&copy;` in text as written.
+  textReferences: true,
   compilerEnv: ({ id, filePath }) => ({
     path: filePath,
     relativePath: `${id}.md`,

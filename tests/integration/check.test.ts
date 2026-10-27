@@ -20,6 +20,7 @@ import type { Library } from "@cudoment/cudoc/node/library"
 import type { DocumentNode } from "@cudoment/cudoc/document"
 import { checkReferences } from "@cudoment/cudoc/node/check"
 import type {
+  CheckOptions,
   CheckResult,
   ReferenceIssueCode,
 } from "@cudoment/cudoc/node/check"
@@ -43,14 +44,41 @@ const TARGET = [
   "",
 ].join("\n")
 
+/** A 1×1 PNG header, which every host's image reader accepts. */
+const PNG = (() => {
+  const bytes = Buffer.alloc(33)
+  bytes.write("\x89PNG\r\n\x1a\n", 0, "latin1")
+  bytes.writeUInt32BE(13, 8)
+  bytes.write("IHDR", 12, "latin1")
+  bytes.writeUInt32BE(1, 16)
+  bytes.writeUInt32BE(1, 20)
+  return bytes
+})()
+
 type Case = {
   /** The diagnostic this document is written to produce. */
   code: ReferenceIssueCode
   markdown: string
   severity?: "error" | "warning"
+  /** Files beside `reference.md` and `subject.md`, by name under the root. */
+  files?: Record<string, string | Buffer>
+  /** Checker options the diagnostic needs. */
+  options?: CheckOptions
+  /** Library paths collection marks private. */
+  private?: string[]
+  /** The document reported, when it is not `subject`. */
+  documentId?: string
+  /** The diagnostic names a whole document or a file, so it has no place. */
+  unplaced?: true
   /** Extra assertions beyond the code appearing exactly once. */
   also?: (result: CheckResult) => void
 }
+
+/** Two languages told apart by a file suffix, as `guide.ko.md`. */
+const TRANSLATIONS: CheckOptions["translations"] = [
+  { code: "en" },
+  { code: "ko", suffix: ".ko" },
+]
 
 const CASES: Case[] = [
   {
@@ -59,11 +87,17 @@ const CASES: Case[] = [
     also: (result) => {
       // Real anchor names rather than a guess, so an author can see the fix.
       expect(result.issues[0]!.available).toContain("limits")
+      // As the source spells it, whatever form the host stored the link in,
+      // so an editor's quick fix finds it.
+      expect(result.issues[0]!.reference).toBe("reference.md#limit")
     },
   },
   {
     code: "missing-document",
     markdown: "# A (#a)\n\n[gone](nowhere.md)\n",
+    also: (result) => {
+      expect(result.issues[0]!.reference).toBe("nowhere.md")
+    },
   },
   {
     code: "missing-asset",
@@ -152,6 +186,117 @@ const CASES: Case[] = [
       expect(result.issues[0]!.message).toContain("subject#* -> subject#*")
     },
   },
+  {
+    code: "table-column-count",
+    markdown: "# A (#a)\n\n| a | b |\n| - | - |\n| 1 | 2 | 3 |\n",
+    also: (result) => {
+      expect(result.issues[0]!.position?.start).toEqual({ line: 5, column: 1 })
+    },
+  },
+  {
+    code: "table-unclosed-code",
+    markdown: "# A (#a)\n\n| a | b |\n| - | - |\n| `x | y |\n",
+    also: (result) => {
+      expect(result.issues[0]!.position?.start).toEqual({ line: 5, column: 3 })
+    },
+  },
+  {
+    code: "path-case-mismatch",
+    markdown: "# A (#a)\n\n[limits](Reference.md#limits)\n",
+    also: (result) => {
+      expect(result.issues[0]!.suggestions).toEqual(["reference.md#limits"])
+    },
+  },
+  {
+    code: "missing-translation",
+    severity: "warning",
+    markdown: "# A (#a)\n",
+    files: { "reference.ko.md": TARGET },
+    options: { translations: TRANSLATIONS },
+    also: (result) => {
+      expect(result.issues[0]!.reference).toBe("subject.ko")
+    },
+  },
+  {
+    code: "translation-anchor-mismatch",
+    severity: "warning",
+    markdown: "# A (#a)\n",
+    files: {
+      "reference.ko.md": TARGET,
+      // A generated anchor differs between languages by nature.
+      "subject.ko.md": "# 가 (#a)\n\n## 나 (#b)\n\n## 다른 제목\n",
+    },
+    options: { translations: TRANSLATIONS },
+    also: (result) => {
+      expect(result.issues[0]!.message).toContain("#b")
+      expect(result.issues[0]!.message).not.toContain("제목")
+    },
+  },
+  {
+    code: "translation-visibility",
+    severity: "warning",
+    markdown: "# A (#a)\n",
+    files: { "reference.ko.md": TARGET, "subject.ko.md": "# 가 (#a)\n" },
+    private: ["subject.ko.md"],
+    options: { translations: TRANSLATIONS },
+  },
+  {
+    code: "invalid-anchor-format",
+    severity: "warning",
+    // Every host's slugger keeps this id as written, so the pattern sees it;
+    // the generated `step-3` is no anchor the author chose.
+    markdown: "# A (#a)\n\n## Step (#step-2)\n\n## Step 3\n",
+    options: { anchorPattern: "[a-z]+(?:-[a-z]+)*" },
+  },
+  {
+    code: "missing-title",
+    severity: "warning",
+    markdown: "Introduction.\n\n[limits](reference.md#limits)\n",
+    options: { requireTitle: true },
+  },
+  {
+    code: "empty-alt",
+    severity: "warning",
+    markdown: "# A (#a)\n\n![](./picture.png)\n",
+    files: { "picture.png": PNG },
+    options: { requireAlt: true },
+  },
+  {
+    code: "undefined-variable",
+    markdown: "# A (#a)\n\nVersion (=sdk.versoin).\n",
+    also: (result) => {
+      expect(result.issues[0]!.suggestions).toEqual(["(=sdk.version)"])
+    },
+  },
+  {
+    code: "undefined-link-reference",
+    severity: "warning",
+    markdown: "# A (#a)\n\nThe [rules][retry-rule].\n",
+    also: (result) => {
+      expect(result.issues[0]!.suggestions).toEqual(["[retry-rules]"])
+    },
+  },
+  {
+    code: "unmatched-table-note",
+    severity: "warning",
+    markdown:
+      "# A (#a)\n\n| Field | Required |\n| ----- | -------- |\n| title | X\\*      |\n",
+    also: (result) => {
+      expect(result.issues[0]!.reference).toBe("X*")
+    },
+  },
+  {
+    code: "unused-asset",
+    severity: "warning",
+    markdown: "# A (#a)\n\n![Used](./used.png)\n",
+    files: { "used.png": PNG, "unused.png": PNG },
+    options: { unusedAssets: ["docs/*.png"] },
+    documentId: "",
+    unplaced: true,
+    also: (result) => {
+      expect(result.issues[0]!.sourcePath).toBe("docs/unused.png")
+    },
+  },
 ]
 
 /**
@@ -208,9 +353,14 @@ for (const host of HOST_CASES) {
     let rewrittenComponent: Attempt
     let rewrittenCycle: Attempt
     let tree: Attempt
+    let referenced: Attempt
+    let laidOut: Attempt
 
     let scenario = 0
-    const collect = async (files: Record<string, string>) => {
+    const collect = async (
+      files: Record<string, string | Buffer>,
+      setup: Pick<Case, "options" | "private"> = {},
+    ) => {
       // Each scenario gets fresh directories. The library path must not exist
       // yet: collection refuses to publish over a directory it does not own.
       const id = `case-${++scenario}`
@@ -232,8 +382,16 @@ for (const host of HOST_CASES) {
         async compiler(text, context) {
           return compile(text, context)
         },
+        ...(setup.private ? { private: setup.private } : {}),
       })
-      return { result: checkReferences(library), library }
+      // Patterns for unreferenced files are read from the working directory.
+      const cwd = process.cwd()
+      process.chdir(path.join(workspace, id))
+      try {
+        return { result: checkReferences(library, setup.options), library }
+      } finally {
+        process.chdir(cwd)
+      }
     }
 
     /**
@@ -244,9 +402,12 @@ for (const host of HOST_CASES) {
      * report never compiles there at all. Refusing early is a legitimate
      * answer, and the assertion below accepts either.
      */
-    const attempt = async (files: Record<string, string>) => {
+    const attempt = async (
+      files: Record<string, string | Buffer>,
+      setup?: Pick<Case, "options" | "private">,
+    ) => {
       try {
-        return await collect(files)
+        return await collect(files, setup)
       } catch (error) {
         return { rejected: (error as Error).message }
       }
@@ -259,10 +420,14 @@ for (const host of HOST_CASES) {
       for (const entry of CASES)
         results.set(
           entry.code,
-          await attempt({
-            "reference.md": TARGET,
-            "subject.md": entry.markdown,
-          }),
+          await attempt(
+            {
+              "reference.md": TARGET,
+              "subject.md": entry.markdown,
+              ...entry.files,
+            },
+            entry,
+          ),
         )
       for (const entry of PLACED)
         placed.set(
@@ -309,9 +474,85 @@ for (const host of HOST_CASES) {
         "subject.md":
           "# A (#a)\n\n```cudoc-embed\nsources: [/ghost/, reference.md#nosuch, reference]\nrender: { type: tree }\n```\n",
       })
+      referenced = await attempt(
+        {
+          "reference.md": TARGET,
+          "subject.md":
+            "# A (#a)\n\n![][logo] and [the guide][guide] and [the limits][limits].\n\n[logo]: ./picture.png\n[guide]: ./nosuch.md\n[limits]: reference.md#nosuch\n",
+          "picture.png": PNG,
+        },
+        { options: { requireAlt: true } },
+      )
+      // The fixture options lay out `Prerequisites` under `Requirements`.
+      laidOut = await attempt({
+        "subject.md":
+          "# A (#a)\n\n##### Requirements (#requirements)\n\n| Method | >>  | Prerequisites                                                      |\n| ------ | --- | ------------------------------------------------------------------ |\n| GET    | v1  | - Account<br>- Verified email<br>- Access token<br>- Registered scope |\n| ^^     | v2  | Token†                                                             |\n",
+      })
     }, 120_000)
 
     afterAll(() => fs.rmSync(workspace, { recursive: true, force: true }))
+
+    it("checks a reference-style link and image through their definitions", () => {
+      // remark hosts store the references and markdown-it hosts the links
+      // and images they resolved to; either way each is checked once, at the
+      // definition that spells its address.
+      expect(referenced).not.toHaveProperty("rejected")
+      const { result } = referenced as { result: CheckResult }
+      expect(
+        result.issues.map((issue) => [
+          issue.code,
+          issue.reference,
+          issue.position?.start.line,
+        ]),
+      ).toEqual([
+        ["empty-alt", "./picture.png", 5],
+        ["missing-document", "./nosuch.md", 6],
+        ["missing-anchor", "reference.md#nosuch", 7],
+      ])
+    })
+
+    it("merges and checks the notes of a table a layout rule rebuilds", () => {
+      expect(laidOut).not.toHaveProperty("rejected")
+      const { result, library } = laidOut as {
+        result: CheckResult
+        library: Library
+      }
+      const walk = (node: DocumentNode): DocumentNode[] => [
+        node,
+        ...(node.children ?? []).flatMap(walk),
+      ]
+      const tree = library.documents.find((doc) => doc.id === "subject")!.tree
+      const nodes = walk(tree as unknown as DocumentNode)
+      // Rebuilt as elements: the header's Method spans the merged column,
+      // and Prerequisites the two it is split into.
+      expect(nodes.some((node) => node.type === "table")).toBe(false)
+      expect(
+        nodes
+          .filter((node) => node.data?.hName === "th")
+          .map((node) => [
+            walk(node)
+              .map((child) => child.value ?? "")
+              .join(""),
+            node.data?.hProperties?.colSpan,
+          ]),
+      ).toEqual([
+        ["Method", "2"],
+        ["Prerequisites", "2"],
+      ])
+      const words = nodes
+        .filter((node) => node.type === "text")
+        .map((node) => node.value!.trim())
+      expect(words).toContain("Method")
+      expect(words).not.toContain(">>")
+      expect(words).not.toContain("^^")
+      expect(
+        result.issues.map((issue) => [
+          issue.code,
+          issue.reference,
+          issue.position?.start.line,
+        ]),
+      ).toEqual([["unmatched-table-note", "Token†", 8]])
+    })
 
     it("reports nothing for a document whose references all resolve", () => {
       expect(clean.issues).toEqual([])
@@ -337,9 +578,10 @@ for (const host of HOST_CASES) {
           `got ${JSON.stringify(result.issues.map((i) => i.code))}`,
         ).toHaveLength(1)
         expect(matching[0]!.severity).toBe(entry.severity ?? "error")
-        expect(matching[0]!.documentId).toBe("subject")
+        expect(matching[0]!.documentId).toBe(entry.documentId ?? "subject")
         // A coordinate recovered from the source, not a stale stored position.
-        expect(matching[0]!.position?.start.line).toBeGreaterThan(0)
+        if (entry.unplaced) expect(matching[0]!.position).toBeUndefined()
+        else expect(matching[0]!.position?.start.line).toBeGreaterThan(0)
         entry.also?.({ ...result, issues: matching })
       })
 
@@ -486,6 +728,19 @@ describe("diagnostic coverage", () => {
       "imported-embed-component": true,
       "cyclic-embed": true,
       "unmatched-tree-order": true,
+      "table-column-count": true,
+      "table-unclosed-code": true,
+      "path-case-mismatch": true,
+      "missing-translation": true,
+      "translation-anchor-mismatch": true,
+      "translation-visibility": true,
+      "invalid-anchor-format": true,
+      "missing-title": true,
+      "empty-alt": true,
+      "unused-asset": true,
+      "undefined-variable": true,
+      "undefined-link-reference": true,
+      "unmatched-table-note": true,
     } satisfies Record<ReferenceIssueCode, true>)
 
     // Three are asserted separately, because whether they can occur at all

@@ -262,6 +262,26 @@ main,
 details {
   max-inline-size: none;
 }
+.cudoc-table-note {
+  break-before: avoid;
+}
+.cudoc-tabs {
+  display: block;
+}
+.cudoc-tab-input {
+  display: none;
+}
+.cudoc-tab-label {
+  display: block;
+  padding: var(--space-2) var(--space-4) 0;
+  break-after: avoid;
+  color: var(--ink);
+  font-weight: 600;
+}
+.cudoc-tabs .cudoc-tab {
+  display: block;
+  border-top: 0;
+}
 p,
 li,
 blockquote,

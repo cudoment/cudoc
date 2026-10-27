@@ -3,3 +3,5 @@
 content/showcase.mdx
 content/portable.md
 content/reference.md
+out/
+.next.before-demo/

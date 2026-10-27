@@ -1,5 +1,8 @@
 # Checks that have to run alone
 
+Five tests run outside vitest: two rewrite a shared fixture, one packs every
+package, one follows the host guides and one rebuilds the export samples.
+
 Every other check in this repository is a vitest suite: `packages/*/__tests__`
 for the packages' own contracts, `tests/integration` for the example compilers
 and `tests/built` for the built sites. `npm test` runs all three.
@@ -31,9 +34,23 @@ count and the contents page numbers written into the volume's print HTML follow
 the fonts installed on that machine.
 
 Run them from anywhere; each resolves the repository root from its own location.
+
 `guide-consumers.mjs` takes host names to follow only those guides, and keeps
 the sites it built in the temporary directory it prints when
-`CUDOC_KEEP_GUIDE_SITES=1` is set.
+`CUDOC_KEEP_GUIDE_SITES=1` is set. On Next.js 16 it adds `--webpack` to the
+Nextra site's commands, as that guide tells its reader to.
+
+With `--latest` it installs the host packages unpinned instead, as npm resolves
+them for a new project that day, and follows every guide it was given even
+when one fails. It prints the releases each site resolved, and reports an
+advisory the example does not have without failing on it. With `--latest`,
+`name@version` arguments pin a release, a host package or one deeper in the
+tree.
+
+CI runs the locked form on every change; a maintainer runs the `--latest`
+form by hand, and the support table's fresh-install column records its last
+result, with the
+pinned runs that build where a fresh install does not.
 
 ```sh
 npm run test:scripts   # all five, in sequence

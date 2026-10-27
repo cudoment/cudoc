@@ -6,7 +6,11 @@ import { fromHtml } from "hast-util-from-html"
 import { capturedImage, type DocumentNode } from "./document.js"
 
 export type RenderOptions = {
-  highlight?: (code: string, language?: string) => string
+  /**
+   * HTML for a code block. The block itself comes third, for what its meta
+   * gave normalization, such as the lines `data.cudoc.lines` highlights.
+   */
+  highlight?: (code: string, language?: string, node?: DocumentNode) => string
   /** Explicit renderer for authored custom components. The callback returns HTML. */
   components?: Record<string, (node: DocumentNode) => string>
 }
@@ -23,6 +27,7 @@ export function documentToHast(
               const html = options.highlight!(
                 node.value,
                 node.lang ?? undefined,
+                node as unknown as DocumentNode,
               )
               if (html) return { type: "raw" as const, value: html }
               return {

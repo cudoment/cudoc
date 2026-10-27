@@ -148,3 +148,48 @@ describe("through @mdx-js/mdx", () => {
     expect(withPlugin).toBe(withoutPlugin)
   })
 })
+
+describe("tabs through @mdx-js/mdx", () => {
+  const SOURCE =
+    '```swift tab="Swift" group=sdk\nlet a = 1\n```\n\n```swift tab="RxSwift"\nlet b = 2\n```\n'
+
+  it("draws radio tabs React leaves uncontrolled", async () => {
+    const output = await compileMdx(SOURCE, { syntax: {}, host: "next" })
+    expect(output).toContain(
+      '<_components.input type="radio" name="cudoc-tabs-1" id="cudoc-tabs-1-0" className="cudoc-tab-input cudoc-tab-default" />',
+    )
+    expect(output).toContain(
+      '<_components.label htmlFor="cudoc-tabs-1-0" className="cudoc-tab-label">',
+    )
+    expect(output).not.toMatch(/checked/i)
+  })
+
+  it("hands the docs host's components their props", async () => {
+    const output = await compileMdx(
+      '<Tabs>\n  <TabsContent id="sdk" label="Swift" default>\n\n```swift\nx\n```\n\n  </TabsContent>\n  <TabsContent id="rx" label="RxSwift">y</TabsContent>\n</Tabs>\n',
+      { syntax: { tabs: "both" }, host: "docs" },
+    )
+    expect(output).toContain("{Tabs, TabsContent} = _components")
+    expect(output).toContain('<TabsContent id="sdk" label="Swift" default>')
+    expect(output).toContain('<TabsContent id="rx" label="RxSwift">')
+  })
+
+  it("draws the docs host's table notes with its own Footnote", async () => {
+    const output = await compileMdx(
+      "| Field | Kind |\n| --- | --- |\n| app_id | `Integer` |\n\n<Footnote>\\* `appId`: Deprecated</Footnote>\n<Footnote>\\* `expiresInMillis`: Deprecated</Footnote>\n",
+      { host: "docs" },
+    )
+    expect(output).toContain("Footnote} = _components")
+    expect(output.match(/<Footnote>/g)).toHaveLength(2)
+    expect(output).toContain('className="cudoc-table-note"')
+  })
+
+  it("rejects components a page could not name", () => {
+    expect(() =>
+      cudocPrepare.call(
+        { use() {} } as never,
+        { tabElements: { tabs: "Tabs" } } as never,
+      ),
+    ).toThrow("tabElements")
+  })
+})

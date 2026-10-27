@@ -103,6 +103,20 @@ export const normalizeInlineEmphasis = (
   return result
 }
 
+/**
+ * The phrasing nodes of the paragraph `content` starts with, parsed as a
+ * document is, or undefined when it starts with no paragraph.
+ */
+export const parseParagraph = (
+  content: string,
+  format: "md" | "mdx" = "mdx",
+): PhrasingContent[] | undefined => {
+  const processor = format === "md" ? markdownProcessor : inlineProcessor
+  const first = (processor.runSync(processor.parse(content)) as Root)
+    .children[0]
+  return first?.type === "paragraph" ? first.children : undefined
+}
+
 /** Re-parses inline markdown inside a cell back into phrasing nodes. */
 export const parseInlineContent = (
   content: string,

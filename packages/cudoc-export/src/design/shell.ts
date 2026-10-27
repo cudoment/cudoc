@@ -79,7 +79,7 @@ const tocList = (toc: ShellToc): string =>
   `<ul>${toc
     .map(
       (entry) =>
-        `<li data-depth="${entry.depth}"><a href="#${escapeHtml(entry.id)}">${escapeHtml(entry.text)}</a></li>`,
+        `<li data-depth="${entry.depth}"><a data-cudoc-final href="#${escapeHtml(entry.id)}">${escapeHtml(entry.text)}</a></li>`,
     )
     .join("")}</ul>`
 

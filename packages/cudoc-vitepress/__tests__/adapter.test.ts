@@ -75,6 +75,16 @@ it("captures native link destinations inside and outside extended table cells", 
   expect(JSON.stringify(env.cudoc)).not.toContain('"kind":"callout"')
   expect(html).toContain("custom-block warning")
   expect(html).toContain('class="cudoc-badge">1.0</span>')
+
+  // A heading records the badge it shows, as it does a `(@…)` badge.
+  const { tree } = createDocumentCompiler(asMarkdownIt(md))(
+    '## Guide <Badge type="tip" text="1.0" />\n',
+    { id: "guide", filePath: "guide.md", options: {} },
+  )
+  expect(
+    (tree.children[0]?.data as { cudoc?: { badge?: string } } | undefined)
+      ?.cudoc?.badge,
+  ).toBe("1.0")
 })
 
 describe("what VitePress renders itself", () => {
@@ -174,6 +184,113 @@ describe("what VitePress renders itself", () => {
       "# Guide\n\n![The **logo** `v2`](/logo.png)\n",
     )
     expect(html).toMatch(/<img src="[^"]*logo\.png" alt="The logo v2">/)
+  })
+
+  it("resolves a link or image address a variable gives as one written out", async () => {
+    // VitePress rewrites an address when it renders the link: `reference.md`
+    // becomes `./reference.html`, and a marker it saw would become a path.
+    const reported: string[] = []
+    const { html, env } = await render(
+      "# Guide\n\n[Go]((=target)) [Out]((=site)) [Once]((=nested)) [Sale]((=sale)) [Written](100%.md) [Bad]((=bad)) [Split](<(=open)rest)>) [Paren](<(=paren)=rest)>) [Eq](<((=eq)>) [Path]((=path)) [Query]((=query)) [Lead]((=lead)) [Encoded]((=encoded)) [Unknown]((=missing))\n\n![Chart]((=chart)) ![Shot]((=encoded)) ![Pic *x* [in]((=nested))]((=bad))\n\n| Name | List |\n| --- | --- |\n| a | - [Cell]((=target))<br>- two |\n",
+      {
+        variables: {
+          target: "reference.md#limits",
+          site: "https://example.com/guide",
+          chart: "https://cdn.example.com/chart.png",
+          nested: "(=target)",
+          sale: "100%.md",
+          bad: "javascript:alert(1)",
+          open: "(=",
+          paren: "(",
+          eq: "=rest)",
+          rest: "https://example.com/twice",
+          path: "(=x)/guide.md",
+          query: "https://example.com/search?q=(=x)",
+          lead: "=docs/guide.md",
+          encoded: "docs/%28=x).md",
+          x: "TWICE",
+        },
+        onDiagnostic: (diagnostic, id) =>
+          reported.push(`${id}:${diagnostic.code}:${diagnostic.message}`),
+      },
+    )
+    expect(html.match(/href="\.\/reference\.html#limits"/g)).toHaveLength(2)
+    // A `%` is escaped as in an address written out, which VitePress decodes.
+    expect(html.match(/href="\.\/100%\.html"/g)).toHaveLength(2)
+    expect(html).toContain('href="https://example.com/guide"')
+    expect(html).toContain('src="https://cdn.example.com/chart.png"')
+    // Every value is replaced before VitePress reads the address, whatever
+    // it holds: a path keeps its `.md` turned into `.html`, a URL stays one.
+    expect(html).toContain('href="./(=x)/guide.html">Path<')
+    expect(html).toContain('href="https://example.com/search?q=(=x)"')
+    expect(html).toContain('href="./=docs/guide.html">Lead<')
+    // A value holding a marker is replaced once, as everywhere else, and so
+    // is one that makes a marker with the text around it, or one VitePress
+    // decodes into a marker.
+    expect(html).toContain('href="./(=target).html">Once<')
+    expect(html.match(/href="\.\/\(=rest\)\.html"/g)).toHaveLength(3)
+    expect(html).toContain('href="./docs/(=x).html">Encoded<')
+    expect(html).toContain('src="./docs/(=x).md" alt="Shot"')
+    expect(html).not.toMatch(/example\.com\/twice|TWICE/)
+    expect(html).not.toMatch(/reference\.md\.html|\.\/https:/)
+    // An address markdown-it refuses makes no link, as a written one does
+    // not: the link keeps its text and the image its alternative text.
+    expect(html).not.toContain("javascript:")
+    expect(html).toContain("</a> Bad <a")
+    expect(html).toContain(
+      'alt="Shot"> Pic <em>x</em> <a href="./(=target).html">in</a></p>',
+    )
+    // A marker naming nothing is reported once and left as written.
+    expect(html).toContain('href="./(=missing).html">Unknown<')
+    expect(reported).toEqual([
+      expect.stringMatching(/^guide:UNDEFINED_VARIABLE:\(=missing\) /),
+    ])
+    expect(JSON.stringify(env.cudoc)).not.toContain("cudocWrittenAddress")
+    // VitePress checks the links it rendered for dead ones.
+    expect(env.links).toContain("./reference.html#limits")
+    expect(env.links).toContain("./(=x)/guide")
+    expect(JSON.stringify(env.links)).not.toMatch(/javascript|TWICE|"\.\/"/)
+  })
+
+  it("checks a table its container closes as VitePress renders it", async () => {
+    const { md } = await render("")
+    const page =
+      "# Guide\n\n::: tip\n| a | b |\n| - | - |\n| 1 | 2 |\n:::\n\n- item\n\n  ::: warning\n  | a | b | c |\n  | - | - |\n  :::\n"
+    // VitePress ends the table before the container's `:::`, and makes none
+    // of a header with three cells over a delimiter row with two.
+    expect(
+      md
+        .parse(page, {})
+        .filter((token) => token.type === "table_open")
+        .map((token) => token.map),
+    ).toEqual([[3, 6]])
+    const fs = await import("node:fs")
+    const os = await import("node:os")
+    const path = await import("node:path")
+    const { buildDocuments } = await import("@cudoment/cudoc/node/library")
+    const { checkReferences } = await import("@cudoment/cudoc/node/check")
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "cudoc-vp-"))
+    try {
+      fs.mkdirSync(path.join(root, "docs"))
+      fs.writeFileSync(path.join(root, "docs", "guide.md"), page)
+      const library = buildDocuments({
+        sourceRoot: path.join(root, "docs"),
+        outDir: path.join(root, "library"),
+        host: "vitepress",
+        compiler: createDocumentCompiler(asMarkdownIt(md)),
+        compilerId: "vitepress-test",
+      })
+      expect(
+        checkReferences(library)
+          .issues.filter((issue) => issue.code.startsWith("table-"))
+          .map(
+            (issue) =>
+              `${issue.code} ${issue.position?.start.line}:${issue.position?.start.column}`,
+          ),
+      ).toEqual(["table-column-count 12:3"])
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
   })
 
   it("does not read {#id} inside a code span as an explicit id", async () => {

@@ -4,7 +4,10 @@ import { unified } from "unified"
 import remarkParse from "remark-parse"
 import remarkMdx from "remark-mdx"
 import remarkGfm from "remark-gfm"
+import remarkFrontmatter from "remark-frontmatter"
 import type { Root } from "mdast"
+import { compileDocument } from "@cudoment/cudoc/markdown"
+import { presentDocument } from "@cudoment/cudoc/present"
 import exportAst, {
   buildExportedAst,
   getOutputPath,
@@ -82,6 +85,16 @@ describe("projection", () => {
     expect(exported.type).toBe("root")
   })
 
+  it("leaves front matter out, which a stored document keeps beside its tree", () => {
+    const tree = unified()
+      .use(remarkParse)
+      .use(remarkFrontmatter)
+      .parse("---\ntitle: Guide\n---\n\n# Guide\n") as Root
+    const exported = buildExportedAst(tree, resolveExportAstOptions())
+    const children = exported.children as { type: string }[]
+    expect(children.map((node) => node.type)).toEqual(["heading"])
+  })
+
   it("writes the version into the root data", () => {
     const exported = buildExportedAst(
       parse("# Title\n"),
@@ -100,6 +113,34 @@ describe("projection", () => {
     )
 
     expect(exported.data).toEqual({ documentAstVersion: 2 })
+  })
+
+  it("takes off what a page drew on screen, leaving the semantics", () => {
+    const { tree } = compileDocument(
+      '```js title="a.js" {2}\nx\ny\n```\n\n```sh tab="npm"\nnpm i\n```\n',
+      { format: "md" },
+    )
+    presentDocument(tree, { host: "next" })
+    const exported = JSON.stringify(
+      buildExportedAst(tree, resolveExportAstOptions()),
+    )
+    expect(exported).not.toContain('"presentation":true')
+    expect(exported).not.toContain("cudocMeta")
+    expect(exported).toContain('"meta":"title=\\"a.js\\" {2}"')
+    expect(exported).toContain('"kind":"tabs"')
+    // A property the caller strips stays stripped.
+    const { tree: again } = compileDocument('```js title="a.js"\nx\n```\n', {
+      format: "md",
+    })
+    presentDocument(again, { host: "next" })
+    expect(
+      JSON.stringify(
+        buildExportedAst(
+          again,
+          resolveExportAstOptions({ strip: ["position", "meta"] }),
+        ),
+      ),
+    ).not.toContain('"meta"')
   })
 
   it("keeps a property that is not stripped", () => {

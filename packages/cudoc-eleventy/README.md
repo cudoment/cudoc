@@ -1,8 +1,12 @@
 # cudoc-eleventy
 
-Connect cudoc to Eleventy as its markdown-it library, set with `eleventyConfig.setLibrary("md", …)` rather than `addPlugin`, while retaining native heading IDs and TOC behavior.
+cudoc for Eleventy lets you reuse a section of one page in another; check links, anchors and embeds; and write merged cells, tabs and variables in Markdown.
 
-ESM · Node.js 20+
+The reused section stays in step with its source, and `cudoc check` checks every link between the documents, every anchor and every embed. Merged table cells, lists inside cells, tabs and variables are plain Markdown. The adapter is Eleventy's markdown-it library, set with `eleventyConfig.setLibrary("md", …)` rather than `addPlugin`, and keeps the heading IDs and permalinks your markdown-it plugins give. The same documents export to HTML, PDF and Word with `cudoc-export`.
+
+An embed is not a template include: it takes one section of a real page by its heading and puts that section's own text into the page at build time. → [Why not a shared component?](https://github.com/cudoment/cudoc#cant-i-just-import-a-shared-component)
+
+ESM · Node.js 22+
 
 ```sh
 npm install @cudoment/cudoc cudoc-eleventy markdown-it-attrs markdown-it-anchor
@@ -26,10 +30,17 @@ export default function (eleventyConfig) {
 }
 ```
 
-Copy `@cudoment/cudoc/styles.css` into the output and link it from the layout. Eleventy accepts `.md`, not React `.mdx`. `createDocumentCompiler(md)` reuses the configured renderer for collection and replacements. Embedding requires a collected library and prepared data. Set `markdownTemplateEngine: false` so markdown-it receives the file's own text, and insert heading permalinks inside the heading rather than wrapping it. This adapter shares `cudoc-markdown-it` with `cudoc-vitepress` and does not use `cudoc-remark`.
+Copy `@cudoment/cudoc/styles.css` into the output and link it from the layout. Eleventy accepts `.md`, not React `.mdx`. Set `markdownTemplateEngine: false` so markdown-it receives the file's own text, and insert heading permalinks inside the heading rather than wrapping it.
 
-Choose `host`, `cudoc` or `both` independently for `headingAnchor`, `badge`, `tableCellList`, `callout` and `link`. The representative callout is `> [!NOTE] Title`. Authors do not register cudoc React components in the recommended setup. Syntax-only rendering needs no stored JSON; cross-document embedding requires document collection.
+`createDocumentCompiler(md)` reuses the configured renderer for collection and replacements. Embedding requires a collected library and prepared data.
 
+This adapter shares `cudoc-markdown-it` with `cudoc-vitepress` and does not use `cudoc-remark`.
+
+Each of `headingAnchor`, `badge`, `tableCellList`, `tableCellSpan`, `tableNote`, `callout`, `link`, `codeMeta` and `tabs` takes `host`, `cudoc`, `both` or `off` independently. The representative callout is `> [!NOTE] Title`. Authors do not register any cudoc components in the recommended setup. Syntax-only rendering needs no stored JSON; cross-document embedding requires document collection.
+
+Tested with Eleventy 3.1.7 and markdown-it 14; markdown-it 15 is not supported yet. → [Supported versions](https://github.com/cudoment/cudoc/tree/main/docs/README.md#supported-versions)
+
+- [Demo](https://cudoment.github.io/cudoc/demos/eleventy/portable/): the shared example documents as Eleventy 3.1.7 renders them
 - [Usage guide](https://github.com/cudoment/cudoc/tree/main/docs/eleventy.md) · [한국어 가이드](https://github.com/cudoment/cudoc/tree/main/docs/eleventy.ko.md)
 - [Markdown syntax](https://github.com/cudoment/cudoc/tree/main/docs/syntax.md)
 - [Embedding](https://github.com/cudoment/cudoc/tree/main/docs/embedding.md)

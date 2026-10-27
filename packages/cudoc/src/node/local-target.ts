@@ -7,10 +7,9 @@
  */
 
 import fs from "node:fs"
-import path from "node:path"
-import { safePath } from "./storage.js"
-import { candidateFiles, type ResolvedRoot } from "./roots.js"
-import { EXTERNAL_URL, decodeComponent } from "./references.js"
+import type { ResolvedRoot } from "./roots.js"
+import { EXTERNAL_URL } from "./references.js"
+import { localCandidates } from "./local-candidates.js"
 
 export type LocalTargetRoots = {
   /**
@@ -38,15 +37,6 @@ export type LocalTarget =
   | { kind: "external"; url: string }
   | { kind: "resolved"; relative: string; source: string; suffix: string }
   | { kind: "missing"; relative: string; suffix: string }
-
-/** `safePath`, but a path escaping its root is a non-match rather than a throw. */
-const containedPath = (root: string, relative: string) => {
-  try {
-    return safePath(root, relative)
-  } catch {
-    return undefined
-  }
-}
 
 /** A fragment, a scheme or a protocol-relative URL: nothing on this disk. */
 export const externalUrl = (url: string): boolean =>
@@ -77,9 +67,9 @@ export function isExternalPath(
  * A fragment, scheme or protocol-relative URL is external and left alone, and
  * so is a root-relative one under an external prefix. A document-relative
  * path resolves against the library path of its document, and a root-relative
- * one against the library itself; both then reach disk through the roots. A
- * root-relative path is also tried against each asset directory, after the
- * deployment base is removed. A path that escapes every root is reported as
+ * one against the library itself; both then reach disk through the roots,
+ * and are also tried at that library path under each asset directory, after
+ * the deployment base is removed. A path that escapes every root is reported as
  * missing rather than resolved, so the caller names the link and its document
  * instead of a traversal that means nothing to an author.
  */
@@ -90,27 +80,12 @@ export function resolveLocalTarget(
 ): LocalTarget {
   if (externalUrl(url) || isExternalPath(url, roots.externalPaths))
     return { kind: "external", url }
-  const [, pathname, suffix] = url.match(/^([^?#]*)(.*)$/)!
-  const decoded = decodeComponent(pathname)
-  const relative = path.posix.normalize(
-    decoded.startsWith("/")
-      ? decoded.slice(1)
-      : path.posix.join(path.posix.dirname(documentSourcePath), decoded),
+  const [, , suffix = ""] = url.match(/^([^?#]*)(.*)$/)!
+  const { relative, candidates } = localCandidates(
+    url,
+    documentSourcePath,
+    roots,
   )
-  const withoutBase = roots.withoutBase ?? ((value: string) => value)
-  const rootPath = withoutBase(
-    decoded.startsWith("/") ? decoded : `/${relative}`,
-  ).replace(/^\//, "")
-  const candidates = [
-    ...candidateFiles(roots.roots, relative).map((source) => ({
-      relative,
-      source,
-    })),
-    ...(roots.assetDirs ?? []).flatMap((root) => {
-      const source = containedPath(root, rootPath)
-      return source ? [{ relative: rootPath, source }] : []
-    }),
-  ]
   for (const candidate of candidates) {
     if (
       !fs.existsSync(candidate.source) ||

@@ -1,10 +1,11 @@
 /**
  * Intrinsic pixel dimensions for the four raster formats Word accepts.
  *
- * `docx` needs a size in pixels and will not read one from the file, and the
+ * `docx` needs a size in pixels and will not read one from the file, and a
+ * site sizes an image before it loads to keep the page from shifting. The
  * four headers are trivial to parse, so this stays in the repository rather
- * than pulling in a dependency for sixty lines of byte reading. Detection is by
- * magic bytes, never by extension.
+ * than pulling in a dependency for sixty lines of byte reading. Detection is
+ * by magic bytes, never by extension.
  */
 
 export type ImageInfo = {

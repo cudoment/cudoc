@@ -29,6 +29,9 @@ export const SYNTAX: DocumentOptions["syntax"] = {
   callout: "both",
   tableCellList: "cudoc",
   link: "both",
+  tableCellSpan: "cudoc",
+  tableNote: "cudoc",
+  tabs: "both",
 }
 export const CALLOUT_TYPES = ["success"]
 export const COLUMN_LAYOUT = [
@@ -38,10 +41,31 @@ export const COLUMN_LAYOUT = [
     split: { minItems: 4, columns: 2 },
   },
 ]
+export const VARIABLES = {
+  "sdk.version": "2.8.3",
+  "sdk.host": "cdn.example.com",
+}
 export const OPTIONS = {
   syntax: SYNTAX,
   calloutTypes: CALLOUT_TYPES,
   tableColumnLayout: COLUMN_LAYOUT,
+  variables: VARIABLES,
+  linkReferences: {
+    "retry-rules": "reference.md#retry",
+    "rate\\*limits": "reference.md#limits",
+    "status-badge": "https://example.com/status.svg",
+  },
+}
+
+/** What a test can tell a host compiler about the site around it. */
+export type CompilerSettings = {
+  /** Where root-relative images are, for a host that resolves them itself. */
+  staticDirs?: string[]
+  /**
+   * The options a host's plugins are made with, `OPTIONS` by default. The
+   * standalone compilers read the options each compile is given instead.
+   */
+  options?: DocumentOptions
 }
 
 export type HostCase = {
@@ -54,7 +78,9 @@ export type HostCase = {
    * Absent when the example is not installed. The MDX hosts compile
    * asynchronously, so both compiler shapes are accepted.
    */
-  compiler?: () => Promise<DocumentCompiler | AsyncDocumentCompiler>
+  compiler?: (
+    settings?: CompilerSettings,
+  ) => Promise<DocumentCompiler | AsyncDocumentCompiler>
   /** True when the compiler is the host's own, not cudoc's standalone one. */
   native?: boolean
   /** Why the host cannot be exercised, for a skip message. */
@@ -78,106 +104,124 @@ const standalone =
       compileDocument(source, { ...context.options, host })
   }
 
-const docusaurus = (): (() => Promise<AsyncDocumentCompiler>) => async () => {
-  const siteDir = example("docusaurus")
-  const require = createRequire(path.join(siteDir, "package.json"))
-  const { cudocRemarkPlugins } = await import("cudoc-docusaurus")
-  const { createCompilerCapture } = await import("cudoc-remark")
-  const {
-    createProcessorUncached,
-  } = require("@docusaurus/mdx-loader/lib/processor.js")
-  return async (source, context) => {
-    const capture = createCompilerCapture({ aliases: { "@site/static/": "/" } })
-    const processor = await createProcessorUncached({
-      format: context.options.format,
-      options: {
-        siteDir,
-        staticDirs: [],
-        admonitions: true,
-        removeContentTitle: false,
-        markdownConfig: {
-          anchors: { maintainCase: false },
-          hooks: {
-            onBrokenMarkdownLinks: "throw",
-            onBrokenMarkdownImages: "throw",
-          },
-          mdx1Compat: { comments: true, admonitions: true, headingIds: true },
-          emoji: false,
-          mermaid: false,
-        },
-        beforeDefaultRemarkPlugins: [
-          ...cudocRemarkPlugins(OPTIONS),
-          capture.remark,
-        ],
-        rehypePlugins: [capture.rehype],
-      },
-    })
-    const { data } = await processor.process({
-      filePath: context.filePath,
-      content: source,
-      frontMatter: {},
-      compilerName: "server",
-    })
-    // The page title Docusaurus read from the `#` heading, which a test
-    // compares with the heading text; collection ignores the extra key.
-    return { ...capture.read(), contentTitle: data.contentTitle as string }
-  }
-}
-
-const nextra = (): (() => Promise<AsyncDocumentCompiler>) => async () => {
-  const siteDir = example("nextra")
-  const manifest = JSON.parse(
-    fs.readFileSync(
-      path.join(siteDir, "node_modules/nextra/package.json"),
-      "utf8",
-    ),
-  )
-  const { compileMdx } = await importFromExample(
-    "nextra",
-    path.join("node_modules/nextra", manifest.exports["./compile"].import),
-  )
-  const { cudocRemarkPlugins } = await import("cudoc-nextra")
-  const { createCompilerCapture } = await import("cudoc-remark")
-  return async (source, context) => {
-    const capture = createCompilerCapture()
-    await compileMdx(source, {
-      filePath: context.filePath,
-      codeHighlight: false,
-      mdxOptions: {
+const docusaurus =
+  (): ((settings?: CompilerSettings) => Promise<AsyncDocumentCompiler>) =>
+  async (settings = {}) => {
+    const siteDir = example("docusaurus")
+    const require = createRequire(path.join(siteDir, "package.json"))
+    const { cudocRemarkPlugins } = await import("cudoc-docusaurus")
+    const { createCompilerCapture } = await import("cudoc-remark")
+    const {
+      createProcessorUncached,
+    } = require("@docusaurus/mdx-loader/lib/processor.js")
+    return async (source, context) => {
+      const capture = createCompilerCapture({
+        aliases: { "@site/static/": "/" },
+      })
+      const processor = await createProcessorUncached({
         format: context.options.format,
-        remarkPlugins: [...cudocRemarkPlugins(OPTIONS), capture.remark],
-        rehypePlugins: [capture.rehype],
-      },
-    })
-    return capture.read()
+        options: {
+          siteDir,
+          staticDirs: settings.staticDirs ?? [],
+          admonitions: true,
+          removeContentTitle: false,
+          markdownConfig: {
+            anchors: { maintainCase: false },
+            hooks: {
+              onBrokenMarkdownLinks: "throw",
+              onBrokenMarkdownImages: "throw",
+            },
+            mdx1Compat: { comments: true, admonitions: true, headingIds: true },
+            emoji: false,
+            mermaid: false,
+          },
+          beforeDefaultRemarkPlugins: [
+            ...cudocRemarkPlugins(settings.options ?? OPTIONS),
+            capture.remark,
+          ],
+          rehypePlugins: [capture.rehype],
+        },
+      })
+      const { data } = await processor.process({
+        filePath: context.filePath,
+        content: source,
+        frontMatter: {},
+        compilerName: "server",
+      })
+      // The page title Docusaurus read from the `#` heading, which a test
+      // compares with the heading text; collection ignores the extra key.
+      return { ...capture.read(), contentTitle: data.contentTitle as string }
+    }
   }
-}
 
-const vitePress = (): (() => Promise<DocumentCompiler>) => async () => {
-  const { createRenderer } = await importFromExample(
-    "vitepress",
-    "markdown.mjs",
-  )
-  const { createDocumentCompiler } = await importFromExample(
-    "vitepress",
-    "node_modules/cudoc-vitepress/dist/index.js",
-  )
-  const md = await createRenderer(
-    path.join(example("vitepress"), "docs"),
-    undefined,
-    OPTIONS,
-  )
-  return createDocumentCompiler(md)
-}
+const nextra =
+  (): ((settings?: CompilerSettings) => Promise<AsyncDocumentCompiler>) =>
+  async (settings = {}) => {
+    const siteDir = example("nextra")
+    const manifest = JSON.parse(
+      fs.readFileSync(
+        path.join(siteDir, "node_modules/nextra/package.json"),
+        "utf8",
+      ),
+    )
+    const { compileMdx } = await importFromExample(
+      "nextra",
+      path.join("node_modules/nextra", manifest.exports["./compile"].import),
+    )
+    const { cudocRemarkPlugins } = await import("cudoc-nextra")
+    const { createCompilerCapture } = await import("cudoc-remark")
+    return async (source, context) => {
+      const capture = createCompilerCapture()
+      await compileMdx(source, {
+        filePath: context.filePath,
+        codeHighlight: false,
+        mdxOptions: {
+          format: context.options.format,
+          remarkPlugins: [
+            ...cudocRemarkPlugins(settings.options ?? OPTIONS),
+            capture.remark,
+          ],
+          rehypePlugins: [capture.rehype],
+        },
+      })
+      return capture.read()
+    }
+  }
 
-const eleventy = (): (() => Promise<DocumentCompiler>) => async () => {
-  const { createRenderer } = await importFromExample("eleventy", "markdown.mjs")
-  const { createDocumentCompiler } = await importFromExample(
-    "eleventy",
-    "node_modules/cudoc-eleventy/dist/index.js",
-  )
-  return createDocumentCompiler(createRenderer(undefined, OPTIONS))
-}
+const vitePress =
+  (): ((settings?: CompilerSettings) => Promise<DocumentCompiler>) =>
+  async (settings = {}) => {
+    const { createRenderer } = await importFromExample(
+      "vitepress",
+      "markdown.mjs",
+    )
+    const { createDocumentCompiler } = await importFromExample(
+      "vitepress",
+      "node_modules/cudoc-vitepress/dist/index.js",
+    )
+    const md = await createRenderer(
+      path.join(example("vitepress"), "docs"),
+      undefined,
+      settings.options ?? OPTIONS,
+    )
+    return createDocumentCompiler(md)
+  }
+
+const eleventy =
+  (): ((settings?: CompilerSettings) => Promise<DocumentCompiler>) =>
+  async (settings = {}) => {
+    const { createRenderer } = await importFromExample(
+      "eleventy",
+      "markdown.mjs",
+    )
+    const { createDocumentCompiler } = await importFromExample(
+      "eleventy",
+      "node_modules/cudoc-eleventy/dist/index.js",
+    )
+    return createDocumentCompiler(
+      createRenderer(undefined, settings.options ?? OPTIONS),
+    )
+  }
 
 /** Every host, in the order the guides introduce them. */
 export const HOST_CASES: HostCase[] = [
@@ -220,6 +264,9 @@ export const HOST_CASES: HostCase[] = [
       : { unavailable: "run npm ci in examples/eleventy" }),
   },
   { name: "export", host: "html", format: "md", compiler: standalone("html") },
+  // The profile of a Next.js site whose own MDX components (`Tabs`,
+  // `TabsContent`, `Footnote`) cudoc reads and draws again.
+  { name: "docs", host: "docs", format: "mdx", compiler: standalone("docs") },
 ]
 
 export const readFixture = (name: string) =>

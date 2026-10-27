@@ -11,14 +11,13 @@
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
+import type { SiteDiagnostic, SiteOptions, SiteResult } from "./index.js"
 import {
-  buildSite,
+  checkSiteOptions,
+  stageSite,
   type InternalOptions,
-  type SiteDiagnostic,
-  type SiteOptions,
-  type SiteResult,
   type StagingContext,
-} from "./index.js"
+} from "./site.js"
 import {
   fillVolumePageNumbers,
   printFileName,
@@ -44,7 +43,11 @@ export type ExportFormat = "html" | "pdf" | "docx"
 export type ExportGranularity = "documents" | "volume" | "both"
 
 export type ExportOptions = SiteOptions & {
-  /** Defaults to `["html"]`, which is what `buildSite` alone produces. */
+  /**
+   * The formats besides the HTML output, which every run writes: `"pdf"`
+   * and `"docx"` add theirs. Defaults to `["html"]`, the HTML alone, which
+   * is what `buildSite` produces.
+   */
   formats?: ExportFormat[]
   granularity?: ExportGranularity
   pdf?: PdfOptions
@@ -132,6 +135,10 @@ export async function buildExport({
   docx = {},
   ...site
 }: ExportOptions): Promise<ExportResult> {
+  // The staging hooks are this function's own: a caller's would be replaced.
+  checkSiteOptions(site)
+  if (!Array.isArray(formats))
+    throw new Error("cudoc-export: formats is a list of html, pdf and docx")
   const unknown = formats.filter(
     (format) => !["html", "pdf", "docx"].includes(format),
   )
@@ -139,6 +146,16 @@ export async function buildExport({
     throw new Error(`cudoc-export: unknown format ${unknown.join(", ")}`)
   if (!["documents", "volume", "both"].includes(granularity))
     throw new Error(`cudoc-export: unknown granularity ${granularity}`)
+  for (const [name, given, keys] of [
+    ["pdf", pdf, ["executablePath"]],
+    ["docx", docx, ["rawHtml", "calloutStyle", "components"]],
+  ] as const) {
+    if (!given || typeof given !== "object" || Array.isArray(given))
+      throw new Error(`cudoc-export: ${name} must be an object`)
+    for (const key of Object.keys(given))
+      if (!(keys as readonly string[]).includes(key))
+        throw new Error(`cudoc-export: unknown option ${name}.${key}`)
+  }
   if (docx.rawHtml !== undefined && !["drop", "text"].includes(docx.rawHtml))
     throw new Error(`cudoc-export: docx.rawHtml must be "drop" or "text"`)
   if (
@@ -160,7 +177,7 @@ export async function buildExport({
   const wantsPdf = formats.includes("pdf")
   const wantsDocx = formats.includes("docx")
 
-  const published = buildSite({
+  const published = stageSite({
     ...site,
     printOutputs: wantsPdf,
     afterStaging:

@@ -3,14 +3,21 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
     <title>{{ title or "Cudoc documents" }}</title>
     <link rel="stylesheet" href="/cudoc.css" />
   </head>
   <body>
-    <nav>
-      <a href="/portable/">Portable documents</a>
-      <a href="/reference/">Reference</a>
-    </nav>
+    <header>
+      <strong>{{ demo.title }}</strong>
+      <nav>
+        <a href="/portable/">Portable documents</a>
+        <a href="/reference/">Reference</a>
+        {%- for link in demo.links %}
+        <a href="{{ link.url }}">{{ link.text }}</a>
+        {%- endfor %}
+      </nav>
+    </header>
     <main>{{ content | safe }}</main>
   </body>
 </html>

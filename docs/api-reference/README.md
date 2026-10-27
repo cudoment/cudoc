@@ -2,19 +2,23 @@
 
 **English** | [한국어](./README.ko.md) · [Usage guides](../README.md)
 
-This reference describes the current implementation: public imports, option defaults, data contracts, side effects and internal processing. For authoring documents and installing adapters, start with the usage guides.
+This reference describes the current implementation: public imports, option defaults, data contracts, side effects and internal processing.
+
+For authoring documents and installing adapters, start with the usage guides. [Supported versions](../README.md#supported-versions) says which of this reference is a compatibility promise and which describes how the current release works.
 
 ## Reference pages
 
-| Page                           | Contents                                                                      |
-| ------------------------------ | ----------------------------------------------------------------------------- |
-| [Document APIs](./document.md) | Syntax options, compilation, semantic AST, rendering, sections and projection |
-| [Node APIs](./node.md)         | Collection, library files, embedding, datasets, output safety and CLI         |
-| [Adapters](./adapters.md)      | remark, capture, host ordering, markdown-it tokens and HTML generation        |
+Each page owns one layer: the document model, the Node-side library and the host adapters.
+
+| Page                           | Contents                                                                                                   |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| [Document APIs](./document.md) | Syntax options, page metadata, compilation, semantic AST, presentation, rendering, sections and projection |
+| [Node APIs](./node.md)         | Collection, library files, embedding, reference checking, datasets, output safety, CLI and language server |
+| [Adapters](./adapters.md)      | remark, capture, host ordering, markdown-it tokens and HTML generation                                     |
 
 ## Packages
 
-Install only what your host needs. ESM, Node.js 20+. Each [usage guide](../README.md) opens with the exact install line for its host.
+Install only what your host needs. Every package is ESM and needs Node.js 22 or later. Each [usage guide](../README.md) opens with the exact install line for its host.
 
 | Package                                                           | Purpose                                                                   |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------- |
@@ -33,13 +37,15 @@ Only the core package is scoped: `cudoc` was already taken on npm, so it publish
 
 ## Package boundaries
 
+Each package owns one layer of the work:
+
 - `@cudoment/cudoc` owns document semantics and reusable AST operations. Node APIs live in explicit `node/*` entry points.
 - `cudoc-remark` connects a remark/MDX pipeline and inserts prepared embeds.
 - `cudoc-docusaurus` and `cudoc-nextra` configure remark ordering and native headings.
 - `cudoc-markdown-it` connects the actual Markdown-it pipeline; `cudoc-vitepress` and `cudoc-eleventy` add one host definition each.
 - `cudoc-export` generates an HTML site, single HTML pages, review pages, PDF and Word, either collecting Markdown itself or reusing a host's library and prepared embeds. Every format reads one set of design tokens. Exported hyperlinks can be local, deployed-host URLs or removed.
 
-The core has no React runtime dependency. React is used by the MDX embedding runtime. Import Node-only entry points from build scripts or server code, not client components.
+The core has no React runtime dependency. React is used only by `cudoc-remark/components`, the named-component output. Import Node-only entry points from build scripts or server code, not client components.
 
 ## Public entry points
 
@@ -51,7 +57,8 @@ Prefixes below are relative to `@cudoment/cudoc` unless a full package name is s
 | `/document`                                                        | Options and in-place normalization                              | [Document model](./document.md#document-options)               |
 | `/markdown`                                                        | Standalone compilation                                          | [Compilation](./document.md#compilation)                       |
 | `/render`                                                          | HAST and HTML rendering                                         | [Rendering](./document.md#components-and-rendering)            |
-| `/query`, `/sections`                                              | Section selection and query helpers                             | [Sections](./document.md#sections-and-queries)                 |
+| `/present`                                                         | Screen-only markup: code titles and tabs                        | [Presentation](./document.md#presentation)                     |
+| `/query`, `/sections`                                              | Section selection, query helpers and page metadata              | [Sections](./document.md#sections-and-queries)                 |
 | `/dataset`                                                         | Immutable projection                                            | [Projection](./document.md#projection)                         |
 | `/node/library`                                                    | Collect and load complete libraries                             | [Collection](./node.md#collection)                             |
 | `/node/roots`                                                      | Source roots and library paths, without a compiler              | [Collection](./node.md#collection)                             |
@@ -60,11 +67,13 @@ Prefixes below are relative to `@cudoment/cudoc` unless a full package name is s
 | `/node/watch`                                                      | Repeated, incremental collection                                | [Watching](./node.md#watching)                                 |
 | `/node/dataset`                                                    | Generate filtered AST directories                               | [Datasets](./node.md#datasets)                                 |
 | `/node/check`, `/node/report`                                      | Whole-library reference checking and its rendering              | [Reference checking](./node.md#reference-checking)             |
+| `/node/lsp`                                                        | Language server over stdio, as `cudoc lsp` runs it              | [Language server](./node.md#language-server)                   |
 | `/node/local-target`                                               | Resolve a local link or image to a document, file or URL        | [Reference checking](./node.md#reference-checking)             |
+| `/node/image-size`                                                 | Header-read pixel sizes of PNG, JPEG, GIF and BMP files         | [Library files](./node.md#library-files)                       |
 | `/node/storage`                                                    | Filesystem and staged output helpers                            | [Storage](./node.md#storage)                                   |
 | `/embed`, `/node/export-ast`, `/node/load-ast-file`, `/node/paths` | Individual AST snapshots and path helpers                       | [Individual snapshots](./node.md#individual-ast-snapshots)     |
 | `/transforms/table-cell-list`, `/transforms/table-column-layout`   | Low-level syntax transforms                                     | [Core helpers](./document.md#core-helpers)                     |
-| `/styles.css`                                                      | Theme-aware callout, badge and tree stylesheet                  | [Host stylesheet](./document.md#host-stylesheet)               |
+| `/styles.css`                                                      | Theme-aware callout, badge, tree, code, note and tab styles     | [Host stylesheet](./document.md#host-stylesheet)               |
 | `/paged`                                                           | Page-break and tree constants the paginated writers share       | [Paginated output](./adapters.md#paginated-output)             |
 | `cudoc-remark` and its subpaths                                    | remark integration, capture, TOC and embed runtime              | [remark](./adapters.md#remark)                                 |
 | `cudoc-docusaurus`, `cudoc-nextra`                                 | Host plugin arrays                                              | [MDX hosts](./adapters.md#docusaurus-and-nextra)               |
@@ -77,6 +86,8 @@ Prefixes below are relative to `@cudoment/cudoc` unless a full package name is s
 Every package also exports `./package.json`, so tools can read a package's manifest through its export map. `/embed` is an individual-snapshot Node barrel. It does **not** re-export the document-library or fenced-embed APIs. Import those from their listed `node/*` paths. `/sections` exports `collectSections`; `/query` also includes the lower-level lookup helpers.
 
 ## Processing flow
+
+A document flows from the configured compiler through normalization to the library, and from there to embedding and rendering or to dataset projection.
 
 ```mermaid
 flowchart LR

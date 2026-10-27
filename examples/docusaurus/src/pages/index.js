@@ -10,6 +10,10 @@ export default function Home() {
       >
         <h1>cudoc on Docusaurus</h1>
         <p>
+          <Link to="/docs/portable">Open the portable document</Link>, which
+          embeds sections of <Link to="/docs/reference">the reference</Link>
+        </p>
+        <p>
           <Link to="/docs/showcase">Open the showcase document</Link>
         </p>
       </main>

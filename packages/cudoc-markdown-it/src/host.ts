@@ -58,6 +58,14 @@ export type MarkdownItHost = {
    */
   resolveInlineAttributes?: boolean
   /**
+   * The host's text tokens keep character references as the author wrote
+   * them. VitePress joins text tokens with its own `text_join`, which leaves
+   * `&copy;` as `&copy;` for Vue, and renders text without escaping a
+   * reference again; conversion decodes them, or the page would show the
+   * reference itself.
+   */
+  textReferences?: boolean
+  /**
    * Splits frontmatter that the host removes before markdown-it sees the source.
    *
    * Only needed by a host that strips frontmatter outside markdown-it, so the

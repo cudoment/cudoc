@@ -1,7 +1,7 @@
 {
   "name": "cudoc-vitepress",
-  "version": "0.9.0",
-  "description": "VitePress Markdown integration for cudoc",
+  "version": "1.0.0",
+  "description": "cudoc for VitePress: embed a section of one document in another, kept in step with its source, and write merged table cells, lists inside cells and variables in plain Markdown, keeping VitePress's own rendering.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -17,7 +17,9 @@
     "vitepress",
     "vitepress-plugin",
     "markdown",
-    "documentation"
+    "documentation",
+    "markdown-it",
+    "markdown-it-plugin"
   ],
   "type": "module",
   "main": "./dist/index.js",
@@ -42,8 +44,8 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "@cudoment/cudoc": "0.9.0",
-    "cudoc-markdown-it": "0.9.0",
+    "@cudoment/cudoc": "1.0.0",
+    "cudoc-markdown-it": "1.0.0",
     "hast-util-from-html": "^2.0.3"
   },
   "peerDependencies": {
@@ -56,7 +58,7 @@
   },
   "author": "cudoment",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "peerDependenciesMeta": {
     "@types/markdown-it": {

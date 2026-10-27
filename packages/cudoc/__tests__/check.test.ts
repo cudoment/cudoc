@@ -530,6 +530,25 @@ describe("broken references", () => {
     expect(result.issues[0]!.position?.start.line).toBe(5)
   })
 
+  it("points at the link, not at a code example that shows it first", () => {
+    // An editor's quick fix replaces what the position covers, so a code
+    // block or span spelling the same link earlier must not be it.
+    const result = check({
+      "install.md": "# Install\n",
+      "guide.md":
+        "# Guide\n\nExample:\n\n```md\n[install](./instal.md)\n```\n\nOr `[install](./instal.md)` inline.\n\nActual: [install](./instal.md)\n",
+    })
+
+    expect(codes(result)).toEqual(["missing-document"])
+    expect(result.issues[0]!.reference).toBe("./instal.md")
+    expect(result.issues[0]!.position?.start).toEqual({
+      line: 11,
+      column: 19,
+      offset: expect.any(Number),
+    })
+    expect(result.issues[0]!.suggestions).toEqual(["./install.md"])
+  })
+
   it("separates a missing document from a missing image", () => {
     const result = check({
       "guide.md": "# Guide\n\n[gone](nowhere.md)\n\n![gone](./none.png)\n",

@@ -31,6 +31,38 @@ import type { DocumentLanguage, ResolvedLocales } from "./locales.js"
 /** A label in one language, or one per language code. */
 export type NavigationTitle = string | Record<string, string>
 
+/** Text, or text per language such as `{ en: Guides, ko: 가이드 }`. */
+export const isNavigationTitle = (title: unknown): title is NavigationTitle =>
+  (typeof title === "string" && Boolean(title.trim())) ||
+  (!!title &&
+    typeof title === "object" &&
+    !Array.isArray(title) &&
+    Object.keys(title).length > 0 &&
+    Object.values(title).every(
+      (text) => typeof text === "string" && Boolean(text.trim()),
+    ))
+
+/**
+ * A title per language needs `locales` and names only the codes it lists:
+ * the navigation and the header links hold their titles to this alike.
+ */
+export function checkLanguageTitle(
+  title: NavigationTitle,
+  where: string,
+  locales: ResolvedLocales | undefined,
+): void {
+  if (typeof title === "string") return
+  if (!locales)
+    throw new Error(
+      `cudoc-export: ${where}: a title per language needs locales`,
+    )
+  for (const key of Object.keys(title))
+    if (!locales.byCode.has(key))
+      throw new Error(
+        `cudoc-export: ${where}: title names ${key}, which locales does not`,
+      )
+}
+
 export type NavigationItem =
   | string
   | {
@@ -199,17 +231,7 @@ export function loadNavigation(
     )
   const where = (item: unknown, at: string) => origins.of(item, at)
   const parseTitle = (title: unknown, at: Where): NavigationTitle => {
-    if (typeof title === "string" && title.trim()) return title
-    if (
-      title &&
-      typeof title === "object" &&
-      !Array.isArray(title) &&
-      Object.keys(title).length &&
-      Object.values(title).every(
-        (text) => typeof text === "string" && text.trim(),
-      )
-    )
-      return title as Record<string, string>
+    if (isNavigationTitle(title)) return title
     throw new Error(
       `cudoc-export: ${at}: title is text, or text per language such as { en: Guides, ko: 가이드 }`,
     )
@@ -711,16 +733,8 @@ export function resolveNavigation(
     })
 
   const titleIn = (title: NavigationTitle, code: string, where: Where) => {
+    checkLanguageTitle(title, where, locales)
     if (typeof title === "string") return title
-    if (!locales)
-      throw new Error(
-        `cudoc-export: ${where}: a title per language needs locales`,
-      )
-    for (const key of Object.keys(title))
-      if (!locales.byCode.has(key))
-        throw new Error(
-          `cudoc-export: ${where}: title names ${key}, which locales does not`,
-        )
     return title[code] ?? title[defaultCode] ?? Object.values(title)[0]!
   }
   const reported = new Set<string>()

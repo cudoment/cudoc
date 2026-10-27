@@ -14,18 +14,19 @@ import { runAnnotationsCommand } from "./annotations/cli.js"
 import type { SiteOptions } from "./index.js"
 import type { PaperSize } from "./design/page.js"
 
-const USAGE = `Usage: cudoc-export <build|install-browser>
+const USAGE = `Usage: cudoc-export <build|annotations|install-browser>
 
 cudoc-export build [sourceRoot] [--out-dir site] [--config config.mjs|.json|.yml]
   [--mode site|standalone|annotate] [--document id]... [--strict]
   [--format html|pdf|docx] [--granularity documents|volume|both]
   [--library directory] [--links relative|host|none]
-  [--host-url https://example.com/] [--asset-dir directory]
+  [--host-url https://example.com/] [--site-url https://example.com/]
+  [--asset-dir directory]
   [--external-path /prefix] [--paper A4|Letter] [--landscape]
   [--theme-switch]
 
-cudoc-export annotations [notes.json...] [--token token]... --library directory
-  [--out report.md] [--json]
+cudoc-export annotations [notes.json|page.annotated.html]... [--token token]...
+  [--library directory] [--out report.md] [--json]
 
 cudoc-export install-browser`
 
@@ -35,6 +36,7 @@ const VALUE_FLAGS = [
   "--library",
   "--links",
   "--host-url",
+  "--site-url",
   "--asset-dir",
   "--external-path",
   "--format",
@@ -116,6 +118,7 @@ try {
       library: options["--library"] ?? config.library,
       links: (options["--links"] ?? config.links) as SiteOptions["links"],
       hostUrl: options["--host-url"] ?? config.hostUrl,
+      siteUrl: options["--site-url"] ?? config.siteUrl,
       assetDirs: assetDirs.length ? assetDirs : config.assetDirs,
       externalPaths: externalPaths.length
         ? externalPaths

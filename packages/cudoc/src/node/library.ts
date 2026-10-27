@@ -108,6 +108,17 @@ export type BuildDocumentsOptions = DocumentOptions & {
   /** Identifies external compiler/plugins/configuration for persisted metadata. */
   compilerId?: string
   /**
+   * Also write `images.json`: the pixel size of each local image every
+   * document shows, by the address it writes, so a site can size an image
+   * before it loads. Off by default, since it reads every image file.
+   */
+  imageSizes?: boolean
+  /**
+   * Directories an image address is also read under at its library path,
+   * such as a host's `public` or `static`, for `images.json`.
+   */
+  assetDirs?: string[]
+  /**
    * A library collected earlier. A document whose source text is unchanged
    * is taken from it instead of compiled again, as long as the configuration
    * hash is the same; a document that is new, changed or collected under a

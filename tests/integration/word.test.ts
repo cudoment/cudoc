@@ -71,6 +71,22 @@ for (const host of HOST_CASES) {
       expect(runs(xml).join("")).toContain("Check the request limit")
     })
 
+    it("writes merged cells, table notes, a code title and every tab", () => {
+      // `^^` merges down twice and `>>` across twice in the fixture's table.
+      expect(xml.match(/<w:vMerge w:val="restart"\/>/g)).toHaveLength(2)
+      expect(xml.match(/<w:gridSpan w:val="3"\/>/g)).toHaveLength(1)
+      expect(xml).toContain('w:val="CudocTableNote"')
+      expect(runs(xml).join("")).toContain("Up to 5 MB.")
+      expect(xml).toContain('w:val="CudocCodeTitle"')
+      expect(xml.match(/w:val="CudocCodeHighlighted"/g)).toHaveLength(3)
+      const labels = [
+        ...xml.matchAll(
+          /<w:pStyle w:val="CudocTabLabel"\/>[\s\S]*?<w:t[^>]*>([^<]*)<\/w:t>/g,
+        ),
+      ].map((match) => match[1])
+      expect(labels).toEqual(["Kotlin", "Java", "Notes"])
+    })
+
     it("keeps a badge out of the surrounding bold run", () => {
       expect(xml).toContain('w:val="CudocBadge"')
     })

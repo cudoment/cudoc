@@ -94,6 +94,10 @@ describe("glob patterns", () => {
     expect(() => globMatcher("x" as unknown as string[], "exclude")).toThrow(
       /exclude must be an array/,
     )
+    // An empty pattern names the option too, not only the dialect's rule.
+    expect(() => globMatcher(["docs/**", " "], "private")).toThrow(
+      "cudoc: private must be an array of non-empty glob patterns",
+    )
     expect(globMatcher(undefined, "exclude")("anything")).toBe(false)
   })
 })
@@ -624,6 +628,55 @@ describe("references across roots", () => {
     ])
   })
 
+  it("keeps the deployment base a link spelled in its suggestions", () => {
+    const root = workspace({
+      "docs/a.md": [
+        "# A (#a)",
+        "",
+        "[1](/project/instal) [2](https://example.com/project/instal#x)",
+        "[3](/project/Install) [4](/instal)",
+        "",
+        "![5](/project/img/logo.pgn) ![6](/project/pics/b.pgn)",
+        "![7](https://example.com/project/img/logo.pgn)",
+        "",
+      ].join("\n"),
+      "docs/install.md": "# Install (#install)\n",
+      "docs/pics/b.png": "",
+      "static/img/logo.png": "",
+    })
+    const library = buildDocuments({
+      sourceRoot: path.join(root, "docs"),
+      outDir: path.join(root, "library"),
+    })
+    const result = checkReferences(library, {
+      withoutBase: (pathname) =>
+        pathname.replace(/^\/project(?=\/|$)/, "") || "/",
+      siteOrigins: ["https://example.com"],
+      assetDirs: [path.join(root, "static")],
+    })
+    expect(
+      result.issues.map((i) => [i.code, i.reference, i.suggestions]),
+    ).toEqual([
+      ["missing-document", "/project/instal", ["/project/install"]],
+      [
+        "missing-document",
+        "https://example.com/project/instal#x",
+        ["https://example.com/project/install#x"],
+      ],
+      ["path-case-mismatch", "/project/Install", ["/project/install"]],
+      ["missing-document", "/instal", ["/install"]],
+      // An asset directory is reached without the base, the roots are not.
+      ["missing-asset", "/project/img/logo.pgn", ["/project/img/logo.png"]],
+      ["missing-asset", "/project/pics/b.pgn", ["/pics/b.png"]],
+      // A URL on the site's own origin is corrected as its path is.
+      [
+        "missing-asset",
+        "https://example.com/project/img/logo.pgn",
+        ["https://example.com/project/img/logo.png"],
+      ],
+    ])
+  })
+
   it("hands a host compiler the real file when it recompiles a replaced slice", async () => {
     const root = workspace(TWO_ROOTS)
     const paths: string[] = []
@@ -690,13 +743,57 @@ describe("datasets over a library with roots", () => {
       }),
     ).toThrow(/is private/)
 
-    // Without the library, the first segment is the scope, as for a plain
-    // directory of ASTs.
-    const plain = generateDataset({
+    // Made straight from the library's own `documents`, the dataset reads
+    // that library without being told: its private documents stay out and
+    // its bases set the scope.
+    const implicit = generateDataset({
       inputDir: path.join(outDir, "documents"),
+      outDir: path.join(root, "dataset-implicit"),
+    })
+    expect(implicit.documents.map((doc) => doc.id)).toEqual(
+      all.documents.map((doc) => doc.id),
+    )
+    expect(() =>
+      generateDataset({
+        inputDir: path.join(outDir, "documents"),
+        outDir: path.join(root, "dataset-implicit-private"),
+        documents: ["docs/in/secret"],
+      }),
+    ).toThrow(/is private/)
+
+    // A plain directory of ASTs has no library: the first segment is the
+    // scope and nothing is private.
+    const copy = path.join(root, "copied")
+    fs.cpSync(path.join(outDir, "documents"), copy, { recursive: true })
+    const plain = generateDataset({
+      inputDir: copy,
       outDir: path.join(root, "dataset-plain"),
       scopes: ["terms"],
     })
     expect(plain.documents.map((doc) => doc.id)).toEqual(["terms/ko/token"])
+    expect(
+      generateDataset({
+        inputDir: copy,
+        outDir: path.join(root, "dataset-plain-all"),
+      }).documents.map((doc) => doc.id),
+    ).toContain("docs/in/secret")
+  })
+
+  it("does not take a dataset's manifest for a library's", () => {
+    const root = workspace(TWO_ROOTS)
+    const outDir = path.join(root, "library")
+    buildDocuments({ roots: roots(root), outDir })
+    generateDataset({
+      inputDir: path.join(outDir, "documents"),
+      outDir: path.join(root, "first"),
+    })
+    // Projecting a dataset again reads its `documents` beside a dataset
+    // manifest, whose string schema version is not a library's.
+    const again = generateDataset({
+      inputDir: path.join(root, "first/documents"),
+      outDir: path.join(root, "second"),
+      scopes: ["docs"],
+    })
+    expect(again.documents.map((doc) => doc.id)).toContain("docs/ko/guide")
   })
 })

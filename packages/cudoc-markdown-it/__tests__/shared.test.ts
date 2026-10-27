@@ -1,7 +1,13 @@
 import { describe, it, expect } from "vitest"
 import markdownIt from "markdown-it"
 import container from "markdown-it-container"
-import type { DocumentData } from "@cudoment/cudoc/document"
+import attrs from "markdown-it-attrs"
+import type {
+  DocumentData,
+  DocumentNode,
+  DocumentOptions,
+} from "@cudoment/cudoc/document"
+import type { Root } from "mdast"
 import { renderDocument } from "@cudoment/cudoc/render"
 import {
   tokensToAst,
@@ -311,6 +317,221 @@ describe("the page the plugin renders", () => {
     // Still cudoc's document around them: the anchor marker is gone.
     expect(html).toContain('id="guide"')
     expect(html).not.toContain("(#guide)")
+  })
+})
+
+describe("code block titles on a markdown-it host", () => {
+  it("reads the info as written and frames the host's own output", () => {
+    // markdown-it-attrs takes `{2}` off the info as an attribute, and a site
+    // that allows only `id` then drops it.
+    const md = markdownIt()
+    md.use(attrs, { allowedAttributes: ["id"] })
+    md.renderer.rules.fence = (tokens, index) =>
+      `<pre data-info="${tokens[index]!.info}">${tokens[index]!.content}</pre>\n`
+    installHostPlugin(md, {}, host)
+    const env: { cudoc?: { tree: Root } } = {}
+    const html = md.render(
+      '# Guide\n\n```js title="retry.js" {2}\na\nb\n```\n\n```ts{1,3}\nx\n```\n',
+      env,
+    )
+    const codes = (env.cudoc!.tree.children as DocumentNode[]).filter(
+      (node) => node.type === "code",
+    )
+    expect(
+      codes.map((node) => [node.lang, node.meta, node.data?.cudoc]),
+    ).toEqual([
+      [
+        "js",
+        'title="retry.js" {2}',
+        { kind: "code", title: "retry.js", lines: [2] },
+      ],
+      ["ts", "{1,3}", { kind: "code", lines: [1, 3] }],
+    ])
+    expect(html).toContain(
+      '<div class="cudoc-code">\n<div class="cudoc-code-title">retry.js</div>\n<pre data-info="js title="retry.js"">a\nb\n</pre>',
+    )
+  })
+})
+
+describe("variables on a markdown-it host", () => {
+  it("replaces them in the blocks the host renders and the text cudoc renders", () => {
+    const md = markdownIt({ html: true })
+    md.renderer.rules.fence = (tokens, index) =>
+      `<pre data-info="${tokens[index]!.info}">${tokens[index]!.content}</pre>\n`
+    const warnings: string[] = []
+    installHostPlugin(
+      md,
+      {
+        variables: { version: "2.8.3" },
+        onDiagnostic: (diagnostic) => warnings.push(diagnostic.code),
+      },
+      host,
+    )
+    const html = md.render(
+      '# Guide\n\nVersion (=version), `(=version)`, (=missing).\n\n```sh title=v(=version)\nnpm i sdk@(=version)\n```\n\n<p data-v="(=version)">raw</p>\n',
+      {},
+    )
+    expect(html).toContain("Version 2.8.3, <code>2.8.3</code>, (=missing).")
+    expect(html).toContain(
+      '<pre data-info="sh title=v2.8.3">npm i sdk@2.8.3\n</pre>',
+    )
+    expect(html).toContain('<p data-v="2.8.3">raw</p>')
+    expect(warnings).toEqual(["UNDEFINED_VARIABLE"])
+  })
+
+  it("replaces a value holding a marker once, on the page and in the tree", () => {
+    const md = markdownIt({ html: true })
+    let stored = ""
+    installHostPlugin(
+      md,
+      {
+        variables: { a: "(=b)", b: "resolved" },
+        onDocument: (tree) => {
+          stored = JSON.stringify(tree)
+        },
+      },
+      host,
+    )
+    const html = md.render(
+      "```js\n(=a)\n```\n\n<p>(=a)</p>\n\n[x]((=a)) ![y]((=a))\n\n| Name | List |\n| --- | --- |\n| a | - [z]((=a))<br>- two |\n",
+      {},
+    )
+    expect(html).toContain("(=b)\n</code></pre>")
+    expect(html).toContain("<p>(=b)</p>")
+    // Link and image addresses too, a table cell's list, which normalization
+    // parses again, included.
+    expect(html).toContain('<a href="(=b)">x</a> <img src="(=b)" alt="y">')
+    expect(html).toContain('<li><a href="(=b)">z</a></li>')
+    expect(html).not.toContain("resolved")
+    expect(stored).toContain('"value":"(=b)"')
+    expect(stored).toContain('"value":"<p>(=b)</p>\\n"')
+    expect(stored.match(/"url":"\(=b\)"/g)).toHaveLength(3)
+    expect(stored).not.toMatch(/resolved|cudocWrittenAddress/)
+  })
+
+  it("rejects variables a marker could not name", () => {
+    expect(() =>
+      resolveHostOptions({ variables: { "9": "x" } }, "cudoc-test-host"),
+    ).toThrow("variables must map")
+  })
+})
+
+describe("VitePress's code group on a markdown-it host", () => {
+  const SOURCE =
+    "::: code-group\n\n```sh [npm] {1}\nnpm i\n```\n\n```sh [pnpm]\npnpm add\n```\n\n:::\n\n```js [config.js]\nx\n```\n"
+  const compiled = (syntax: DocumentOptions["syntax"]) => {
+    const md = markdownIt()
+    md.use(container, "code-group")
+    installHostPlugin(md, { syntax }, { ...host, host: "vitepress" })
+    const env: { cudoc?: { tree: Root } } = {}
+    md.render(SOURCE, env)
+    const nodes: DocumentNode[] = []
+    const walk = (node: DocumentNode) => {
+      nodes.push(node)
+      node.children?.forEach(walk)
+    }
+    walk(env.cudoc!.tree as unknown as DocumentNode)
+    return nodes
+  }
+  const codes = (nodes: DocumentNode[]) =>
+    nodes
+      .filter((node) => node.type === "code")
+      .map((node) => [node.data?.cudoc, node.data?.cudocCodeGroup])
+
+  it("labels each tab with its [name], which then titles no block", () => {
+    const nodes = compiled({ tabs: "host", codeMeta: "host" })
+    const group = nodes.find((node) => node.data?.cudoc?.kind === "tabs")
+    expect(group!.children!.map((tab) => tab.data?.cudoc?.title)).toEqual([
+      "npm",
+      "pnpm",
+    ])
+    expect(codes(nodes)).toEqual([
+      [{ kind: "code", lines: [1] }, undefined],
+      [undefined, undefined],
+      [{ kind: "code", title: "config.js" }, undefined],
+    ])
+  })
+
+  it("leaves the [name] to the host's own group when tabs stay the host's", () => {
+    // The group is the host's to draw; its fences' names are still no titles.
+    const nodes = compiled({ codeMeta: "host" })
+    expect(nodes.some((node) => node.data?.cudoc?.kind === "tabs")).toBe(false)
+    expect(codes(nodes)).toEqual([
+      [{ kind: "code", lines: [1] }, undefined],
+      [undefined, undefined],
+      [{ kind: "code", title: "config.js" }, undefined],
+    ])
+  })
+})
+
+describe("shared link references on a markdown-it host", () => {
+  it("lets the host read them as links, the page's own definition first", () => {
+    const md = markdownIt()
+    installHostPlugin(
+      md,
+      {
+        linkReferences: {
+          guide: "./guide.md",
+          own: "./shared.md",
+          console: { url: "https://console.example.com", title: "Console" },
+        },
+      },
+      host,
+    )
+    const html = md.render(
+      "# Page\n\n[The guide][guide], [own][], [Console].\n\n[own]: ./mine.md\n",
+      {},
+    )
+    expect(html).toContain('<a href="./guide.md">The guide</a>')
+    expect(html).toContain('<a href="./mine.md">own</a>')
+    expect(html).toContain(
+      '<a href="https://console.example.com" title="Console">Console</a>',
+    )
+  })
+
+  it("refuses a shared address the host refuses in a page's definition", () => {
+    const md = markdownIt()
+    // A host that refuses more than markdown-it does.
+    md.validateLink = (url) => !url.startsWith("./private/")
+    installHostPlugin(
+      md,
+      { linkReferences: { x: "./private/x.md", y: "./y.md" } },
+      host,
+    )
+    const page = "[click][x] [y]\n"
+    expect(md.render(page, {}).trim()).toBe(
+      '<p>[click][x] <a href="./y.md">y</a></p>',
+    )
+    // The page's own definition is refused too, and stays as its text.
+    expect(
+      md.render(`${page}\n[x]: ./private/x.md\n`, {}).replace(/\n/g, ""),
+    ).toBe('<p>[click][x] <a href="./y.md">y</a></p><p>[x]: ./private/x.md</p>')
+    expect(() =>
+      installHostPlugin(
+        markdownIt(),
+        { linkReferences: { x: "javascript:alert(1)" } },
+        host,
+      ),
+    ).toThrow("no link address")
+  })
+
+  it("nests shared references as the page's own definitions nest", () => {
+    const md = markdownIt()
+    installHostPlugin(md, { linkReferences: { a: "/a", b: "/b" } }, host)
+    expect(md.render("[a [b]][a]\n", {}).trim()).toBe(
+      '<p>[a <a href="/b">b</a>]<a href="/a">a</a></p>',
+    )
+  })
+
+  it("leaves the escaped brackets to the host, in its output and in the tree", () => {
+    const md = markdownIt()
+    installHostPlugin(md, { linkReferences: { console: "./console.md" } }, host)
+    const env: { cudoc?: { tree: Root } } = {}
+    const html = md.render("Write \\[console\\] or [console].\n", env)
+    expect(html.trim()).toBe(
+      '<p>Write [console] or <a href="./console.md">console</a>.</p>',
+    )
+    expect(renderDocument(env.cudoc!.tree)).toBe(html.trim())
   })
 })
 

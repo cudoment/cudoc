@@ -11,12 +11,15 @@
  *
  * This runs as its own plugin rather than inside the single walk, because it
  * has to sit between cudoc and the host's heading plugin, and the host decides
- * where that is.
+ * where that is. It reads the anchors the component transforms draw; a page
+ * cudoc's normalization presented, `file.data.cudocPresentation`, is left as
+ * it is.
  */
 
 import type { Heading, Root } from "mdast"
 import type { Plugin } from "unified"
 import { visit } from "unist-util-visit"
+import type { VFile } from "vfile"
 import {
   extractAnchorId,
   findAnchorNode,
@@ -41,7 +44,10 @@ export const promoteAnchorIds: Plugin<[PromoteAnchorIdsOptions?], Root> = (
   const anchorName = options.anchorName ?? DEFAULT_ANCHOR_NAME
   const idAttribute = options.idAttribute ?? "id"
 
-  return (tree: Root) => {
+  return (tree: Root, file: VFile) => {
+    // A page cudoc normalized has its heading ids settled: an anchor left
+    // in a heading there is one its `syntax` does not read.
+    if (file.data.cudocPresentation) return
     visit(tree, "heading", (heading: Heading) => {
       const id = extractAnchorId(
         findAnchorNode(heading.children, anchorName),

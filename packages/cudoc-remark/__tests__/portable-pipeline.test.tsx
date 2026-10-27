@@ -116,12 +116,54 @@ it("keeps authored dynamic JSX and custom transforms in the portable pipeline", 
   )
 })
 
-it("rejects overlapping legacy and new option groups instead of ignoring configuration", () => {
-  expect(() => resolveOptions({ syntax: {}, headingMetadata: false })).toThrow(
-    "configure headingAnchor",
-  )
+it("rejects a feature configured both through syntax and its component option", () => {
   expect(() =>
-    resolveOptions({ syntax: { callout: "both" }, badge: true }),
+    resolveOptions({
+      syntax: { headingAnchor: "cudoc" },
+      headingMetadata: false,
+    }),
+  ).toThrow("configure headingAnchor")
+  expect(() =>
+    resolveOptions({ syntax: { badge: "both" }, badge: true }),
   ).toThrow("configure badge")
+  expect(() =>
+    resolveOptions({ syntax: { tableCellList: "cudoc" }, tableCellList: true }),
+  ).toThrow("configure tableCellList")
+  // Every other feature's syntax may sit beside the component options.
+  expect(() =>
+    resolveOptions({
+      syntax: { tableNote: "cudoc", tabs: "both" },
+      headingMetadata: true,
+      badge: true,
+    }),
+  ).not.toThrow()
   expect(() => resolveOptions({ badge: false })).not.toThrow()
 })
+
+it.each(["md", "mdx"] as const)(
+  "applies syntax beside component options where it normalizes: %s",
+  async (format) => {
+    const source =
+      "# Guide\n\n| Field | Required |\n| --- | --- |\n| title | Yes\\* |\n\n\\* One is required.\n"
+    const module = await evaluate(
+      { value: source, path: `guide.${format}` },
+      {
+        ...runtime,
+        format,
+        remarkPlugins: [
+          remarkGfm,
+          [
+            cudocPrepare,
+            { headingMetadata: true, syntax: { tableNote: "cudoc" } },
+          ],
+        ],
+      },
+    )
+    const html = renderToStaticMarkup(
+      runtime.jsx(module.default, { components: { Anchor: "h2" } }),
+    )
+    // A component pipeline normalizes Markdown pages and leaves MDX pages to
+    // its component transforms.
+    expect(html.includes('class="cudoc-table-note"')).toBe(format === "md")
+  },
+)

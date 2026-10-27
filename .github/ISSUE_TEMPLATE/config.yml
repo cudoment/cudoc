@@ -3,3 +3,6 @@ contact_links:
   - name: Guides
     url: https://github.com/cudoment/cudoc/blob/main/docs/README.md
     about: Setup for each host, the Markdown syntax, embedding, export and checking.
+  - name: Security vulnerability
+    url: https://github.com/cudoment/cudoc/security/advisories/new
+    about: Report a security problem privately rather than in a public issue.

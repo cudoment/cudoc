@@ -79,7 +79,24 @@ for (const host of BUILT_HOSTS.filter((h) => h.name !== "export")) {
             main.querySelector("td ul li ul"),
             `${host.name}: nested table list`,
           ).toBeTruthy()
-          expect(main.querySelectorAll("table")).toHaveLength(2)
+          // The list, merged, noted and summary tables.
+          expect(main.querySelectorAll("table")).toHaveLength(4)
+        })
+
+        it("keeps merged cells, the table note and replaced variables", () => {
+          const merged = main.querySelectorAll("table")[1]!
+          expect(
+            ["rowspan", "colspan"].map((name) =>
+              merged
+                .querySelectorAll(`[${name}]`)
+                .map((cell) => [cell.text.trim(), cell.getAttribute(name)]),
+            ),
+          ).toEqual([[["Basic", "2"]], [["Contact sales", "2"]]])
+          expect(main.querySelector(".cudoc-table-note")?.text.trim()).toBe(
+            "* One of title and image is required.",
+          )
+          expect(main.text).toContain("Install SDK 2.8.3 and read")
+          expect(main.text).not.toContain("(=")
         })
 
         it("reuses the replacement the host compiler produced", () => {
@@ -110,12 +127,32 @@ for (const host of BUILT_HOSTS.filter((h) => h.name !== "export")) {
               .some((a) => a.getAttribute("href") === `${prefix}#limits`),
             `${host.name}: ${links} summary target`,
           ).toBe(true)
-          if (links === "host")
+          // A shared label, whatever form the host stored it in.
+          expect(
+            main
+              .querySelectorAll("p a")
+              .find((a) => a.text.trim() === "the request limits")
+              ?.getAttribute("href"),
+            `${host.name}: ${links} shared label`,
+          ).toBe(`${prefix}#limits`)
+          if (links === "host") {
+            const navs = main.querySelectorAll("nav")
+            // The site's navigation names deployed pages; the contents
+            // beside the page stay on it.
             expect(
-              main
-                .querySelectorAll("nav a")
+              navs
+                .filter((nav) => !nav.classList.contains("toc"))
+                .flatMap((nav) => nav.querySelectorAll("a"))
                 .every((a) => a.getAttribute("href")!.startsWith(DEPLOYMENT)),
             ).toBe(true)
+            const contents = navs
+              .filter((nav) => nav.classList.contains("toc"))
+              .flatMap((nav) => nav.querySelectorAll("a"))
+            expect(contents.length).toBeGreaterThan(0)
+            expect(
+              contents.every((a) => a.getAttribute("href")!.startsWith("#")),
+            ).toBe(true)
+          }
         })
       })
     }
@@ -168,7 +205,7 @@ for (const host of BUILT_HOSTS.filter((h) => h.name !== "export")) {
         expect(
           page.querySelector("[data-callout]")?.getAttribute("data-callout"),
         ).toBe("warning")
-        expect(page.querySelectorAll("main table")).toHaveLength(2)
+        expect(page.querySelectorAll("main table")).toHaveLength(4)
         expect(
           page.querySelectorAll("em").some((node) => node.text === "adapted"),
         ).toBe(true)

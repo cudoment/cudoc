@@ -21,6 +21,7 @@ import {
   DEFAULT_ID_DELIMITERS,
   type DelimiterPair,
 } from "../../core/index.js"
+import { referencedCharacter } from "../../core/references.js"
 import {
   createLayoutTable,
   resolveTableComponents,
@@ -191,7 +192,8 @@ const readHeaderText = (
     if (node.type === "text") {
       return stripDelimited(node.value, options.metadataDelimiters)
     }
-    if ("value" in node && typeof node.value === "string") return node.value
+    if ("value" in node && typeof node.value === "string")
+      return referencedCharacter(node) ?? node.value
     if ("children" in node && Array.isArray(node.children)) {
       return (node.children as PhrasingContent[]).map(fromNode).join("")
     }

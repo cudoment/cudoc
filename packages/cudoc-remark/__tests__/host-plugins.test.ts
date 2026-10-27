@@ -107,6 +107,25 @@ describe("createHostPlugins", () => {
     expect(output).not.toContain("{#t1.0}")
   })
 
+  it("leaves a heading's Anchor that syntax does not read to the host", async () => {
+    // Normalization settles a page's heading ids, so an Anchor it leaves,
+    // with heading anchors off or carrying a badge under badges off, gives
+    // the heading no id through the promotion either.
+    for (const syntax of [
+      { headingAnchor: "host", badge: "off" },
+      { headingAnchor: "off" },
+    ] as const) {
+      const output = String(
+        await compile('## Heading <Anchor id="custom" badge="New" />\n', {
+          remarkPlugins: createHostPlugins({ syntax }, HOST, "nextra"),
+        }),
+      )
+      expect(output).not.toMatch(/id: "custom"[^}]*children: \["Heading/)
+      expect(output).toContain("_components.h2, {")
+      expect(output).toMatch(/Anchor, \{\s*id: "custom"/)
+    }
+  })
+
   it("rejects an unknown option while the config is still loading", () => {
     expect(() =>
       createHostPlugins(

@@ -5,12 +5,8 @@ import remarkGfm from "remark-gfm"
 import remarkDirective from "remark-directive"
 import remarkFrontmatter from "remark-frontmatter"
 import { compileSync } from "@mdx-js/mdx"
-import { parse as parseYaml } from "yaml"
-import {
-  normalizeDocument,
-  type DocumentOptions,
-  type DocumentNode,
-} from "./document.js"
+import { normalizeDocument, type DocumentOptions } from "./document.js"
+import { frontmatterOf } from "./metadata.js"
 import {
   importedNames,
   importedNamesFromSource,
@@ -58,17 +54,7 @@ export function compileDocument(
     if (options.host === "docusaurus") processor.use(remarkDirective)
     tree = processor.runSync(processor.parse(source)) as Root
   }
-  const frontmatterNode = (tree.children as unknown as DocumentNode[]).find(
-    (n) => n.type === "yaml",
-  )
-  const frontmatter = frontmatterNode
-    ? parseYaml(frontmatterNode.value!, { maxAliasCount: 100 })
-    : {}
-  if (
-    frontmatter !== null &&
-    (typeof frontmatter !== "object" || Array.isArray(frontmatter))
-  )
-    throw new Error("cudoc: frontmatter must be a mapping")
+  const frontmatter = frontmatterOf(tree)
   const imports = importedNames(tree)
   tree.children = tree.children.filter(
     (n) => !["yaml", "mdxjsEsm"].includes(n.type),
@@ -76,7 +62,7 @@ export function compileDocument(
   const diagnostics = normalizeDocument(tree, source, options)
   return {
     tree,
-    frontmatter: frontmatter ?? {},
+    frontmatter,
     diagnostics,
     ...(imports.length ? { imports } : {}),
   }

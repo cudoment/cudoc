@@ -1056,6 +1056,43 @@ describe("buildExport", () => {
     ).rejects.toThrow(/unknown granularity/)
   })
 
+  it("refuses a key no option has, as buildSite does", async () => {
+    const { sourceRoot, outDir, libraryDir } = workspace()
+    const base = { sourceRoot, outDir, libraryDir }
+    for (const [options, message] of [
+      [{ pdf: { exectuablePath: "/x" } }, /unknown option pdf\.exectuablePath/],
+      [{ docx: { rawHTML: "text" } }, /unknown option docx\.rawHTML/],
+      [{ page: { margins: { top: "20mm" } } }, /unknown option page\.margins/],
+      [
+        { page: { margin: { buttom: "30mm" } } },
+        /unknown option page\.margin\.buttom/,
+      ],
+      [{ page: { orientation: "Landscape" } }, /page\.orientation must be/],
+      [{ tokens: { colour: {} } }, /unknown token tokens\.colour/],
+      [
+        { tokens: { colors: { light: { acent: "#000" } } } },
+        /unknown token tokens\.colors\.light\.acent/,
+      ],
+      [
+        { tokens: { colors: { dim: {} } } },
+        /unknown token tokens\.colors\.dim/,
+      ],
+      [{ volume: { filename: "book" } }, /volume has an unknown key filename/],
+      [{ volume: { cover: { img: "c.png" } } }, /volume\.cover must be/],
+      [
+        { volume: { contents: { pagenumbers: false } } },
+        /volume\.contents must be/,
+      ],
+      // The staging hooks are buildExport's own and a caller's would be lost.
+      [{ afterStaging: () => {} }, /unknown option afterStaging/],
+      [{ printOutputs: true }, /unknown option printOutputs/],
+    ] as const)
+      await expect(
+        buildExport({ ...base, ...(options as object) }),
+      ).rejects.toThrow(message)
+    expect(fs.existsSync(outDir)).toBe(false)
+  })
+
   it("reports what the Word writer had to drop", async () => {
     const { sourceRoot, outDir, libraryDir } = workspace({
       "raw.md": "# Raw\n\n<div>markup</div>\n\nText.\n",

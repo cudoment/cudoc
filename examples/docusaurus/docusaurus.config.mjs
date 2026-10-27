@@ -4,13 +4,28 @@ import embed from "cudoc-remark/embed"
 import { libraryLoader } from "cudoc-remark/loader"
 import exportAst from "@cudoment/cudoc/embed"
 import { cudocOptions } from "../fixtures/cudoc-options.mjs"
+import { demo, demoBase, installedVersion } from "../fixtures/demo.mjs"
+
+/**
+ * Which release draws these pages, and where their sources and guide are.
+ * Docusaurus loads this file through jiti, which has no `import.meta`, and
+ * runs from the site directory.
+ */
+const about = demo({
+  host: "Docusaurus",
+  version: installedVersion(path.resolve(), "@docusaurus/core"),
+  example: "docusaurus",
+  guide: "docusaurus",
+})
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: "cudoc on Docusaurus",
   tagline: "The cudoc showcase document rendered by Docusaurus.",
-  url: "https://example.com",
-  baseUrl: "/",
+  // The documentation site publishes this example under a path of its own
+  // (`docs-site/demos.mjs` sets `CUDOC_DEMO_BASE`).
+  url: demoBase === "/" ? "https://example.com" : "https://cudoment.github.io",
+  baseUrl: demoBase,
   onBrokenLinks: "throw",
   markdown: {
     format: "detect",
@@ -72,9 +87,17 @@ const config = {
   ],
 
   themeConfig: {
+    announcementBar: {
+      id: "cudoc-demo",
+      content: about.html,
+      isCloseable: false,
+    },
     navbar: {
       title: "cudoc on Docusaurus",
-      items: [{ to: "/docs/showcase", label: "Showcase", position: "left" }],
+      items: [
+        { to: "/docs/portable", label: "Portable", position: "left" },
+        { to: "/docs/showcase", label: "Showcase", position: "left" },
+      ],
     },
   },
 }

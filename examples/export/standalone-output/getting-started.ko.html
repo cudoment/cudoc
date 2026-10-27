@@ -1,4 +1,4 @@
-<!doctype html><html lang="ko" data-cudoc-ui="{&#x22;theme&#x22;:&#x22;테마&#x22;,&#x22;light&#x22;:&#x22;라이트&#x22;,&#x22;dark&#x22;:&#x22;다크&#x22;}"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;; connect-src &#x27;none&#x27;"><meta name="viewport" content="width=device-width,initial-scale=1"><title>시작하기 · Northlight Weather API</title><style>
+<!doctype html><html lang="ko" data-cudoc-ui="{&#x22;theme&#x22;:&#x22;테마&#x22;,&#x22;light&#x22;:&#x22;라이트&#x22;,&#x22;dark&#x22;:&#x22;다크&#x22;}"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;; connect-src &#x27;none&#x27;"><meta name="viewport" content="width=device-width,initial-scale=1"><title>시작하기 · Northlight Weather API</title><meta name="description" content="키를 발급받고 요청을 한 번 보내면 첫 응답을 확인할 수 있습니다. 모든 호출은 헤더에 키를 담은 HTTPS 요청이며, 설치할 SDK는 없습니다."><style>
 :root {
   color-scheme: light dark;
 
@@ -612,7 +612,13 @@ code {
   background: var(--wash);
   border: 1px solid var(--line-soft);
   border-radius: 0.25em;
-  white-space: nowrap;
+  /* A signature or an address longer than the column wraps inside it rather
+     than running under the contents beside it or widening a phone's page;
+     each line keeps the padding and the border. A table column stays as wide
+     as its longest word, so a narrow table scrolls rather than splitting one. */
+  overflow-wrap: break-word;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 pre {
   margin: 0 0 var(--space-4);
@@ -626,6 +632,31 @@ pre {
 }
 pre code {
   white-space: pre;
+}
+pre .line.highlighted {
+  display: inline-block;
+  min-width: 100%;
+  margin: 0 calc(-1 * var(--space-4));
+  padding: 0 var(--space-4);
+  background: var(--accent-soft);
+}
+.cudoc-code {
+  margin: 0 0 var(--space-4);
+}
+.cudoc-code > pre {
+  margin: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+.cudoc-code-title {
+  padding: var(--space-1) var(--space-4);
+  background: var(--wash);
+  border: 1px solid var(--line-soft);
+  border-bottom: 0;
+  border-radius: var(--radius) var(--radius) 0 0;
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
 }
 .hljs-keyword,
 .hljs-selector-tag,
@@ -646,6 +677,53 @@ pre code {
 .hljs-literal,
 .hljs-title {
   color: var(--code-number);
+}
+
+/* ---------- tabs ---------- */
+.cudoc-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0 0 var(--space-4);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+}
+.cudoc-tab-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.cudoc-tab-label {
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.cudoc-tab {
+  order: 1;
+  flex-basis: 100%;
+  min-width: 0;
+  padding: var(--space-4) var(--space-4) 0;
+  border-top: 1px solid var(--line-soft);
+}
+.cudoc-tab-input:focus-visible + .cudoc-tab-label {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+@supports selector(:has(*)) {
+  .cudoc-tab-label + .cudoc-tab {
+    display: none;
+  }
+  .cudoc-tab-input:checked + .cudoc-tab-label + .cudoc-tab,
+  .cudoc-tabs:not(:has(> .cudoc-tab-input:checked)) > .cudoc-tab-default + .cudoc-tab-label + .cudoc-tab {
+    display: block;
+  }
+  .cudoc-tab-input:checked + .cudoc-tab-label,
+  .cudoc-tabs:not(:has(> .cudoc-tab-input:checked)) > .cudoc-tab-default + .cudoc-tab-label {
+    border-bottom-color: var(--accent);
+    color: var(--ink);
+    font-weight: 600;
+  }
 }
 
 /* ---------- tables ---------- */
@@ -801,6 +879,14 @@ details[open] summary {
   color: var(--ink);
   font-weight: 700;
 }
+.cudoc-table-note {
+  margin: calc(-1 * var(--space-2)) 0 var(--space-6);
+  color: var(--faint);
+  font-size: var(--text-sm);
+}
+.cudoc-table-note > p {
+  margin: var(--space-1) 0;
+}
 .cudoc-callout-warning {
   background: var(--warn-wash);
   border-left-color: var(--warn);
@@ -907,6 +993,26 @@ footer {
   .cudoc-callout,
   details {
     max-inline-size: none;
+  }
+  .cudoc-table-note {
+    break-before: avoid;
+  }
+  .cudoc-tabs {
+    display: block;
+  }
+  .cudoc-tab-input {
+    display: none;
+  }
+  .cudoc-tab-label {
+    display: block;
+    padding: var(--space-2) var(--space-4) 0;
+    break-after: avoid;
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .cudoc-tabs .cudoc-tab {
+    display: block;
+    border-top: 0;
   }
   p,
   li,
@@ -1213,4 +1319,4 @@ header > :first-child::before {
 <p><code>Authorization</code> 헤더에 키를 담고 관측소 코드로 요청합니다.</p>
 <pre><code class="hljs language-sh">curl -H <span class="hljs-string">"Authorization: Bearer <span class="hljs-variable">$NORTHLIGHT_KEY</span>"</span> \
   <span class="hljs-string">"https://api.northlight.example/v1/weather/current?station=OSL-01"</span></code></pre>
-<p>응답 필드와 오류 코드는 영어 <a href="https://cudoment.github.io/cudoc/showcase/reference/endpoints">레퍼런스</a>에 있습니다.</p><footer>Northlight Weather API</footer></main><nav class="toc" aria-label="이 페이지 목차"><p class="nav-title">이 페이지 목차</p><ul><li data-depth="2"><a href="https://cudoment.github.io/cudoc/showcase/getting-started.ko#key">키 발급</a></li><li data-depth="2"><a href="https://cudoment.github.io/cudoc/showcase/getting-started.ko#request">요청 보내기</a></li></ul></nav></div></body></html>
+<p>응답 필드와 오류 코드는 영어 <a href="https://cudoment.github.io/cudoc/showcase/reference/endpoints">레퍼런스</a>에 있습니다.</p><footer>Northlight Weather API</footer></main><nav class="toc" aria-label="이 페이지 목차"><p class="nav-title">이 페이지 목차</p><ul><li data-depth="2"><a href="#key">키 발급</a></li><li data-depth="2"><a href="#request">요청 보내기</a></li></ul></nav></div></body></html>

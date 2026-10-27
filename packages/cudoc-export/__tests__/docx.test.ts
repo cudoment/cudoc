@@ -73,8 +73,9 @@ Body with **bold**, *italic*, ~~struck~~ and \`code\`.
 | dash | - One<br>- Two<br>  - Nested |
 | plain | Ordinary text |
 
-\`\`\`js
+\`\`\`js title="value.js" {2}
 const value = { key: "text" }
+export { value }
 \`\`\`
 
 \`\`\`
@@ -293,6 +294,18 @@ describe("node mapping", () => {
     expect(xml).toContain('w:val="CudocCodeBlock"')
   })
 
+  it("titles a code block and marks its lines through styles alone", () => {
+    const code = paragraphs(xml).filter((p) =>
+      /w:val="CudocCode(Title|Block|Highlighted)"/.test(p),
+    )
+    const shape = code
+      .slice(0, 3)
+      .map((p) => [p.match(/<w:pStyle w:val="(\w+)"/)![1], runs(p).join("")])
+    expect(shape[0]).toEqual(["CudocCodeTitle", "value.js"])
+    expect(shape[1]![0]).toBe("CudocCodeBlock")
+    expect(shape[2]).toEqual(["CudocCodeHighlighted", "export { value }"])
+  })
+
   it("numbers a nested list one level deeper on the same instance", () => {
     const levels = [
       ...xml.matchAll(/<w:ilvl w:val="(\d+)"\/><w:numId w:val="(\d+)"\/>/g),
@@ -466,6 +479,59 @@ describe("node mapping", () => {
     expect(reported).toEqual([
       expect.objectContaining({ code: "dropped-html", document: "guide" }),
     ])
+  })
+
+  it("writes a character kept as its reference, as a VitePress library keeps a brace", async () => {
+    const reported: DocxDiagnostic[] = []
+    const tree: Root = {
+      type: "root",
+      children: [
+        {
+          type: "paragraph",
+          children: [
+            { type: "text", value: "Vue " },
+            { type: "html", value: "&#123;" },
+            { type: "html", value: "&#123;" },
+            { type: "text", value: " x " },
+            { type: "html", value: "&#125;" },
+            { type: "html", value: "&#125;" },
+          ],
+        },
+      ],
+    }
+    const { document: raw } = await archive([document({ tree })], {
+      onDiagnostic: (diagnostic) => reported.push(diagnostic),
+    })
+    expect(runs(raw).join("")).toBe("Vue {{ x }}")
+    expect(reported).toEqual([])
+  })
+
+  it("leaves out a host's heading permalink", async () => {
+    const reported: DocxDiagnostic[] = []
+    const tree: Root = {
+      type: "root",
+      children: [
+        {
+          type: "heading",
+          depth: 2,
+          children: [
+            { type: "text", value: "Limits " },
+            {
+              type: "link",
+              url: "#limits",
+              data: { cudoc: { kind: "permalink" } },
+              children: [{ type: "html", value: "&ZeroWidthSpace;" }],
+            } as Root["children"][number] as never,
+          ],
+        },
+      ],
+    }
+    const { document: raw } = await archive([document({ tree })], {
+      onDiagnostic: (diagnostic) => reported.push(diagnostic),
+    })
+    expect(runs(raw).join("")).toBe("Limits ")
+    expect(raw).not.toContain("w:hyperlink")
+    expect(reported).toEqual([])
   })
 
   it("refuses a surviving component the way the HTML renderer does", async () => {
@@ -1119,6 +1185,28 @@ describe("what the HTML shows that Word keeps too", () => {
     expect(runs(cells[2]!)).toEqual(["c2"])
   })
 
+  it("merges the cells a Markdown table marks with ^^ and >>", async () => {
+    const { document: xml } = await archive([
+      document({
+        tree: compile(
+          "# Spans\n\n| Code | Status | Message |\n| ---- | :----: | ------- |\n| E400 | 400    | first   |\n| ^^   | ^^     | second  |\n| Note | >>     | >>      |\n",
+          "md",
+        ),
+      }),
+    ])
+    const rows = [...xml.matchAll(/<w:tr>(.*?)<\/w:tr>/g)].map((m) => m[1]!)
+    expect(rows).toHaveLength(4)
+    const cells = (row: string) =>
+      [...row.matchAll(/<w:tc>(.*?)<\/w:tc>/g)].map((m) => m[1]!)
+    expect(cells(rows[1]!)[0]).toContain('<w:vMerge w:val="restart"/>')
+    expect(cells(rows[1]!)[1]).toContain('<w:vMerge w:val="restart"/>')
+    expect(
+      cells(rows[2]!).map((cell) => cell.includes('w:val="continue"')),
+    ).toEqual([true, true, false])
+    expect(cells(rows[3]!)).toHaveLength(1)
+    expect(cells(rows[3]!)[0]).toContain('<w:gridSpan w:val="3"/>')
+  })
+
   it("spans rows to the end of the row group, as the browser does", async () => {
     // `rowspan="0"` reaches the last row of its group, and a span longer than
     // the group stops there: Chromium draws `A` two rows tall and `H` one row
@@ -1304,7 +1392,7 @@ describe("what the HTML shows that Word keeps too", () => {
       [
         document({
           tree: compile(
-            "# Notes\n\nSee [run](javascript:alert(1)) and the note.[^n]\n\n[^n]: Details:\n\n    | A |\n    | --- |\n    | 1 |\n",
+            "# Notes\n\nSee [run](javascript:alert(1)), [share](file://server/share/a.txt) and the note.[^n]\n\n[^n]: Details:\n\n    | A |\n    | --- |\n    | 1 |\n",
           ),
         }),
       ],
@@ -1313,8 +1401,33 @@ describe("what the HTML shows that Word keeps too", () => {
     expect(reported.map((d) => d.code).sort()).toEqual([
       "dropped-footnote-table",
       "unsafe-link",
+      "unsafe-link",
     ])
     expect(xml).not.toContain("javascript:")
+    expect(xml).not.toContain("file:")
     expect(runs(xml).join("")).toContain("run")
+  })
+})
+
+describe("tabs", () => {
+  it("writes each tab under its label, in order", async () => {
+    const { document: xml, styles } = await archive([
+      document({
+        tree: compile(
+          '# Tabs\n\n```kotlin tab="Kotlin"\nval a = 1\n```\n\n> [!TAB] Java\n> Use the builder.\n',
+        ),
+      }),
+    ])
+    expect(styles).toContain('w:styleId="CudocTabLabel"')
+    const shape = paragraphs(xml)
+      .map((p) => [p.match(/<w:pStyle w:val="(\w+)"/)?.[1], runs(p).join("")])
+      .filter(([style]) => style !== "Heading1")
+    expect(shape).toEqual([
+      ["CudocTabLabel", "Kotlin"],
+      ["CudocCodeBlock", "val a = 1"],
+      ["CudocTabLabel", "Java"],
+      ["CudocBody", "Use the builder."],
+    ])
+    expect(xml).toMatch(/<w:pStyle w:val="CudocTabLabel"\/><w:keepNext\/>/)
   })
 })

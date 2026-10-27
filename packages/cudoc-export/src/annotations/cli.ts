@@ -1,5 +1,5 @@
 /**
- * `cudoc-export annotations <notes…> [--token t] --library <dir> [--out file] [--json]`,
+ * `cudoc-export annotations <notes…> [--token t] [--library <dir>] [--out file] [--json]`,
  * kept apart from the executable so tests can call it without a process.
  */
 
@@ -16,7 +16,7 @@ import {
 } from "./report.js"
 
 export const ANNOTATIONS_USAGE = `Usage: cudoc-export annotations [notes.json|page.annotated.html]... [--token token]...
-  --library directory [--out report.md] [--json]`
+  [--library directory] [--out report.md] [--json]`
 
 export type AnnotationsCommandResult = {
   /** The report, or an error message when the exit code is not 0. */

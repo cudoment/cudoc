@@ -26,6 +26,10 @@ import { addTocExport, collectHeadingToc, createToc } from "./toc.js"
 import remarkDirective from "remark-directive"
 import remarkFrontmatter from "remark-frontmatter"
 import { normalizeDocument } from "@cudoment/cudoc/document"
+import {
+  presentDocument,
+  type PresentationTarget,
+} from "@cudoment/cudoc/present"
 
 /** The label of the definition `cudoc-remark/loader` appends; see `loader.ts`. */
 const LIBRARY_MARKER_LABEL = "cudoc-library"
@@ -86,12 +90,16 @@ const cudocPrepare: Plugin<[CudocRemarkOptions?], Root> = function (
   options = {},
 ) {
   const resolved = resolveOptions(options)
-  // Component transforms are an explicit low-level API, never the authoring default.
+  // Component transforms are an explicit low-level API, never the authoring
+  // default: a site that names none of them is portable, whatever `syntax`
+  // it chooses.
   const portable =
-    options.syntax !== undefined ||
-    (options.headingMetadata === undefined &&
-      options.badge === undefined &&
-      options.tableCellList === undefined)
+    options.headingMetadata === undefined &&
+    options.badge === undefined &&
+    options.tableCellList === undefined
+  // A host that parses no front matter itself, as @next/mdx does not, would
+  // otherwise read it as a rule and a heading. The node is kept for later
+  // plugins and rendered by nothing.
   this.use(remarkFrontmatter)
   if (portable && options.host === "docusaurus") this.use(remarkDirective)
   const { pre, post } = buildTransforms(resolved)
@@ -106,7 +114,9 @@ const cudocPrepare: Plugin<[CudocRemarkOptions?], Root> = function (
     )
     const format = options.format ?? (file.extname === ".md" ? "md" : "mdx")
     if (portable || format === "md") {
-      tree.children = tree.children.filter((node) => node.type !== "yaml")
+      // Front matter stays in the tree, as written, for the plugins that read
+      // it after these: a host's page metadata, such as Nextra's, or
+      // remark-mdx-frontmatter. Nothing renders a `yaml` node.
       const diagnostics = normalizeDocument(tree, getFileSource(file) ?? "", {
         ...options,
         format,
@@ -117,6 +127,15 @@ const cudocPrepare: Plugin<[CudocRemarkOptions?], Root> = function (
           ruleId: diagnostic.code,
           source: "cudoc",
         })
+      // What the host draws on screen; capture takes it off before storing.
+      // The embed plugin presents what it splices in the same way.
+      const target: PresentationTarget = {
+        host: options.host ?? "markdown",
+        format,
+        tabElements: options.tabElements,
+      }
+      presentDocument(tree, target)
+      file.data.cudocPresentation = target
       if (resolved.transforms.pre.length || resolved.transforms.post.length)
         walk({
           tree,

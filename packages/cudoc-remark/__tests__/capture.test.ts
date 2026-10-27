@@ -137,3 +137,30 @@ it("refuses aliases that do not map prefixes to strings", () => {
       "capture aliases must map path prefixes to strings",
     )
 })
+
+it("stores the document without what cudoc drew for the screen", async () => {
+  const { default: cudocPrepare } = await import("../src/prepare.js")
+  for (const host of ["next", "docs"] as const) {
+    const capture = createCompilerCapture()
+    await compile(
+      {
+        value:
+          '# Guide\n\n```js tab="A" title="a.js"\nx\n```\n\n```js tab="B"\ny\n```\n',
+        path: "guide.mdx",
+      },
+      {
+        remarkPlugins: [[cudocPrepare, { syntax: {}, host }], capture.remark],
+        rehypePlugins: [capture.rehype],
+      },
+    )
+    const kinds: string[] = []
+    visit(capture.read().tree, (node) => {
+      const data = node.data as
+        | { hName?: string; cudoc?: { kind: string; presentation?: boolean } }
+        | undefined
+      if (data?.cudoc) kinds.push(`${data.cudoc.kind}:${data.hName ?? ""}`)
+      expect(data?.cudoc?.presentation, host).toBeUndefined()
+    })
+    expect(kinds, host).toEqual(["tabs:div", "tab:div", "code:", "tab:div"])
+  }
+})

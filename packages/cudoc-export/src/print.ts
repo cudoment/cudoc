@@ -150,7 +150,9 @@ export function resolveVolumeOptions(
   if (volume.cover === false) cover = false
   else if (volume.cover !== undefined) {
     if (
+      !volume.cover ||
       typeof volume.cover !== "object" ||
+      Object.keys(volume.cover).some((key) => key !== "image") ||
       (volume.cover.image !== undefined &&
         (typeof volume.cover.image !== "string" || !volume.cover.image))
     )
@@ -166,7 +168,11 @@ export function resolveVolumeOptions(
   if (volume.contents === false) contents = false
   else if (volume.contents !== undefined) {
     if (
+      !volume.contents ||
       typeof volume.contents !== "object" ||
+      Object.keys(volume.contents).some(
+        (key) => !["title", "pageNumbers"].includes(key),
+      ) ||
       (volume.contents.title !== undefined &&
         typeof volume.contents.title !== "string") ||
       (volume.contents.pageNumbers !== undefined &&
@@ -419,6 +425,9 @@ export const namespaceIds = (tree: HastRoot, prefix: string): void =>
     const properties = element.properties as Record<string, unknown>
     if (typeof properties.id === "string")
       properties.id = `${prefix}${properties.id}`
+    // Each document's radio tabs keep a group of their own in one file.
+    if (element.tagName === "input" && typeof properties.name === "string")
+      properties.name = `${prefix}${properties.name}`
     for (const key of ["ariaLabelledBy", "ariaDescribedBy", "htmlFor"]) {
       const value = properties[key]
       if (typeof value === "string") properties[key] = `${prefix}${value}`

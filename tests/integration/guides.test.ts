@@ -7,7 +7,8 @@
  * language cannot leave the other describing a setup that does not build.
  * The supported versions table is held to the example lockfiles, which are
  * the releases continuous integration tests, and to the peer ranges the
- * adapters declare.
+ * adapters declare. A host whose later releases are known to break names the
+ * releases it supports instead of a range, and is held to naming no range.
  */
 
 import fs from "node:fs"
@@ -93,8 +94,9 @@ const locked = (example: string, name: string): string => {
 
 /**
  * Each table row: the example that tests the host, the packages whose locked
- * versions the "tested" cell names (the host itself first), and the adapter
- * whose host peers the "declared" cell names.
+ * versions the "tested" cell names (the host itself first), the adapter
+ * whose host peers the "declared" cell names, and whether support runs on
+ * through the major release (`open`) or stops at the releases it names.
  */
 const ROWS = [
   {
@@ -102,30 +104,36 @@ const ROWS = [
     example: "next-mdx",
     tested: ["next", "@next/mdx"],
     adapter: "cudoc-remark",
+    open: true,
   },
   {
     host: "Docusaurus",
     example: "docusaurus",
     tested: ["@docusaurus/core"],
     adapter: "cudoc-docusaurus",
+    open: true,
   },
   {
     host: "Nextra",
     example: "nextra",
     tested: ["nextra", "next"],
     adapter: "cudoc-nextra",
+    // Nextra 4.6.1 builds nothing beside a current zod.
+    open: false,
   },
   {
     host: "VitePress",
     example: "vitepress",
     tested: ["vitepress"],
     adapter: "cudoc-vitepress",
+    open: true,
   },
   {
     host: "Eleventy",
     example: "eleventy",
     tested: ["@11ty/eleventy"],
     adapter: "cudoc-eleventy",
+    open: true,
   },
 ]
 
@@ -176,21 +184,22 @@ describe.each([
   })
 
   it.each(ROWS)(
-    "names the $host release the example locks, and a range from it on",
-    ({ host, example, tested }) => {
-      const [, testedCell, supportedCell] = row(host)
+    "names the $host release the example locks, and support from it on",
+    ({ host, example, tested, open }) => {
+      const [, testedCell, , supportedCell] = row(host)
       for (const name of tested)
         expect(testedCell).toContain(locked(example, name))
       const [major, minor] = locked(example, tested[0]!).split(".")
       expect(supportedCell).toContain(`${major}.${minor}`)
-      expect(supportedCell).toContain(`${major}.x`)
+      if (open) expect(supportedCell).toContain(`${major}.x`)
+      else expect(supportedCell).not.toMatch(/\d\.x\b/)
     },
   )
 
   it.each(ROWS)(
     "gives the peer range $adapter declares for $host",
     ({ host, adapter }) => {
-      const declared = row(host)[3]!
+      const declared = row(host)[4]!
       const peers = hostPeers(adapter)
       if (!peers.length) expect(declared.startsWith(none)).toBe(true)
       for (const [name, range] of peers) {
@@ -205,7 +214,7 @@ describe.each([
     ({ host, tested, adapter }) => {
       // A range that starts lower accepts a release nothing tests, and npm
       // installs it without a word.
-      const [, , supportedCell] = row(host)
+      const [, , , supportedCell] = row(host)
       const range = Object.fromEntries(hostPeers(adapter))[tested[0]!]
       expect(range, `${adapter} names ${tested[0]} as a peer`).toBeDefined()
       const floor = range!.match(/^\^(\d+)\.(\d+)\.(\d+)$/)
@@ -219,7 +228,7 @@ describe.each([
 
   it("names the Node.js version every package requires", () => {
     const source = fs.readFileSync(path.join(ROOT, file), "utf8")
-    expect(source).toContain("Node.js 20")
+    expect(source).toContain("Node.js 22")
     const packages = fs
       .readdirSync(path.join(ROOT, "packages"))
       .filter((dir) =>
@@ -230,6 +239,47 @@ describe.each([
       expect(
         read<Manifest>(`packages/${dir}/package.json`).engines?.node,
         dir,
-      ).toBe(">=20")
+      ).toBe(">=22")
+  })
+})
+
+/**
+ * Where a host's demo is offered, the release it names is the one the
+ * example locks, which is what the published demo is built from: the demo
+ * table, the guide's opening line and the adapter's package README.
+ */
+describe.each(ROWS)("the $host demo", ({ host, example, tested, adapter }) => {
+  const release = `${host} ${locked(example, tested[0]!)}`
+  const guide = { "Next.js": "next" }[host] ?? host.toLowerCase()
+  const lineOf = (file: string, start: string) =>
+    fs
+      .readFileSync(path.join(ROOT, file), "utf8")
+      .split("\n")
+      .find((line) => line.startsWith(start))
+
+  it.each([
+    ["docs/README.md", "Host demos"],
+    ["docs/README.ko.md", "호스트별 데모"],
+  ])("is listed in %s with that release", (file, title) => {
+    const row = tableUnder(file, title).find((cells) =>
+      cells[0]!.startsWith(`${host} `),
+    )
+    expect(row?.[0]).toBe(release)
+  })
+
+  it.each([
+    [`docs/${guide}.md`, "**See it first:**"],
+    [`docs/${guide}.ko.md`, "**먼저 보기:**"],
+  ])("is offered by %s with that release", (file, start) => {
+    expect(lineOf(file, start), file).toContain(release)
+  })
+
+  it("is named in the package README with that release", () => {
+    const readme = fs.readFileSync(
+      path.join(ROOT, `packages/${adapter}/README.md`),
+      "utf8",
+    )
+    expect(readme).toContain(`Tested with ${release}`)
+    expect(readme).toContain(`as ${release} renders them`)
   })
 })

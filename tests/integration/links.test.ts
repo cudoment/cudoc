@@ -14,52 +14,9 @@ import { execFileSync } from "node:child_process"
 import fs from "node:fs"
 import path from "node:path"
 import { describe, expect, it } from "vitest"
-import { unified } from "unified"
-import remarkParse from "remark-parse"
-import remarkGfm from "remark-gfm"
 import { visit } from "unist-util-visit"
-import type { Root } from "mdast"
 import { ROOT } from "./hosts.js"
-
-/** The published documentation: every Markdown file a reader is sent to. */
-const documents = (): string[] => {
-  const markdown = (dir: string): string[] =>
-    fs
-      .readdirSync(path.join(ROOT, dir), { withFileTypes: true })
-      .flatMap((entry) =>
-        entry.isDirectory()
-          ? markdown(path.join(dir, entry.name))
-          : entry.name.endsWith(".md")
-            ? [path.join(dir, entry.name)]
-            : [],
-      )
-  const readme = (dir: string) =>
-    fs
-      .readdirSync(path.join(ROOT, dir), { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => path.join(dir, entry.name, "README.md"))
-      .filter((file) => fs.existsSync(path.join(ROOT, file)))
-  return [
-    "README.md",
-    "README.ko.md",
-    "examples/README.md",
-    "tests/README.md",
-    "tests/scripts/README.md",
-    ...markdown("docs"),
-    ...readme("packages"),
-    ...readme("examples"),
-  ]
-}
-
-const parse = (file: string): Root =>
-  unified()
-    .use(remarkParse)
-    .use(remarkGfm)
-    .parse(fs.readFileSync(file, "utf8")) as Root
-
-const text = (node: { value?: string; children?: unknown[] }): string =>
-  node.value ??
-  (node.children ?? []).map((child) => text(child as typeof node)).join("")
+import { documents, parse, text } from "./documents.js"
 
 /**
  * The anchors GitHub gives a file's headings: lower case, anything but

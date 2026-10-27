@@ -37,6 +37,9 @@ const KNOWN_KEYS = new Set<string>([
   "tableColumnLayout",
   "tableColumnWidths",
   "ignoreDiagnostics",
+  "variables",
+  "linkReferences",
+  "tabElements",
   "transforms",
   "promoteHeadingIds",
 ] satisfies (keyof HostPluginOptions)[])

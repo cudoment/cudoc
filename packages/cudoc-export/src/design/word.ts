@@ -258,6 +258,16 @@ export function wordStyles(
       },
     },
     {
+      // A line the fence marked: the same box, washed in the accent.
+      id: "CudocCodeHighlighted",
+      name: "cudoc Code Highlighted",
+      basedOn: "CudocCodeBlock",
+      next: "CudocCodeBlock",
+      paragraph: {
+        shading: { type: ShadingType.CLEAR, fill: hex(light.accentSoft) },
+      },
+    },
+    {
       id: "CudocTableHeader",
       name: "cudoc Table Header",
       basedOn: "Normal",
@@ -285,6 +295,36 @@ export function wordStyles(
       next: "CudocBody",
       run: { size: size("xs"), italics: true, color: hex(light.faint), font },
       paragraph: { spacing: { after: rhythm.paragraph } },
+    },
+    {
+      id: "CudocCodeTitle",
+      name: "cudoc Code Title",
+      basedOn: "Normal",
+      next: "CudocCodeBlock",
+      run: { size: size("xs"), color: hex(light.faint), font: mono },
+      paragraph: {
+        spacing: { before: rhythm.block, after: 0 },
+        keepNext: true,
+      },
+    },
+    {
+      id: "CudocTabLabel",
+      name: "cudoc Tab Label",
+      basedOn: "Normal",
+      next: "CudocBody",
+      run: { size: size("sm"), bold: true, color: hex(light.muted), font },
+      paragraph: {
+        spacing: { before: rhythm.block, after: rhythm.paragraph },
+        keepNext: true,
+      },
+    },
+    {
+      id: "CudocTableNote",
+      name: "cudoc Table Note",
+      basedOn: "Normal",
+      next: "CudocBody",
+      run: { size: size("xs"), color: hex(light.faint), font },
+      paragraph: { spacing: { after: rhythm.paragraph }, keepLines: true },
     },
     {
       id: "CudocRule",

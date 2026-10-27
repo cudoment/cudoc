@@ -44,6 +44,107 @@
   --cudoc-danger-wash: #2c1618;
 }
 
+.cudoc-code {
+  margin: 1rem 0;
+}
+.cudoc-code > :not(.cudoc-code-title) {
+  margin-top: 0;
+}
+.cudoc-code-title {
+  padding: 0.35rem 0.85rem;
+  border: 1px solid var(--cudoc-line);
+  border-bottom: 0;
+  border-radius: 0.5rem 0.5rem 0 0;
+  background: var(--cudoc-wash);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8em;
+}
+/*
+ * Tabs: a radio and its label before each tab, in one wrapping row. The
+ * tabs follow on a row of their own, and only the checked one shows. No
+ * radio is checked at first, so the default one shows until another is.
+ * A browser without :has() shows every tab, as a printed page does.
+ */
+.cudoc-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 1rem 0;
+  border: 1px solid var(--cudoc-line);
+  border-radius: 0.5rem;
+}
+.cudoc-tab-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.cudoc-tab-label {
+  margin: 0;
+  padding: 0.45rem 0.9rem;
+  border-bottom: 2px solid transparent;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+.cudoc-tab {
+  order: 1;
+  flex-basis: 100%;
+  min-width: 0;
+  padding: 0 1rem;
+  border-top: 1px solid var(--cudoc-line);
+}
+.cudoc-tab > :first-child {
+  margin-top: 1rem;
+}
+.cudoc-tab > :last-child {
+  margin-bottom: 1rem;
+}
+.cudoc-tab-input:focus-visible + .cudoc-tab-label {
+  outline: 2px solid var(--cudoc-accent);
+  outline-offset: -2px;
+}
+@supports selector(:has(*)) {
+  .cudoc-tab-label + .cudoc-tab {
+    display: none;
+  }
+  .cudoc-tab-input:checked + .cudoc-tab-label + .cudoc-tab,
+  .cudoc-tabs:not(:has(> .cudoc-tab-input:checked))
+    > .cudoc-tab-default
+    + .cudoc-tab-label
+    + .cudoc-tab {
+    display: block;
+  }
+  .cudoc-tab-input:checked + .cudoc-tab-label,
+  .cudoc-tabs:not(:has(> .cudoc-tab-input:checked))
+    > .cudoc-tab-default
+    + .cudoc-tab-label {
+    border-bottom-color: var(--cudoc-accent);
+    font-weight: 600;
+  }
+}
+@media print {
+  .cudoc-tabs {
+    display: block;
+  }
+  .cudoc-tab-input {
+    display: none;
+  }
+  .cudoc-tab-label {
+    display: block;
+    padding: 0.45rem 1rem 0;
+    font-weight: 600;
+  }
+  .cudoc-tabs .cudoc-tab {
+    display: block;
+    border-top: 0;
+  }
+}
+.cudoc-table-note {
+  margin: 0.5rem 0 1rem;
+  font-size: 0.875em;
+  opacity: 0.8;
+}
+.cudoc-table-note > p {
+  margin: 0.25rem 0;
+}
 .cudoc-badge {
   display: inline-block;
   margin-left: 0.35em;
@@ -75,13 +176,13 @@
   margin-bottom: 0.25rem;
   font-weight: 700;
 }
-.cudoc-callout-warning,
-.cudoc-callout-caution {
+/* As in the export, a warning is amber and a caution, which `danger` and
+   `error` are read as, is red. */
+.cudoc-callout-warning {
   border-left-color: var(--cudoc-warn);
   background: var(--cudoc-warn-wash);
 }
-.cudoc-callout-danger,
-.cudoc-callout-error {
+.cudoc-callout-caution {
   border-left-color: var(--cudoc-danger);
   background: var(--cudoc-danger-wash);
 }
