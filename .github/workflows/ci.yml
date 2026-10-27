@@ -27,7 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: [20, 22, 24]
+        node: [22, 24, 26]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -157,3 +157,13 @@ jobs:
       # compilation cache can leave a site a version behind while passing.
       - name: An edit must reach every page and every exported AST
         run: node tests/scripts/rebuild-mdx.mjs
+
+      # The documentation site publishes these examples under demos/, each
+      # built again for the path it is served under, and checks every link
+      # in them before it deploys; a demo that cannot be published fails
+      # here rather than in the release.
+      - name: The host demos must build for the documentation site
+        run: |
+          npm run docs:demos
+          CUDOC_SITE_DEMOS="$PWD/.cudoc/docs-demos" npm run docs:site
+          node docs-site/verify.mjs .cudoc/docs-site

@@ -6,6 +6,32 @@ export type SiteLinkMode = "relative" | "host" | "none"
 export const externalUrl = (url: string) =>
   /^(?:[a-z][\w+.-]*:|\/\/)/i.test(url)
 
+/**
+ * The address an exported site is served from, ending in `/` so a page's
+ * output path resolves under it; undefined without one.
+ */
+export function servedUrl(value?: string): URL | undefined {
+  if (value === undefined) return undefined
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    throw new Error("cudoc-export: siteUrl must be an absolute HTTP(S) URL")
+  }
+  if (
+    !["http:", "https:"].includes(url.protocol) ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash
+  )
+    throw new Error(
+      "cudoc-export: siteUrl must be HTTP(S) without credentials, query or fragment",
+    )
+  url.pathname = url.pathname.replace(/\/?$/, "/")
+  return url
+}
+
 export function deploymentUrl(
   mode: SiteLinkMode,
   value?: string,

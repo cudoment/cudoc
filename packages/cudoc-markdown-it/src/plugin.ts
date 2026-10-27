@@ -23,17 +23,19 @@ import type { Root, PhrasingContent } from "mdast"
 import {
   normalizeDocument,
   nodeText,
+  replaceVariables,
   type DocumentDiagnostic,
   type DocumentNode,
 } from "@cudoment/cudoc/document"
 import { renderDocument } from "@cudoment/cudoc/render"
+import { presentDocument } from "@cudoment/cudoc/present"
 import type { Library, StoredDocument } from "@cudoment/cudoc/node/library"
 import { expandPreparedEmbeds } from "@cudoment/cudoc/node/prepare-embeds"
 import {
   resolveEmbed,
   parseEmbedSpec,
 } from "@cudoment/cudoc/node/resolve-embed"
-import { tokensToAst } from "./tokens.js"
+import { tokensToAst, WRITTEN_ADDRESS, WRITTEN_INFO } from "./tokens.js"
 import { resolveHostOptions, type HostPluginOptions } from "./options.js"
 import type { MarkdownItHost } from "./host.js"
 import { markdownItText } from "./text.js"
@@ -60,6 +62,59 @@ const CUDOC_FENCES = ["cudoc-embed", "cudoc-pagebreak"]
 /** The block types whose host rendering is put back into cudoc's HTML. */
 const HOST_BLOCKS = ["fence", "code_block", "html_block"] as const
 
+/** The attribute holding each inline token's address. */
+const ADDRESSES: Record<string, string> = { link_open: "href", image: "src" }
+
+/**
+ * Replaces the variables in the link and image addresses of `tokens` and
+ * their children, before the host's rules read them: VitePress writes a
+ * relative `guide.md` as `./guide.html` when it renders a link, and would
+ * make `(=target)` a path of its own first. Every marker is replaced once,
+ * with every value. A replaced address is normalized as markdown-it
+ * normalizes one written out, so a `%` or a space in a value is escaped
+ * before VitePress decodes the address. One markdown-it would refuse, such
+ * as `javascript:`, makes no link, as a written one does not: a link keeps
+ * its text and an image its alternative text. The address as written stays
+ * in the token's `meta`, so normalization reports a marker there that names
+ * nothing and replaces nothing in the address again.
+ */
+const replaceAddressVariables = (
+  md: MarkdownIt,
+  tokens: Token[],
+  variables: Record<string, string>,
+): void => {
+  for (let index = 0; index < tokens.length; index++) {
+    const token = tokens[index]!
+    if (token.children) replaceAddressVariables(md, token.children, variables)
+    const name = ADDRESSES[token.type]
+    const address = name ? token.attrGet(name) : null
+    if (!address?.includes("(=")) continue
+    const replaced = replaceVariables(address, variables)
+    token.meta = { ...token.meta, [WRITTEN_ADDRESS]: address }
+    if (replaced === address) continue
+    const normalized = md.normalizeLink(replaced)
+    if (md.validateLink(normalized)) {
+      token.attrSet(name!, normalized)
+      continue
+    }
+    if (token.type === "image") {
+      // Its alternative text was replaced above.
+      const text = token.children ?? []
+      tokens.splice(index, 1, ...text)
+      index += text.length - 1
+      continue
+    }
+    let depth = 0
+    let close = index + 1
+    for (; close < tokens.length; close++) {
+      if (tokens[close]!.type === "link_open") depth++
+      else if (tokens[close]!.type === "link_close" && depth-- === 0) break
+    }
+    tokens.splice(close, 1)
+    tokens.splice(index--, 1)
+  }
+}
+
 /**
  * The HTML a markdown-it front-matter fence, or nothing, would leave before
  * the Markdown body: what a stored source may have ahead of the text the
@@ -82,6 +137,7 @@ export function installHostPlugin(
 ): void {
   resolveHostOptions(options, host.adapter)
   const pending = new WeakMap<object, Pending>()
+  const addressVariables = options.variables
   const report =
     options.onDiagnostic ??
     ((diagnostic: DocumentDiagnostic, documentId: string) =>
@@ -139,6 +195,7 @@ export function installHostPlugin(
     if (!document) return nativeRender(tokens, renderOptions, env)
     let html: string
     try {
+      presentDocument(document.tree, { host: host.host })
       html = composeHtml(
         md.renderer,
         document,
@@ -154,7 +211,43 @@ export function installHostPlugin(
     return html
   }
 
+  // A fence's info as written, kept before any plugin rewrites it:
+  // markdown-it-attrs, which VitePress enables, takes `{2,4-5}` off the info
+  // as an attribute, and a site that allows only `id` drops it altogether.
+  // cudoc reads a code block's title and lines from this copy.
+  md.core.ruler.after("block", "cudoc-fence-info", (state) => {
+    for (const token of state.tokens)
+      if (token.type === "fence")
+        token.meta = { ...token.meta, [WRITTEN_INFO]: token.info }
+  })
+
+  // Shared link references join the page's own definitions before inline
+  // parsing, so the host reads `[text][label]` as a link and resolves its
+  // address the way it resolves any other: VitePress writes `guide.md` as
+  // `./guide.html` and prefixes its base. A definition the page writes
+  // itself wins. The options refuse what markdown-it refuses, and one whose
+  // address a host refuses beyond that defines nothing, as a definition
+  // the page writes would not.
+  const shared = Object.entries(options.linkReferences ?? {})
+  if (shared.length)
+    md.core.ruler.before("inline", "cudoc-link-references", (state) => {
+      const env = state.env as {
+        references?: Record<string, { href: string; title: string }>
+      }
+      const references = (env.references ??= {})
+      for (const [label, value] of shared) {
+        const key = md.utils.normalizeReference(label)
+        if (Object.hasOwn(references, key)) continue
+        const entry = typeof value === "string" ? { url: value } : value
+        const href = md.normalizeLink(entry.url)
+        if (!md.validateLink(href)) continue
+        references[key] = { href, title: entry.title ?? "" }
+      }
+    })
+
   md.core.ruler.push("cudoc", (state) => {
+    if (addressVariables)
+      replaceAddressVariables(md, state.tokens, addressVariables)
     let tokens = state.tokens
     if (host.resolveInlineAttributes) {
       tokens = state.tokens.map(cloneToken)
@@ -172,6 +265,7 @@ export function installHostPlugin(
     const conversion = {
       adapter: host.adapter,
       token: host.token,
+      textReferences: host.textReferences,
       // A block the host renders is rendered once the ids and titles cudoc
       // settles are on the host's heading tokens, so a table of contents
       // built from them links to the headings the page shows. It is rendered
@@ -187,6 +281,20 @@ export function installHostPlugin(
       origins,
     }
     const tree = tokensToAst(tokens, state.src, options, conversion)
+    // The host renders its code and HTML blocks from its own tokens, so a
+    // variable in one is replaced there too. The tree was read from them
+    // first: normalization replaces the variables in it once, as written,
+    // and reports a marker that names no variable, so the page and the
+    // stored tree hold the same text even when a value holds a marker.
+    if (options.variables)
+      for (const token of state.tokens)
+        if (
+          HOST_BLOCKS.includes(token.type as (typeof HOST_BLOCKS)[number]) &&
+          !CUDOC_FENCES.includes(token.info.trim())
+        ) {
+          token.content = replaceVariables(token.content, options.variables)
+          token.info = replaceVariables(token.info, options.variables)
+        }
     // The host slugged every heading before this rule without knowing the
     // ids cudoc settles from `(#id)`. Its ids are held aside until those are
     // known, so the duplicate check sees only ids written in the document,
@@ -212,20 +320,44 @@ export function installHostPlugin(
     if (tokens !== state.tokens)
       for (const [node, token] of origins)
         origins.set(node, state.tokens[tokens.indexOf(token)] ?? token)
+    // The host resolved the shared references before inline parsing; what
+    // is left as `[text][label]` was escaped or names no label.
     const diagnostics = normalizeDocument(
       tree,
       state.src,
-      { ...options, host: host.host, format: "md", headingIds: "host" },
+      {
+        ...options,
+        host: host.host,
+        format: "md",
+        headingIds: "host",
+        linkReferences: undefined,
+      },
       (source) => {
         const inline: Token[] = []
         const env = { ...state.env, links: [] }
         md.inline.parse(source, md, env, inline)
-        for (const token of inline)
-          if (token.type === "text_special") token.type = "text"
+        for (const token of inline) {
+          if (token.type !== "text_special") continue
+          // Where the host's text keeps references, a brace written as one
+          // stays one, as the page's own text does (`decoded` in tokens.ts).
+          if (
+            host.textReferences &&
+            token.info === "entity" &&
+            (token.content === "{" || token.content === "}")
+          ) {
+            token.type = "html_inline"
+            token.content = token.content === "{" ? "&#123;" : "&#125;"
+          } else token.type = "text"
+        }
+        if (addressVariables)
+          replaceAddressVariables(md, inline, addressVariables)
         if (host.resolveInlineAttributes)
           md.renderer.renderInline(inline, md.options, env)
+        // Parsed inline alone, the text was never joined: its references
+        // are decoded already.
         return tokensToAst(inline, source, options, {
           ...conversion,
+          textReferences: false,
           render: renderHosted(env),
         }).children as PhrasingContent[]
       },

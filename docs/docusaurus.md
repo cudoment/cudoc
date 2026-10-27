@@ -2,21 +2,36 @@
 
 **English** | [한국어](./docusaurus.ko.md) · [All guides](./README.md)
 
-Follow the steps in order. Steps 1–3 enable the Markdown extensions. Steps 4–6 add document embedding, which is what lets one document reuse another. Step 7 is optional.
+Set up cudoc in a Docusaurus site: the Markdown extensions first, then document embedding, and an optional HTML export at the end.
+
+**See it first:** the [Docusaurus demo](https://cudoment.github.io/cudoc/demos/docusaurus/docs/portable/) is the [runnable example](../examples/docusaurus/docusaurus.config.mjs) built by Docusaurus 3.10.2, with links to the Markdown it was built from. → [Host demos](./README.md#host-demos)
+
+Follow the steps in order. Steps 1–3 enable the Markdown extensions; steps 4–6 add document embedding, which lets one document reuse another; step 7 is optional.
 
 ## Step 1 — Install
+
+Install cudoc, its remark adapter and the Docusaurus adapter:
 
 ```sh
 npm install @cudoment/cudoc cudoc-remark cudoc-docusaurus
 ```
 
-Docusaurus 3.10 depends on `serialize-javascript` 6 through its webpack plugins, on `uuid` 8 through its development server, on `postcss-selector-parser` 6 through its CSS minifier and on `tinypool` 1 for building pages on worker threads. `npm audit` reports advisories for all four, and Docusaurus's own ranges do not let npm choose the fixed releases. The [example site](../examples/docusaurus/package.json) builds and runs its development server with the fixed releases pinned, so add the same `overrides` to `package.json`, beside any it already has, and install again:
+Docusaurus 3.10 depends on four packages whose advisories `npm audit` reports, and its own ranges do not let npm choose the fixed releases:
+
+| Package                     | Where Docusaurus 3.10 uses it    |
+| --------------------------- | -------------------------------- |
+| `serialize-javascript` 6    | its webpack plugins              |
+| `uuid` 8                    | its development server           |
+| `postcss-selector-parser` 6 | its CSS minifier                 |
+| `tinypool` 1                | building pages on worker threads |
+
+The [example site](../examples/docusaurus/package.json) builds and runs its development server with the fixed releases pinned, so add the same `overrides` to `package.json`, beside any it already has, and install again:
 
 ```json
 {
   "overrides": {
     "postcss-selector-parser": "7.1.6",
-    "serialize-javascript": "7.1.2",
+    "serialize-javascript": "7.1.3",
     "tinypool": "2.2.0",
     "uuid": "11.1.1"
   }
@@ -59,16 +74,18 @@ export default {
 }
 ```
 
-It must be `beforeDefaultRemarkPlugins`, not `remarkPlugins`. cudoc assigns heading anchors, and Docusaurus generates its own heading IDs and table of contents afterwards. Running cudoc second would leave the two disagreeing.
+It must be `beforeDefaultRemarkPlugins`, not `remarkPlugins`. cudoc assigns heading anchors, and Docusaurus generates its own heading IDs and table of contents afterwards; running cudoc second would leave the two disagreeing.
 
 ## Step 3 — Import the stylesheet
+
+Import the stylesheet once, at the top of your custom CSS:
 
 ```css
 /* src/css/custom.css — add at the top */
 @import "@cudoment/cudoc/styles.css";
 ```
 
-This styles callouts and badges. It sets no text colour of its own, so it follows your site's light and dark themes.
+This styles callouts, badges, code titles, tabs, table notes and document trees. It sets no text colour of its own, so it follows your site's light and dark themes.
 
 **Stop here if you only want the syntax extensions.** Start your site and the features in [Markdown syntax](./syntax.md) work. Continue for document embedding.
 
@@ -202,7 +219,16 @@ await collectDocuments({
 })
 ```
 
-Set `sourceRoot`, `outDir` and `routeBase` to match your site. **Collection and rendering must agree**: the same syntax options, the same native Markdown settings. The collector holds its document options in one `documentOptions` object, which it spreads into the `collectDocuments` configuration and passes to the `cudocRemarkPlugins` call inside its compiler; give that object the options your site configuration passes to `cudocRemarkPlugins`. If you change one, change the other. The same goes for your static directories: `staticDirs` lists each of them, `aliases` maps `@site/` followed by each one to `/`, the address Docusaurus serves its files at, and `check.assetDirs` in `cudoc.config.mjs` and each export's `--asset-dir` name each of them too, so an image written as `@site/static/img/logo.png` is checked and exported as `/img/logo.png` ([compiler capture](./api-reference/adapters.md#compiler-capture)).
+Set `sourceRoot`, `outDir` and `routeBase` to match your site.
+
+**Collection and rendering must agree**: the same syntax options, the same native Markdown settings. The collector holds its document options in one `documentOptions` object, which it spreads into the `collectDocuments` configuration and passes to the `cudocRemarkPlugins` call inside its compiler. Give that object the options your site configuration passes to `cudocRemarkPlugins`, and when you change one, change the other. → [Compiler capture](./api-reference/adapters.md#compiler-capture)
+
+Your static directories are named in four places, so that an image written as `@site/static/img/logo.png` is checked and exported as `/img/logo.png`:
+
+- `staticDirs` in the collector lists each of them.
+- `aliases` maps `@site/` followed by each one to `/`, the address Docusaurus serves its files at.
+- `check.assetDirs` in `cudoc.config.mjs` names each of them.
+- `--asset-dir` names each of them on every export.
 
 > The collector reads Docusaurus's internal processor module, `@docusaurus/mdx-loader/lib/processor.js`, which is not a public API. Check it when you upgrade Docusaurus; [supported versions](./README.md#supported-versions) lists the version it is tested with.
 
@@ -234,7 +260,7 @@ export default {
 
 Collection has to run before the site does. To collect again as you write, call [`watchDocuments`](./api-reference/node.md#watching) from `@cudoment/cudoc/node/watch` with the same options instead of `collectDocuments`. The embed plugin inserts the prepared content automatically.
 
-`cudoc check` reports every broken link, anchor, image and embed in one pass, and exits non-zero, so a broken reference stops the build before the site is generated. → [Reference checking](./check.md)
+`cudoc check` reports every broken link, anchor, image and embed in one pass and exits non-zero, so a broken reference stops the build before the site is generated. → [Reference checking](./check.md)
 
 ## Step 7 — Optionally export HTML
 
@@ -252,17 +278,23 @@ Your Docusaurus build and its collected data are not modified. → [Export](./ex
 
 ## What you can now write
 
-| Feature                     | Example                            | Details                                                    |
-| --------------------------- | ---------------------------------- | ---------------------------------------------------------- |
-| Explicit heading anchors    | `## Limits (#limits)`              | [Syntax](./syntax.md#anchors-and-badges)                   |
-| Heading badges              | `## Limits (#limits) (@New)`       | [Syntax](./syntax.md#anchors-and-badges)                   |
-| Callouts with titles        | `> [!NOTE] Before you start`       | [Syntax](./syntax.md#callouts)                             |
-| Nested lists in table cells | `- Account<br />-- Verified email` | [Syntax](./syntax.md#lists-inside-table-cells)             |
-| Embed a whole document      | `sources: [reference.md]`          | [Embedding](./embedding.md#reuse-a-section)                |
-| Embed one section           | `sources: [reference.md#limits]`   | [Embedding](./embedding.md#reuse-a-section)                |
-| Heading summary table       | `select: { depth: 2 }`             | [Embedding](./embedding.md#create-a-heading-summary-table) |
-| Document tree               | `render: { type: tree }`           | [Embedding](./embedding.md#draw-a-tree-of-documents)       |
-| Replace text in the copy    | `replace: [{ find, replace }]`     | [Embedding](./embedding.md#find-and-replace)               |
+The first eight rows are the syntax extensions from steps 1–3 and the last five the embed shapes from steps 4–6; each row links to its reference:
+
+| Feature                           | Example                            | Details                                                       |
+| --------------------------------- | ---------------------------------- | ------------------------------------------------------------- |
+| Explicit heading anchors          | `## Limits (#limits)`              | [Syntax](./syntax.md#anchors-and-badges)                      |
+| Heading badges                    | `## Limits (#limits) (@New)`       | [Syntax](./syntax.md#anchors-and-badges)                      |
+| Callouts with titles              | `> [!NOTE] Before you start`       | [Syntax](./syntax.md#callouts)                                |
+| Nested lists in table cells       | `- Account<br />-- Verified email` | [Syntax](./syntax.md#lists-inside-table-cells)                |
+| Merged table cells                | `^^` or `>>` alone in a cell       | [Syntax](./syntax.md#merged-table-cells)                      |
+| Code titles and highlighted lines | ` ```js title="retry.js" {2} `     | [Syntax](./syntax.md#code-block-titles-and-highlighted-lines) |
+| Tabs                              | `> [!TAB] npm`                     | [Syntax](./syntax.md#tabs)                                    |
+| Variables                         | `(=version)`                       | [Syntax](./syntax.md#variables)                               |
+| Embed a whole document            | `sources: [reference.md]`          | [Embedding](./embedding.md#reuse-a-section)                   |
+| Embed one section                 | `sources: [reference.md#limits]`   | [Embedding](./embedding.md#reuse-a-section)                   |
+| Heading summary table             | `select: { depth: 2 }`             | [Embedding](./embedding.md#create-a-heading-summary-table)    |
+| Document tree                     | `render: { type: tree }`           | [Embedding](./embedding.md#draw-a-tree-of-documents)          |
+| Replace text in the copy          | `replace: [{ find, replace }]`     | [Embedding](./embedding.md#find-and-replace)                  |
 
 ## Docusaurus specifics
 
@@ -274,7 +306,13 @@ cudocRemarkPlugins({ syntax: { headingAnchor: "both", callout: "both" } })
 
 Supported native forms are listed in the [syntax guide](./syntax.md).
 
-**Heading IDs are kept as written.** The adapter hands a heading ID that Docusaurus's slugger would change to Docusaurus as a trailing `{#id}`, which Docusaurus keeps rather than slugging again, so `## Version (#v1.2)` stays `v1.2` in the page and in its table of contents. Other IDs stay on the heading, where the slugger leaves them as they are and numbers a later heading that slugs to the same value past them. The reverse order differs between hosts: an ID that an earlier heading's text already produced, `## Setup` followed by `## Intro (#setup)`, comes out as `setup-1` here and on Nextra, where VitePress, Eleventy and the standalone export keep `setup` on the explicit one and number the earlier heading, so write the heading with the explicit ID first or give the other heading its own ID. The page's `#` heading always keeps its ID on the heading, because Docusaurus reads the page title from its text before taking a `{#id}` out; give that heading a slug-shaped ID, since one such as `(#v1.0)` comes out as `v10` there. Headings that arrive through an embed are anchors on the page but not entries in the table of contents, which Docusaurus builds before the embed plugin runs.
+**Heading IDs are kept as written.** The adapter hands a heading ID that Docusaurus's slugger would change to Docusaurus as a trailing `{#id}`, which Docusaurus keeps rather than slugging again, so `## Version (#v1.2)` stays `v1.2` in the page and in its table of contents. Other IDs stay on the heading, where the slugger leaves them as they are and numbers a later heading that slugs to the same value past them.
+
+The reverse order differs between hosts. An ID that an earlier heading's text already produced, `## Setup` followed by `## Intro (#setup)`, comes out as `setup-1` here and on Nextra, where VitePress, Eleventy and the standalone export keep `setup` on the explicit one and number the earlier heading. Write the heading with the explicit ID first, or give the other heading its own ID.
+
+The page's `#` heading always keeps its ID on the heading, because Docusaurus reads the page title from its text before taking a `{#id}` out. Give that heading a slug-shaped ID, since one such as `(#v1.0)` comes out as `v10` there.
+
+Headings that arrive through an embed are anchors on the page but not entries in the table of contents, which Docusaurus builds before the embed plugin runs.
 
 **Format detection.** `markdown: { format: "detect" }` keeps `.md` as plain Markdown, where `{value}` stays literal text, and treats `.mdx` as MDX. Author your own React components in `.mdx`. → [Choosing `.md` or `.mdx`](./README.md#choosing-md-or-mdx)
 
@@ -284,6 +322,8 @@ Supported native forms are listed in the [syntax guide](./syntax.md).
 
 ## Next
 
-- [Document embedding](./embedding.md) — selection, multiple sources, refresh rules
-- [Adapter internals](./api-reference/adapters.md#docusaurus-and-nextra) — ordering, capture, what the adapter sets
-- [Runnable example](../examples/docusaurus/docusaurus.config.mjs) — a working site
+Continue with the embedding guide, the adapter internals or the runnable example:
+
+- [Document embedding](./embedding.md): selection, multiple sources, refresh rules
+- [Adapter internals](./api-reference/adapters.md#docusaurus-and-nextra): ordering, capture, what the adapter sets
+- [Runnable example](../examples/docusaurus/docusaurus.config.mjs): a working site

@@ -5,7 +5,14 @@ import path from "node:path"
 import { compileDocument } from "../src/markdown.js"
 import { renderDocument } from "../src/render.js"
 import { validateAstContract } from "../src/ast.js"
-import { resolveSyntax } from "../src/document.js"
+import {
+  DEFAULT_SYNTAX,
+  isCudoc,
+  isHost,
+  resolveSyntax,
+  type DocumentNode,
+  type SyntaxOptions,
+} from "../src/document.js"
 import { collectSections } from "../src/sections.js"
 import { buildDocuments, loadLibrary } from "../src/node/library.js"
 import {
@@ -51,7 +58,7 @@ describe("portable Markdown", () => {
       "API",
     )
   })
-  it.each(["host", "cudoc", "both"] as const)(
+  it.each(["host", "cudoc", "both", "off"] as const)(
     "selects %s callouts without consuming ordinary blockquotes",
     (mode) => {
       const source =
@@ -61,8 +68,8 @@ describe("portable Markdown", () => {
         syntax: { callout: mode },
       })
       const ast = JSON.stringify(result.tree)
-      expect(ast.includes('"type":"warning"')).toBe(mode !== "host")
-      expect(ast.includes('"type":"note"')).toBe(mode !== "cudoc")
+      expect(ast.includes('"type":"warning"')).toBe(isCudoc(mode))
+      expect(ast.includes('"type":"note"')).toBe(isHost(mode))
       expect(ast).toContain("Ordinary quote")
       if (mode === "both") {
         const html = renderDocument(result.tree)
@@ -105,9 +112,94 @@ describe("portable Markdown", () => {
         syntax: { headingAnchor: "both" },
       }),
     ).toThrow("conflicting heading")
-    expect(() => resolveSyntax({ callout: "off" as never })).toThrow(
+    expect(() => resolveSyntax({ callout: "none" as never })).toThrow(
       "syntax.callout",
     )
+  })
+  it("leaves a feature that is off as written, in either form", () => {
+    const off = Object.fromEntries(
+      Object.keys(DEFAULT_SYNTAX).map((feature) => [feature, "off"]),
+    ) as SyntaxOptions
+    const source = [
+      "## Limits (#limits) {#other} (@New)",
+      "",
+      "> [!WARNING] Careful",
+      "> Body",
+      "",
+      "> [!TAB] Kotlin",
+      "> Body",
+      "",
+      ":::note[Native]\n\nNative body\n\n:::",
+      "",
+      '```js title="retry.js" {2} tab="JS"',
+      "a",
+      "b",
+      "```",
+      "",
+      "| A | B |",
+      "| --- | --- |",
+      "| - one<br>- two | x\\* |",
+      "| ^^ | >> |",
+      "",
+      "\\* Note",
+      "",
+    ].join("\n")
+    const { tree, diagnostics } = compileDocument(source, {
+      host: "docusaurus",
+      syntax: off,
+    })
+    expect(diagnostics).toEqual([])
+    const nodes: DocumentNode[] = []
+    const walk = (node: DocumentNode) => {
+      nodes.push(node)
+      node.children?.forEach(walk)
+    }
+    walk(tree as unknown as DocumentNode)
+    expect(nodes.filter((node) => node.data?.cudoc?.kind)).toEqual([])
+    const heading = nodes.find((node) => node.type === "heading")!
+    expect(
+      nodes.filter((node) => node.type === "text").map((node) => node.value),
+    ).toContain("Limits (#limits) {#other} (@New)")
+    expect(heading.data?.hProperties?.id).toBe("limits-limits-other-new")
+    expect(nodes.find((node) => node.type === "code")!.meta).toBe(
+      'title="retry.js" {2} tab="JS"',
+    )
+    const table = nodes.find((node) => node.type === "table")!
+    expect(JSON.stringify(table)).not.toMatch(/"list"|colSpan|rowSpan/)
+    expect(table.children).toHaveLength(3)
+    expect(nodes.filter((node) => node.type === "blockquote")).toHaveLength(2)
+    // The host's own form is the host's to draw.
+    expect(
+      nodes.filter((node) => node.type === "containerDirective"),
+    ).toHaveLength(1)
+  })
+  it("turns one feature off and leaves the others on", () => {
+    // An Anchor carries a badge as well as an id: with badges off it stays
+    // the host's component, id and all.
+    const anchored = compileDocument(
+      '## One <Anchor id="one" badge="New" />\n\n## Two <Anchor id="two" />\n',
+      {
+        format: "mdx",
+        host: "docs",
+        syntax: { headingAnchor: "host", badge: "off" },
+      },
+    )
+    const [one, two] = anchored.tree.children as unknown as DocumentNode[]
+    expect(JSON.stringify(anchored.tree)).not.toContain("cudoc-badge")
+    expect(one!.children!.some((child) => child.name === "Anchor")).toBe(true)
+    expect(one!.data?.cudoc?.explicitId).toBeUndefined()
+    expect(two!.data?.hProperties?.id).toBe("two")
+    // Tabs off, callouts on: the tabs' marker stays a quote, unreported.
+    const quoted = compileDocument(
+      "> [!TAB] Kotlin\n> Body\n\n> [!NOTE] Note\n> Body\n",
+      { syntax: { tabs: "off" } },
+    )
+    expect(quoted.diagnostics).toEqual([])
+    expect(
+      (quoted.tree.children as unknown as DocumentNode[]).map(
+        (node) => node.data?.cudoc?.kind ?? node.type,
+      ),
+    ).toEqual(["blockquote", "callout"])
   })
   it("reports two headings sharing an ID instead of failing the compile", () => {
     // Two headings claiming one ID is a problem across a document set, not a
@@ -118,7 +210,7 @@ describe("portable Markdown", () => {
 
     expect(diagnostics).toHaveLength(1)
     expect(diagnostics[0]).toMatchObject({
-      code: "duplicate-heading-id",
+      code: "DUPLICATE_HEADING_ID",
       message: "duplicate heading ID: same",
     })
   })
@@ -428,7 +520,7 @@ describe("a document that repeats a heading id", () => {
 
   it("gives every repeated heading its own section", () => {
     const { tree, diagnostics } = compileDocument(SOURCE)
-    expect(diagnostics.map((d) => d.code)).toContain("duplicate-heading-id")
+    expect(diagnostics.map((d) => d.code)).toContain("DUPLICATE_HEADING_ID")
     const sections = collectSections(tree, { depth: 2 })
     expect(sections.map((s) => s.title)).toEqual(["One", "Two"])
     expect(

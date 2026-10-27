@@ -590,6 +590,23 @@ describe("the rest of the shell", () => {
       /header\.links is a list/,
     ],
     [
+      { header: { links: [{ title: "", url: "https://x/" }] } },
+      /header\.links is a list/,
+    ],
+    [
+      { header: { links: [{ title: { en: "X" }, url: "https://x/" }] } },
+      /header\.links\[0\]: a title per language needs locales/,
+    ],
+    [
+      {
+        locales: { en: "English" },
+        header: {
+          links: [{ title: { en: "X", ko: "엑스" }, url: "https://x/" }],
+        },
+      },
+      /header\.links\[0\]: title names ko, which locales does not/,
+    ],
+    [
       { sourceLinks: { root: ".", url: "ftp://x/" } },
       /sourceLinks\.url is an absolute http\(s\) URL/,
     ],
@@ -624,6 +641,25 @@ describe("the rest of the shell", () => {
     expect(() => p.build({ navgation: ["a.md"] } as never)).toThrow(
       /unknown option navgation/,
     )
+    // What only buildExport hands the builder is no option of buildSite.
+    for (const key of ["afterStaging", "printOutputs"])
+      expect(() => p.build({ [key]: true } as never)).toThrow(
+        new RegExp(`unknown option ${key}`),
+      )
+  })
+
+  it("keeps the contents on the page under every policy that keeps links", () => {
+    const p = project({ "docs/a.md": doc("A", "## One\n\n[Up](#one)") })
+    p.build({ links: "host", hostUrl: "https://docs.example.com/" })
+    const hosted = parse(p.read("a.html"))
+    expect(hosted.querySelector(".toc a")!.getAttribute("href")).toBe("#one")
+    // An authored fragment link still names the deployed page.
+    expect(hosted.querySelector("main a")!.getAttribute("href")).toBe(
+      "https://docs.example.com/a#one",
+    )
+    expect(p.read("a.html")).not.toContain("data-cudoc-final")
+    p.build({ links: "none" })
+    expect(parse(p.read("a.html")).querySelector(".toc a")).toBeNull()
   })
 
   it("lets no authored link pass as one the shell resolved", () => {
@@ -633,6 +669,107 @@ describe("the rest of the shell", () => {
     })
     expect(() => p.build({ private: ["secret.md"] })).toThrow(
       /a links to private document secret/,
+    )
+  })
+})
+
+describe("page metadata", () => {
+  const files = {
+    "docs/README.md": doc("Project", "The project in one line."),
+    "docs/README.ko.md": doc("프로젝트", "한 줄 소개입니다."),
+    "docs/guide.md":
+      "---\ndescription: Set the SDK up & running.\n---\n\n# Guide\n\nBody.\n",
+    "docs/extra.md": doc("Extra"),
+  }
+  const locales = { en: "English", ko: "한국어" }
+  const head = (html: string) => parse(html).querySelector("head")!
+
+  it("describes each page and, with siteUrl, names its address, its translations and a sitemap", () => {
+    const p = project(files)
+    p.build({
+      home: "README.md",
+      locales,
+      siteUrl: "https://docs.example.com/project",
+    })
+    const guide = head(p.read("guide.html"))
+    expect(
+      guide.querySelector('meta[name="description"]')!.getAttribute("content"),
+    ).toBe("Set the SDK up & running.")
+    expect(
+      guide.querySelector('link[rel="canonical"]')!.getAttribute("href"),
+    ).toBe("https://docs.example.com/project/guide.html")
+    // A page without a translation names no alternates.
+    expect(guide.querySelectorAll('link[rel="alternate"]')).toHaveLength(0)
+    const home = head(p.read("index.ko.html"))
+    expect(
+      home
+        .querySelectorAll('link[rel="alternate"]')
+        .map((link) => [
+          link.getAttribute("hreflang"),
+          link.getAttribute("href"),
+        ]),
+    ).toEqual([
+      ["en", "https://docs.example.com/project/index.html"],
+      ["ko", "https://docs.example.com/project/index.ko.html"],
+    ])
+    expect(
+      home.querySelector('meta[name="description"]')!.getAttribute("content"),
+    ).toBe("한 줄 소개입니다.")
+    expect(p.read("sitemap.xml")).toBe(
+      [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+        // In the order the pages were written.
+        ...["extra.html", "guide.html", "index.ko.html", "index.html"].map(
+          (file) =>
+            `<url><loc>https://docs.example.com/project/${file}</loc></url>`,
+        ),
+        "</urlset>",
+        "",
+      ].join("\n"),
+    )
+  })
+
+  it("keeps a linked file from taking the sitemap's name", () => {
+    const p = project({
+      "docs/a.md": doc("A", "[map](./sitemap.xml)"),
+      "docs/sitemap.xml": "<urlset/>",
+    })
+    for (const options of [{ siteUrl: "https://docs.example.com/" }, {}])
+      expect(() => p.build(options)).toThrow(
+        /asset collides with generated output: sitemap\.xml/,
+      )
+  })
+
+  it("writes a page's address percent-encoded", () => {
+    // A URL keeps a `%` as it is, which would read as the start of an escape.
+    const p = project({ "docs/100%.md": doc("Fully") })
+    p.build({ siteUrl: "https://docs.example.com/" })
+    expect(
+      head(p.read("100%.html"))
+        .querySelector('link[rel="canonical"]')!
+        .getAttribute("href"),
+    ).toBe("https://docs.example.com/100%25.html")
+  })
+
+  it("names no address without siteUrl or outside a site", () => {
+    const p = project(files)
+    p.build({ home: "README.md", locales })
+    expect(
+      head(p.read("guide.html")).querySelector('link[rel="canonical"]'),
+    ).toBeNull()
+    expect(p.exists("sitemap.xml")).toBe(false)
+    // A single page or a review page has no address of its own to name.
+    expect(() =>
+      p.build({ mode: "standalone", siteUrl: "https://docs.example.com/" }),
+    ).toThrow('siteUrl applies to mode: "site"')
+  })
+
+  it("rejects a siteUrl that is not an HTTP(S) address", () => {
+    const p = project(files)
+    expect(() => p.build({ siteUrl: "docs.example.com" })).toThrow("siteUrl")
+    expect(() => p.build({ siteUrl: "https://docs.example.com/?a=1" })).toThrow(
+      "siteUrl",
     )
   })
 })

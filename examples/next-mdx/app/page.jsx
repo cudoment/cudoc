@@ -5,6 +5,10 @@ export default function Home() {
     <>
       <h1>cudoc on Next.js</h1>
       <p>
+        <Link href="/portable">Open the portable document</Link>, which embeds
+        sections of <Link href="/reference">the reference</Link>
+      </p>
+      <p>
         <Link href="/showcase">Open the showcase document</Link>
       </p>
       <p>

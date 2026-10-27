@@ -33,6 +33,10 @@ import {
 } from "./storage.js"
 import { globMatcher } from "./glob.js"
 import { libraryPath, resolveRoots, type ResolvedRoot } from "./roots.js"
+import { documentDescription, documentTitle } from "../metadata.js"
+import { capturedImage } from "../document.js"
+import { imageSize, type ImageInfo } from "./image-size.js"
+import { resolveLocalTarget } from "./local-target.js"
 import type {
   AsyncDocumentCompiler,
   BuildDocumentsOptions,
@@ -96,6 +100,9 @@ function configurationHash(
     compiler: _compiler,
     outDir: _outDir,
     previous: _previous,
+    // What collection writes beside the documents, not how it compiles them.
+    imageSizes: _imageSizes,
+    assetDirs: _assetDirs,
     ...documentOptions
   } = options
   const roots = resolveRoots({ sourceRoot, roots: givenRoots })
@@ -337,6 +344,8 @@ export function collectLibrary({
   routeSuffix = "",
   routes = {},
   previous,
+  imageSizes = false,
+  assetDirs = [],
   ...options
 }: BuildDocumentsOptions): Collection {
   if (
@@ -440,6 +449,20 @@ export function collectLibrary({
         writeJson(safePath(dir, `documents/${doc.id}.json`), doc.tree)
         writeJson(safePath(dir, `sources/${doc.id}.json`), doc.source)
       }
+      writeJson(path.join(dir, "pages.json"), {
+        schemaVersion: PAGES_SCHEMA_VERSION,
+        pages: documents.map((doc) => pageEntry(doc)),
+      })
+      if (imageSizes)
+        writeJson(path.join(dir, "images.json"), {
+          schemaVersion: IMAGES_SCHEMA_VERSION,
+          documents: Object.fromEntries(
+            documents.flatMap((doc) => {
+              const sizes = imageSizesOf(doc, { roots, assetDirs })
+              return Object.keys(sizes).length ? [[doc.id, sizes]] : []
+            }),
+          ),
+        })
       writeJson(path.join(dir, "manifest.json"), {
         schemaVersion: LIBRARY_SCHEMA_VERSION,
         configuration,
@@ -455,6 +478,84 @@ export function collectLibrary({
       })
     },
   }
+}
+
+/** The version of `pages.json`, raised when an entry's meaning changes. */
+export const PAGES_SCHEMA_VERSION = 1
+/** The version of `images.json`. */
+export const IMAGES_SCHEMA_VERSION = 1
+
+/** One document as `pages.json` lists it. */
+export type PageEntry = {
+  id: string
+  route: string
+  sourcePath: string
+  title: string
+  /** Front matter `description`, or the first paragraph cut to 160 characters. */
+  description?: string
+  private?: true
+}
+
+/** A document's entry in `pages.json`. */
+export function pageEntry(doc: StoredDocument): PageEntry {
+  const description = documentDescription(doc.tree, doc.frontmatter)
+  return {
+    id: doc.id,
+    route: doc.route,
+    sourcePath: doc.sourcePath,
+    title: documentTitle(doc.tree, doc.frontmatter, doc.id),
+    ...(description ? { description } : {}),
+    ...(doc.private ? { private: true as const } : {}),
+  }
+}
+
+/**
+ * The size of every local image a document shows, by the address it writes:
+ * a Markdown image, the image a host made a component of, and a static
+ * `<img>` component. An image that is missing, or in a format other than
+ * PNG, JPEG, GIF or BMP, is left out; the reference check reports the first.
+ */
+export function imageSizesOf(
+  doc: StoredDocument,
+  roots: { roots: readonly ResolvedRoot[]; assetDirs?: string[] },
+): Record<string, ImageInfo> {
+  const urls = new Set<string>()
+  // A reference-style image, `![alt][label]`, shows the file its
+  // definition names; a markdown-it host resolved it into an image already.
+  const definitions = new Map<string, string>()
+  const cited = new Set<string>()
+  visit(doc.tree, (node) => {
+    const own = node as unknown as DocumentNode
+    // The first definition of a label is the one a page shows.
+    if (node.type === "definition" && !definitions.has(node.identifier))
+      definitions.set(node.identifier, node.url)
+    if (node.type === "imageReference") cited.add(node.identifier)
+    if (node.type === "image" && typeof own.url === "string") urls.add(own.url)
+    const captured = capturedImage(own)
+    if (captured) urls.add(captured.url)
+    if (
+      (node.type === "mdxJsxFlowElement" ||
+        node.type === "mdxJsxTextElement") &&
+      own.name === "img"
+    ) {
+      const src = (
+        own.attributes as { type: string; name?: string; value?: unknown }[]
+      ).find((attr) => attr.type === "mdxJsxAttribute" && attr.name === "src")
+      if (typeof src?.value === "string") urls.add(src.value)
+    }
+  })
+  for (const identifier of cited) {
+    const url = definitions.get(identifier)
+    if (url) urls.add(url)
+  }
+  const sizes: Record<string, ImageInfo> = {}
+  for (const url of [...urls].sort()) {
+    const target = resolveLocalTarget(url, doc.sourcePath, roots)
+    if (target.kind !== "resolved") continue
+    const size = imageSize(fs.readFileSync(target.source))
+    if (size) sizes[url] = size
+  }
+  return sizes
 }
 
 /** Compiles with an asynchronous host compiler, then collects as `collectLibrary` does. */
@@ -482,6 +583,8 @@ export async function collectLibraryAsync(
     routes: _routes,
     compilerId: _compilerId,
     extractors: _extractors,
+    imageSizes: _imageSizes,
+    assetDirs: _assetDirs,
     previous,
     ...documentOptions
   } = rest

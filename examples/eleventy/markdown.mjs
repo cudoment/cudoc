@@ -15,12 +15,25 @@ import attrs from "markdown-it-attrs"
 import anchor from "markdown-it-anchor"
 import container from "markdown-it-container"
 import { createMarkdownRenderer } from "cudoc-eleventy"
+import { portableOptions } from "../fixtures/cudoc-options.mjs"
 
-export const syntax = { headingAnchor: "both", callout: "both" }
+export const syntax = {
+  headingAnchor: "both",
+  callout: "both",
+  ...portableOptions.syntax,
+}
+/** The values and link labels every example site shares. */
+export const { variables, linkReferences } = portableOptions
 
 export const createRenderer = (library, overrides) =>
   createMarkdownRenderer(
-    { ...overrides, syntax: { ...syntax, ...overrides?.syntax }, library },
+    {
+      variables,
+      linkReferences,
+      ...overrides,
+      syntax: { ...syntax, ...overrides?.syntax },
+      library,
+    },
     (md) => {
       md.use(attrs, { allowedAttributes: ["id"] })
       md.use(anchor, { permalink: anchor.permalink.linkInsideHeader() })

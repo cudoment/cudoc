@@ -3,13 +3,13 @@ import { cudocRemarkPlugins } from "cudoc-nextra"
 import { createCompilerCapture } from "cudoc-remark"
 // The site draws its headings with its own Anchor and Badge components, which
 // a library meant for embedding and export cannot carry. Collection keeps
-// cudoc's native output and takes the one site option that changes the tree,
-// the table layout, as the Next.js collector does.
-import { cudocOptions } from "../fixtures/cudoc-options.mjs"
+// cudoc's native output and takes the site options that change what a page
+// says, the portable ones and the table layout, as the Next.js collector does.
+import { cudocOptions, portableOptions } from "../fixtures/cudoc-options.mjs"
 import { collectDocuments } from "@cudoment/cudoc/node/watch"
 
 const documentOptions = {
-  syntax: {},
+  ...portableOptions,
   tableColumnLayout: cudocOptions.tableColumnLayout,
 }
 

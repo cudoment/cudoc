@@ -3,3 +3,5 @@
 docs/showcase.mdx
 docs/portable.md
 docs/reference.md
+out/
+.next.before-demo/

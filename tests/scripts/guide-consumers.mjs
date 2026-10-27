@@ -45,6 +45,17 @@
  * the support table names. Pass names to run only those:
  * `node tests/scripts/guide-consumers.mjs vitepress export`. Set
  * `CUDOC_KEEP_GUIDE_SITES=1` to keep the sites for a look afterwards.
+ *
+ * With `--latest` the host packages install unpinned instead, at the releases
+ * npm picks for a new project today, which is what a reader who starts now
+ * gets. The run then follows every guide it was given even when one fails,
+ * prints the releases each site resolved, and reports an advisory the example
+ * does not have without failing on it, since the example locks other
+ * releases. A `name@version` argument pins that package, a host package or
+ * one deeper in the tree, which is how a release a fresh install fails on is
+ * checked against the pin its guide gives:
+ * `node tests/scripts/guide-consumers.mjs --latest nextra zod@4.3.6`. CI runs
+ * the locked form; this one gives the support table's fresh-install column.
  */
 
 import { execFileSync } from "node:child_process"
@@ -224,6 +235,8 @@ export function useMDXComponents(components) {
     },
     logo: "public/img/logo.png",
     build: ["next", "build"],
+    // The guide runs Next.js with webpack, which Next.js 16 needs told.
+    webpack: true,
     page: ".next/server/app/index.html",
   },
   vitepress: {
@@ -335,10 +348,10 @@ function pack(destination) {
   return tarballs
 }
 
-function followGuide(name, host, tarballs, workspace) {
+function followGuide(name, host, tarballs, workspace, latest, pins = {}) {
   const site = path.join(workspace, name)
   fs.mkdirSync(site)
-  const version = lockedVersions(host.example)
+  const version = latest ? (spec) => pins[spec] : lockedVersions(host.example)
   const pinned = (spec) => {
     if (tarballs[spec]) return tarballs[spec]
     const locked = version(spec)
@@ -355,7 +368,11 @@ function followGuide(name, host, tarballs, workspace) {
    * under that version. npm refuses an override for a direct dependency, and
    * the guide's own install line has to supply those.
    */
-  let overrides = {}
+  // A pinned package the site does not install itself is held to its pin
+  // wherever the tree has it.
+  let overrides = Object.fromEntries(
+    Object.entries(pins).filter(([pkg]) => !host.dependencies.includes(pkg)),
+  )
   const install = (args) => {
     const manifest = readManifest()
     const direct = new Set([
@@ -380,16 +397,18 @@ function followGuide(name, host, tarballs, workspace) {
   writeManifest({
     name: `guide-${name}`,
     private: true,
-    dependencies: Object.fromEntries(
-      host.dependencies.map((dependency) => {
-        const locked = version(dependency)
-        if (!locked)
-          throw new Error(
-            `examples/${host.example} does not lock ${dependency}`,
-          )
-        return [dependency, locked]
-      }),
-    ),
+    dependencies: latest
+      ? {}
+      : Object.fromEntries(
+          host.dependencies.map((dependency) => {
+            const locked = version(dependency)
+            if (!locked)
+              throw new Error(
+                `examples/${host.example} does not lock ${dependency}`,
+              )
+            return [dependency, locked]
+          }),
+        ),
   })
   const write = (file, content) => {
     const target = path.join(site, file)
@@ -411,7 +430,29 @@ function followGuide(name, host, tarballs, workspace) {
   writeDocuments({ ...documents, ...SYNTAX_ONLY })
   if (host.logo) write(host.logo, LOGO)
   if (host.aliasImage) write(host.aliasImage.file, LOGO)
-  install([])
+  // Unpinned, the starting site's packages are what npm picks today.
+  install(latest ? host.dependencies.map(pinned) : [])
+  /** The releases the site resolved, printed once, before its first build. */
+  const hostPackages = new Set(host.dependencies)
+  let printed = false
+  const installed = (pkg) => {
+    const file = path.join(site, "node_modules", pkg, "package.json")
+    return fs.existsSync(file)
+      ? JSON.parse(fs.readFileSync(file, "utf8")).version
+      : undefined
+  }
+  const printInstalled = () => {
+    if (printed || !hostPackages.size) return
+    printed = true
+    const versions = [...hostPackages, ...Object.keys(overrides)]
+      .filter((pkg, index, all) => all.indexOf(pkg) === index)
+      .filter((pkg) => !tarballs[pkg])
+      .map((pkg) => `${pkg} ${installed(pkg) ?? "missing"}`)
+    console.log(`${name}: installed ${versions.join(", ")}`)
+  }
+  /** Next.js 16 builds with Turbopack unless `--webpack` says otherwise. */
+  const webpackFlag = () =>
+    host.webpack && Number(installed("next")?.split(".")[0]) >= 16
   const page = path.join(site, host.page)
   const scripts = []
 
@@ -421,13 +462,19 @@ function followGuide(name, host, tarballs, workspace) {
   for (const step of readGuide(path.join(ROOT, host.guide), host.section)) {
     if (step.kind === "command") {
       const [tool, verb, ...args] = step.command.split(/\s+/)
-      if (tool === "npm" && verb === "install") install(args.map(pinned))
-      else if (direct) run("sh", ["-c", step.command], site)
+      if (tool === "npm" && verb === "install") {
+        install(args.map(pinned))
+        for (const arg of args)
+          if (!tarballs[arg] && !arg.startsWith("-"))
+            hostPackages.add(arg.replace(/(?<=.)@.*$/, ""))
+      } else if (direct) run("sh", ["-c", step.command], site)
       else afterBuild.push(step.command)
     } else if (step.kind === "stop") {
       if (!host.build)
         throw new Error(`${host.guide} stops, and ${name} has no build command`)
       const [tool, ...args] = host.build
+      printInstalled()
+      if (webpackFlag()) args.push("--webpack")
       run(path.join(site, "node_modules/.bin", tool), args, site)
       if (!fs.readFileSync(page, "utf8").includes('data-callout="note"'))
         throw new Error(`${name}: the syntax-only site draws no callout`)
@@ -436,7 +483,17 @@ function followGuide(name, host, tarballs, workspace) {
       writeDocuments(documents)
     } else if (step.kind === "scripts") {
       const manifest = readManifest()
-      manifest.scripts = { ...manifest.scripts, ...step.scripts }
+      // The scripts as the guide gives them for Next.js 15, with the flag it
+      // tells a Next.js 16 reader to add.
+      const scripts = webpackFlag()
+        ? Object.fromEntries(
+            Object.entries(step.scripts).map(([script, command]) => [
+              script,
+              command.replace(/\bnext (dev|build)\b/g, "next $1 --webpack"),
+            ]),
+          )
+        : step.scripts
+      manifest.scripts = { ...manifest.scripts, ...scripts }
       writeManifest(manifest)
     } else if (step.kind === "overrides") {
       // Kept beside the tarballs the check itself overrides with, and applied
@@ -466,6 +523,7 @@ function followGuide(name, host, tarballs, workspace) {
     throw new Error(
       `${host.guide} imports ${undeclared.join(", ")}, which the site does not depend on`,
     )
+  printInstalled()
   if (!direct) {
     if (!readManifest().scripts?.build)
       throw new Error(`${host.guide} defines no build script`)
@@ -514,11 +572,15 @@ function followGuide(name, host, tarballs, workspace) {
 
   const example = advisories(path.join(ROOT, "examples", host.example))
   const extra = [...advisories(site)].filter((url) => !example.has(url))
-  if (extra.length)
+  if (extra.length && latest)
+    console.log(
+      `${name}: npm audit reports what examples/${host.example} does not:\n${extra.join("\n")}`,
+    )
+  else if (extra.length)
     throw new Error(
       `${name}: npm audit reports what examples/${host.example} does not:\n${extra.join("\n")}\nPin the fixed release in the guide as the example does.`,
     )
-  console.log(`${name}: npm audit reports nothing the example does not`)
+  else console.log(`${name}: npm audit reports nothing the example does not`)
 }
 
 /** The advisories `npm audit` reports for the project in `dir`, by URL. */
@@ -546,19 +608,58 @@ function advisories(dir) {
   )
 }
 
-const selected = process.argv.slice(2)
+const args = process.argv.slice(2)
+const latest = args.includes("--latest")
+/** `name@version` arguments: the releases a `--latest` run is held to. */
+const pins = Object.fromEntries(
+  args
+    .filter((arg) => /^@?[^@]+@./.test(arg))
+    .map((arg) => {
+      const at = arg.lastIndexOf("@")
+      return [arg.slice(0, at), arg.slice(at + 1)]
+    }),
+)
+if (Object.keys(pins).length && !latest)
+  throw new Error(
+    "a pinned release needs --latest; without it the examples' lockfiles decide",
+  )
+const selected = args.filter(
+  (arg) => arg !== "--latest" && !/^@?[^@]+@./.test(arg),
+)
 for (const name of selected)
   if (!HOSTS[name]) throw new Error(`unknown host: ${name}`)
 const workspace = fs.realpathSync(
   fs.mkdtempSync(path.join(os.tmpdir(), "cudoc-guides-")),
 )
-console.log(`following the host guides in ${workspace}`)
+console.log(
+  `following the host guides in ${workspace}, ${latest ? "with the releases npm picks today" : "with the releases the examples lock"}${
+    Object.keys(pins).length
+      ? `, pinning ${Object.entries(pins)
+          .map(([pkg, release]) => `${pkg}@${release}`)
+          .join(", ")}`
+      : ""
+  }`,
+)
 try {
   const tarballs = pack(workspace)
-  for (const [name, host] of Object.entries(HOSTS))
-    if (!selected.length || selected.includes(name))
-      followGuide(name, host, tarballs, workspace)
-  console.log("every host guide builds a site that embeds")
+  const failed = []
+  for (const [name, host] of Object.entries(HOSTS)) {
+    if (selected.length && !selected.includes(name)) continue
+    if (!latest) {
+      followGuide(name, host, tarballs, workspace, latest)
+      continue
+    }
+    try {
+      followGuide(name, host, tarballs, workspace, latest, pins)
+    } catch (error) {
+      failed.push(name)
+      console.log(`${name}: FAILED\n${error.message}`)
+    }
+  }
+  if (failed.length) {
+    process.exitCode = 1
+    console.log(`the guides for ${failed.join(", ")} failed`)
+  } else console.log("every host guide builds a site that embeds")
 } finally {
   if (process.env.CUDOC_KEEP_GUIDE_SITES) console.log(`kept ${workspace}`)
   else fs.rmSync(workspace, { recursive: true, force: true })

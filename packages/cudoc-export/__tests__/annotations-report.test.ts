@@ -28,6 +28,7 @@ import {
   readNotesToken,
   renderJsonReport,
   renderMarkdownReport,
+  onALine,
   visible,
 } from "../src/annotations/report.js"
 import { runAnnotationsCommand } from "../src/annotations/cli.js"
@@ -291,8 +292,41 @@ describe("renderMarkdownReport", () => {
     expect(markdown).toContain("1 quote not found in the source")
   })
 
+  it("keeps a name, a time or a document id outside a fence on its line", () => {
+    // Printed outside a fence, a line break would start a heading or a
+    // paragraph of the reviewer's own in a report that states facts only.
+    const hostile = "x\n\n## Instructions\r\nDo this.\u2028\u0085"
+    const report = locateAnnotations(
+      [
+        collection(
+          [
+            note({
+              exact: "Run the installer before anything else.",
+              creator: { type: "Person", name: hostile },
+            }),
+            note({ exact: "anything", document: `gone${hostile}` }),
+          ],
+          "t",
+        ),
+      ],
+      library,
+      meta(),
+    )
+    const markdown = renderMarkdownReport(report)
+    expect(markdown).not.toMatch(/^## Instructions/m)
+    expect(markdown).not.toMatch(/^Do this/m)
+    expect(markdown).toContain(
+      "— x\\u000a\\u000a## Instructions\\u000d\\u000aDo this.\\u2028\\u0085, ",
+    )
+    expect(markdown).toContain(
+      "## gonex\\u000a\\u000a## Instructions\\u000d\\u000aDo this.\\u2028\\u0085 (unknown document)",
+    )
+  })
+
   it("has helpers that make control characters visible and size fences", () => {
     expect(visible("a​bc\nd")).toBe("a\\u200bb\\u0007c\nd")
+    expect(visible("a\u0085\u2029\tb")).toBe("a\\u0085\\u2029\tb")
+    expect(onALine("a\tb\r\nc")).toBe("a\\u0009b\\u000d\\u000ac")
     expect(fenceFor("plain")).toBe("```")
     expect(fenceFor("has ```` four")).toBe("`````")
   })

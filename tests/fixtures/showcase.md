@@ -93,6 +93,61 @@ No language on this fence.
 | :--- | :----: | ----: |
 | a    |   b    |     c |
 
+## Variables (#variables)
+
+Version (=sdk.version) loads from [the CDN](<https://(=sdk.host)/js/(=sdk.version)/sdk.js>), as `sdk-(=sdk.version).js`.
+
+```html
+<script src="https://(=sdk.host)/js/(=sdk.version)/sdk.js"></script>
+```
+
+## Shared link references (#link-references)
+
+The [retry rules][retry-rules] and the [Retry-Rules][] come from one definition every page shares.
+
+## Merged cells (#merged-cells)
+
+| Code | Status | Message           |
+| ---- | :----: | ----------------- |
+| E400 |  400   | Missing parameter |
+| ^^   |   ^^   | Invalid value     |
+| Note |   >>   | >>                |
+
+## Table notes (#table-notes)
+
+| Field | Required |
+| ----- | -------- |
+| title | X\*      |
+| image | O\*\*    |
+
+\* One of `title` and `image` is required.
+
+\*\* Up to 5 MB.
+
+## Code titles (#code-titles)
+
+```js title="retry.js" {2,4-5}
+const attempts = 3
+const delay = 250 // changed
+export function backoff(attempt) {
+  return delay * 2 ** attempt
+}
+```
+
+## Tabs (#tabs)
+
+```kotlin tab="Kotlin" group=sdk
+val profile = TalkApi.profile()
+```
+
+```java tab="Java"
+Profile profile = TalkApi.profile();
+```
+
+> [!TAB] Notes
+>
+> Both calls need the `profile` scope.
+
 ## Whole document embed (#whole)
 
 ```cudoc-embed

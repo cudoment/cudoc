@@ -4,13 +4,13 @@ import { cudocRemarkPlugins } from "cudoc-docusaurus"
 import { createCompilerCapture } from "cudoc-remark"
 // The site draws its headings with its own Anchor and Badge components, which
 // a library meant for embedding and export cannot carry. Collection keeps
-// cudoc's native output and takes the one site option that changes the tree,
-// the table layout, as the Next.js collector does.
-import { cudocOptions } from "../fixtures/cudoc-options.mjs"
+// cudoc's native output and takes the site options that change what a page
+// says, the portable ones and the table layout, as the Next.js collector does.
+import { cudocOptions, portableOptions } from "../fixtures/cudoc-options.mjs"
 import { collectDocuments } from "@cudoment/cudoc/node/watch"
 
 const documentOptions = {
-  syntax: {},
+  ...portableOptions,
   tableColumnLayout: cudocOptions.tableColumnLayout,
 }
 
@@ -27,7 +27,7 @@ await collectDocuments({
   outDir: ".cudoc/documents",
   routeBase: "/docs",
   host: "docusaurus",
-  compilerId: "docusaurus-3.10.2-portable-v4",
+  compilerId: "docusaurus-3.10.2-portable-v5",
   ...documentOptions,
   async compiler(source, { filePath, options }) {
     // An image named through Docusaurus's `@site` alias is recorded at the
@@ -48,7 +48,7 @@ await collectDocuments({
             onBrokenMarkdownImages: "throw",
           },
           mdx1Compat: { comments: true, admonitions: true, headingIds: true },
-          emoji: false,
+          emoji: true,
           mermaid: false,
         },
         beforeDefaultRemarkPlugins: [

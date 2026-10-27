@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from "vitest"
-import { imageSize } from "../src/image-size.js"
+import { imageSize } from "../src/node/image-size.js"
 
 const png = (width: number, height: number) => {
   const bytes = Buffer.alloc(33)

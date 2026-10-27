@@ -1,7 +1,7 @@
 {
   "name": "cudoc-nextra",
-  "version": "0.9.0",
-  "description": "Nextra adapter for cudoc: remark wiring and default components.",
+  "version": "1.0.0",
+  "description": "cudoc for Nextra: embed a section of one document in another, kept in step with its source, and write merged table cells, lists inside cells and variables in plain Markdown, keeping Nextra's own heading IDs and table of contents.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -46,7 +46,7 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "cudoc-remark": "0.9.0",
+    "cudoc-remark": "1.0.0",
     "unified": "^11.0.5"
   },
   "peerDependencies": {
@@ -54,6 +54,6 @@
   },
   "author": "cudoment",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   }
 }

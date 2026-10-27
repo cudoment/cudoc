@@ -236,6 +236,18 @@ export type DesignTokenOverrides = {
 >
 
 /**
+ * Refuses a key the defaults do not have, so a misspelt token is an error
+ * rather than a value nothing reads.
+ */
+function checkTokenKeys(given: unknown, known: object, name: string): void {
+  if (!given || typeof given !== "object" || Array.isArray(given))
+    throw new Error(`cudoc-export: ${name} must be an object`)
+  for (const key of Object.keys(given))
+    if (!Object.hasOwn(known, key))
+      throw new Error(`cudoc-export: unknown token ${name}.${key}`)
+}
+
+/**
  * Merges overrides over the defaults, one level into each group.
  *
  * A group is merged rather than replaced so that redefining a single colour
@@ -247,6 +259,22 @@ export function resolveTokens(
   overrides: DesignTokenOverrides = {},
 ): DesignTokens {
   const base = designTokens
+  checkTokenKeys(overrides, base, "tokens")
+  if (overrides.colors !== undefined)
+    checkTokenKeys(overrides.colors, base.colors, "tokens.colors")
+  for (const [theme, colors] of Object.entries(overrides.colors ?? {}))
+    checkTokenKeys(colors, base.colors.light, `tokens.colors.${theme}`)
+  for (const group of [
+    "fonts",
+    "text",
+    "leading",
+    "space",
+    "print",
+    "word",
+    "code",
+  ] as const)
+    if (overrides[group] !== undefined)
+      checkTokenKeys(overrides[group], base[group], `tokens.${group}`)
   return {
     colors: {
       light: { ...base.colors.light, ...overrides.colors?.light },

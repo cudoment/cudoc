@@ -1,12 +1,14 @@
 # cudoc-remark
 
-> **Most sites do not set this package up themselves.** On Docusaurus and Nextra it sits under the adapter: install it beside `cudoc-docusaurus` or `cudoc-nextra` and take only its embed plugin, library loader and compiler capture from it, as the [Docusaurus](https://github.com/cudoment/cudoc/tree/main/docs/docusaurus.md) and [Nextra](https://github.com/cudoment/cudoc/tree/main/docs/nextra.md) guides show. Configure it directly in two cases only: a Next.js site on `@next/mdx`, which has no adapter ([Next.js guide](https://github.com/cudoment/cudoc/tree/main/docs/next.md)), and a remark or MDX pipeline you assemble yourself. Otherwise start from [your site generator](https://github.com/cudoment/cudoc#pick-your-site-generator).
+`cudoc-remark` connects cudoc syntax and prepared embeds to remark or MDX: Next.js on `@next/mdx`, or the layer under the Docusaurus and Nextra adapters.
 
-Connect cudoc Markdown syntax and prepared document embeds to a remark/MDX pipeline.
+**Most sites do not set this package up themselves.** On Docusaurus and Nextra it sits under the adapter: install it beside `cudoc-docusaurus` or `cudoc-nextra` and take only its embed plugin, library loader and compiler capture from it, as the [Docusaurus](https://github.com/cudoment/cudoc/tree/main/docs/docusaurus.md) and [Nextra](https://github.com/cudoment/cudoc/tree/main/docs/nextra.md) guides show.
 
-This separate package is a pipeline adapter, not a second implementation of cudoc's rules. Shared document semantics live in `@cudoment/cudoc`. VitePress and Eleventy share `cudoc-markdown-it`, and HTML uses its own adapter; none of them need this plugin.
+Configure it directly in two cases only: a Next.js site on `@next/mdx`, which has no adapter ([Next.js guide](https://github.com/cudoment/cudoc/tree/main/docs/next.md)), and a remark or MDX pipeline you assemble yourself. Otherwise start from [your site generator](https://github.com/cudoment/cudoc#pick-your-site-generator).
 
-ESM · Node.js 20+
+It is a pipeline adapter, not a second implementation of cudoc's rules: shared document semantics live in `@cudoment/cudoc`. VitePress and Eleventy share `cudoc-markdown-it`, and HTML export uses its own adapter; none of them needs this plugin.
+
+ESM · Node.js 22+
 
 ```sh
 npm install @cudoment/cudoc cudoc-remark remark-gfm
@@ -19,10 +21,15 @@ import cudoc from "cudoc-remark"
 const remarkPlugins = [remarkGfm, [cudoc, { host: "next", syntax: {} }]]
 ```
 
-Default settings produce component-free output in both `.md` and `.mdx`; `syntax: {}` makes the defaults explicit. Let the host detect the document format. For Next.js Turbopack, use package-name plugin strings and JSON options as shown in the guide. After collection and preparation, `cudoc-remark/embed` splices each prepared embed into the page as it compiles, so embedded components render through the host's own component mapping; `cudoc-remark/loader` keeps a recollection visible to the dev server and the build cache.
+Default settings produce component-free output in both `.md` and `.mdx`; `syntax: {}` makes the defaults explicit. Let the host detect the document format. For Next.js Turbopack, use package-name plugin strings and JSON options as shown in the guide.
 
-Choose `host`, `cudoc` or `both` independently for `headingAnchor`, `badge`, `tableCellList`, `callout` and `link`. The representative callout is `> [!NOTE] Title`. Authors do not register cudoc React components in the recommended setup. Syntax-only rendering needs no stored JSON; cross-document embedding requires document collection.
+After collection and preparation, `cudoc-remark/embed` splices each prepared embed into the page as it compiles, so embedded components render through the host's own component mapping. `cudoc-remark/loader` keeps a recollection visible to the dev server and the build cache.
 
+Each of `headingAnchor`, `badge`, `tableCellList`, `tableCellSpan`, `tableNote`, `callout`, `link`, `codeMeta` and `tabs` takes `host`, `cudoc`, `both` or `off` independently. The representative callout is `> [!NOTE] Title`. Authors do not register any cudoc components in the recommended setup. Syntax-only rendering needs no stored JSON; cross-document embedding requires document collection.
+
+Tested with Next.js 16.4.2 and `@next/mdx` 16.4.2, under Turbopack and webpack. → [Supported versions](https://github.com/cudoment/cudoc/tree/main/docs/README.md#supported-versions)
+
+- [Demo](https://cudoment.github.io/cudoc/demos/next/portable/): the shared example documents as Next.js 16.4.2 renders them
 - [Usage guide](https://github.com/cudoment/cudoc/tree/main/docs/next.md) · [한국어 가이드](https://github.com/cudoment/cudoc/tree/main/docs/next.ko.md)
 - [Markdown syntax](https://github.com/cudoment/cudoc/tree/main/docs/syntax.md)
 - [Embedding](https://github.com/cudoment/cudoc/tree/main/docs/embedding.md)

@@ -80,6 +80,12 @@ for (const host of HOST_CASES) {
         "cells",
         "requirements",
         "markdown",
+        "variables",
+        "link-references",
+        "merged-cells",
+        "table-notes",
+        "code-titles",
+        "tabs",
         "whole",
         "with-children",
         "without-children",
@@ -247,6 +253,143 @@ for (const host of HOST_CASES) {
       expect(urls.some((u) => u.startsWith("mailto:"))).toBe(true)
       expect(html).toContain("{value}")
       expect(html).toContain("literal braces stay literal")
+    })
+
+    it("replaces variables in text, inline code, links and code blocks", () => {
+      const section = collectSections(tree, { anchors: ["variables"] })[0]!
+      const nodes = walk(section.tree as unknown as DocumentNode)
+      const text = nodes
+        .filter((node) => ["text", "inlineCode"].includes(node.type))
+        .map((node) => node.value)
+        .join("")
+      expect(text).toContain("Version 2.8.3 loads")
+      expect(text).toContain("sdk-2.8.3.js")
+      // VitePress and Eleventy put a permalink in every heading.
+      const links = nodes.filter(
+        (node) =>
+          node.type === "link" && node.data?.cudoc?.kind !== "permalink",
+      )
+      expect(links.map((node) => node.url)).toEqual([
+        "https://cdn.example.com/js/2.8.3/sdk.js",
+      ])
+      expect(nodes.find((node) => node.type === "code")?.value).toBe(
+        '<script src="https://cdn.example.com/js/2.8.3/sdk.js"></script>',
+      )
+      expect(html).not.toContain("(=sdk.")
+      expect(diagnostics.map((entry) => entry.code)).not.toContain(
+        "UNDEFINED_VARIABLE",
+      )
+    })
+
+    it("links a shared reference in its full and collapsed forms", () => {
+      const section = collectSections(tree, {
+        anchors: ["link-references"],
+      })[0]!
+      const links = walk(section.tree as unknown as DocumentNode).filter(
+        (node) =>
+          node.type === "link" && node.data?.cudoc?.kind !== "permalink",
+      )
+      // Each host writes the address its own way: Nextra drops `.md`,
+      // VitePress writes `./reference.html`.
+      expect(links.map((node) => nodeText(node))).toEqual([
+        "retry rules",
+        "Retry-Rules",
+      ])
+      for (const node of links) {
+        expect(String(node.url)).toMatch(/reference/)
+        expect(String(node.url)).toMatch(/#retry$/)
+      }
+    })
+
+    it("merges the cells a table marks with ^^ and >>", () => {
+      const section = collectSections(tree, { anchors: ["merged-cells"] })[0]!
+      const table = walk(section.tree as unknown as DocumentNode).find(
+        (node) => node.type === "table",
+      )!
+      const rows = table.children!.map((row) =>
+        row.children!.map((cell) => [
+          nodeText(cell).trim(),
+          cell.data?.hProperties?.rowSpan ?? cell.data?.hProperties?.colSpan,
+        ]),
+      )
+      expect(rows).toEqual([
+        [
+          ["Code", undefined],
+          ["Status", undefined],
+          ["Message", undefined],
+        ],
+        [
+          ["E400", 2],
+          ["400", 2],
+          ["Missing parameter", undefined],
+        ],
+        [["Invalid value", undefined]],
+        [["Note", 3]],
+      ])
+      // markdown-it hosts also carry the alignment as a style.
+      const sectionHtml = renderDocument(section.tree)
+      expect(sectionHtml).toMatch(
+        /<td[^>]*rowspan="2"[^>]*align="center"[^>]*>400<\/td>/,
+      )
+      expect(sectionHtml).toContain('<td colspan="3">Note</td>')
+    })
+
+    it("gathers the marked paragraphs after a table into its note", () => {
+      const section = collectSections(tree, { anchors: ["table-notes"] })[0]!
+      const nodes = section.tree.children as unknown as DocumentNode[]
+      const kinds = nodes.map((node) => node.data?.cudoc?.kind ?? node.type)
+      expect(kinds.slice(-2)).toEqual(["table", "tableNote"])
+      expect(nodes.at(-1)!.children!.map((node) => nodeText(node))).toEqual([
+        "* One of title and image is required.",
+        "** Up to 5 MB.",
+      ])
+    })
+
+    it("keeps a code block's title and lines, and stores no frame", () => {
+      const section = collectSections(tree, { anchors: ["code-titles"] })[0]!
+      const code = walk(section.tree as unknown as DocumentNode).find(
+        (node) => node.type === "code",
+      )!
+      expect(code.data?.cudoc).toEqual({
+        kind: "code",
+        title: "retry.js",
+        lines: [2, 4, 5],
+      })
+      // Whatever the page drew, a frame on a Nextra `.md` page or a host's
+      // own title attribute, the stored tree keeps the fence's info as
+      // written.
+      expect(code.meta).toBe('title="retry.js" {2,4-5}')
+      expect(
+        walk(tree as unknown as DocumentNode).some(
+          (node) => node.data?.cudoc?.presentation,
+        ),
+      ).toBe(false)
+    })
+
+    it("groups the tabs and stores them without the radios drawn for the screen", () => {
+      const section = collectSections(tree, { anchors: ["tabs"] })[0]!
+      const groups = walk(section.tree as unknown as DocumentNode).filter(
+        (node) => node.data?.cudoc?.kind === "tabs",
+      )
+      expect(groups).toHaveLength(1)
+      expect(groups[0]!.data!.cudoc!.group).toBe("sdk")
+      expect(
+        groups[0]!.children!.map((member) => [
+          member.data?.cudoc?.title,
+          member.data?.cudoc?.value,
+          member.children!.map((child) => child.type).join(","),
+        ]),
+      ).toEqual([
+        ["Kotlin", "kotlin", "code"],
+        ["Java", "java", "code"],
+        ["Notes", "notes", "paragraph"],
+      ])
+      const [kotlin] = walk(groups[0]!).filter((node) => node.type === "code")
+      expect([kotlin!.lang, kotlin!.meta || null]).toEqual(["kotlin", null])
+      expect(nodeText(groups[0]!)).toContain(
+        "Both calls need the profile scope.",
+      )
+      expect(html).not.toContain("cudoc-tab-input")
     })
 
     it("keeps ordinary Markdown structure intact", () => {

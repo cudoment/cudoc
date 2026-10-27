@@ -32,6 +32,20 @@ const walk = (node: DocumentNode): DocumentNode[] => [
   ...(node.children ?? []).flatMap(walk),
 ]
 
+/**
+ * An authored destination reduced to document plus fragment: each host
+ * resolves its own URL shape (`reference`, `./reference.html`) and that is
+ * the host's job, not a difference in meaning.
+ */
+const destination = (url: unknown) => {
+  const written = String(url)
+  if (/^[a-z][\w+.-]*:/i.test(written) || written.startsWith("#"))
+    return written
+  const [target, fragment] = written.split("#")
+  const name = target!.replace(/^\.\//, "").replace(/\.(md|mdx|html)$/, "")
+  return fragment ? `${name}#${fragment}` : name
+}
+
 const summarize = (tree: Root): Semantics => {
   const all = walk(tree as unknown as DocumentNode)
   const cellTable = all.find(
@@ -66,18 +80,10 @@ const summarize = (tree: Root): Semantics => {
       lists: cells.filter((n) => n.type === "list").length,
       ordered: cells.filter((n) => n.type === "list" && n.ordered).length,
     },
-    // Only authored destinations, reduced to document plus fragment: each host
-    // resolves its own URL shape (`reference`, `./reference.html`) and that is
-    // the host's job, not a difference in meaning.
+    // Only authored destinations.
     links: all
       .filter((n) => n.type === "link" && n.data?.cudoc?.kind !== "permalink")
-      .map((n) => {
-        const url = String(n.url)
-        if (/^[a-z][\w+.-]*:/i.test(url) || url.startsWith("#")) return url
-        const [target, fragment] = url.split("#")
-        const name = target.replace(/^\.\//, "").replace(/\.(md|mdx|html)$/, "")
-        return fragment ? `${name}#${fragment}` : name
-      })
+      .map((n) => destination(n.url))
       .sort(),
     badges: all
       .filter((n) => n.data?.cudoc?.kind === "badge")
@@ -139,6 +145,51 @@ describe("cross-host parity", () => {
     for (const semantics of results.values())
       for (const heading of semantics.headings)
         expect(heading.anchor).not.toBe("")
+  })
+
+  it("resolves shared references as every host does", async () => {
+    // A label holding an escape is matched as written, not as shown, and a
+    // shared image is made inside a link's text, written or shared.
+    const source =
+      "[rate\\*limits][], [rate\\*limits] and [![Status][status-badge]](reference.md#retry) or [![Status][status-badge]][retry-rules].\n"
+    const shape = (node: DocumentNode): unknown =>
+      node.type === "link"
+        ? ["link", destination(node.url), ...shapes(node.children ?? [])]
+        : node.type === "image"
+          ? ["image", node.url, node.alt]
+          : node.type === "text"
+            ? node.value
+            : [node.type]
+    // Adjacent text joined, since hosts split it differently.
+    const shapes = (nodes: DocumentNode[]) =>
+      nodes.map(shape).reduce<unknown[]>((out, item) => {
+        if (typeof item === "string" && typeof out.at(-1) === "string")
+          out[out.length - 1] += item
+        else out.push(item)
+        return out
+      }, [])
+    const image = ["image", "https://example.com/status.svg", "Status"]
+    for (const host of available) {
+      const compile = await host.compiler!()
+      const { tree } = await compile(source, {
+        id: "shared",
+        filePath: "shared.md",
+        options: { ...OPTIONS, format: "md" },
+      })
+      const paragraph = walk(tree as unknown as DocumentNode).find(
+        (node) => node.type === "paragraph",
+      )!
+      expect(shapes(paragraph.children!), host.name).toEqual([
+        ["link", "reference#limits", "rate*limits"],
+        ", ",
+        ["link", "reference#limits", "rate*limits"],
+        " and ",
+        ["link", "reference#retry", image],
+        " or ",
+        ["link", "reference#retry", image],
+        ".",
+      ])
+    }
   })
 
   it("leaves a badged heading without an explicit anchor to the host slugger", () => {

@@ -10,6 +10,7 @@ import type Token from "markdown-it/lib/token.mjs"
 import type { Root } from "mdast"
 import type { Position } from "unist"
 import {
+  decodeCharacterReferences,
   makeCallout,
   resolveSyntax,
   isHost,
@@ -17,6 +18,36 @@ import {
   type DocumentOptions,
 } from "@cudoment/cudoc/document"
 import type { TokenNode } from "./host.js"
+
+/** The `meta` key a fence token keeps its info under, as the author wrote it. */
+export const WRITTEN_INFO = "cudocInfo"
+
+/**
+ * The `meta` key a link or image token keeps its address under, as the author
+ * wrote it, once the plugin has replaced its variables.
+ */
+export const WRITTEN_ADDRESS = "cudocAddress"
+
+/** The address a token held as written, for normalization to report from. */
+const writtenAddress = (token: Token) => {
+  const written = token.meta?.[WRITTEN_ADDRESS]
+  return typeof written === "string" ? { cudocWrittenAddress: written } : {}
+}
+
+/**
+ * A fence's language and meta, from its info as written. VitePress also
+ * reads line ranges joined to the language, `js{4}`; they become meta.
+ */
+const fenceInfo = (token: Token) => {
+  const written = token.meta?.[WRITTEN_INFO]
+  const info = typeof written === "string" ? written : token.info
+  const [first = "", ...words] = info.trim().split(/\s+/)
+  const joined = first.match(/^(.+?)(\{[\d,\s-]+\})$/)
+  return {
+    lang: (joined ? joined[1] : first) || null,
+    meta: [joined?.[2], ...words].filter(Boolean).join(" "),
+  }
+}
 
 export type TokenConversion = {
   /** Adapter package name used when a token has no mapping. */
@@ -44,7 +75,16 @@ export type TokenConversion = {
    * from, so a renderer can put the host's own output for that token back.
    */
   origins?: Map<DocumentNode, Token>
+  /**
+   * The text tokens hold character references as written, `&copy;` rather
+   * than `©`, which conversion decodes. See `MarkdownItHost.textReferences`.
+   */
+  textReferences?: boolean
 }
+
+/** A character reference that stands for `{` or `}`. */
+const BRACE_REFERENCE =
+  /&(?:#0*12[35]|#[xX]0*7[bBdD]|lbrace|lcub|rbrace|rcub);/g
 
 /**
  * Container names that mean a callout: the five cudoc types, and the host
@@ -127,6 +167,47 @@ export function tokensToAst(
     ...CONTAINER_CALLOUTS,
     ...(options.calloutTypes ?? []).map((type) => type.toLowerCase()),
   ])
+  const tabsFromHost = isHost(resolveSyntax(options.syntax).tabs)
+  /**
+   * Text whose character references are decoded, for a host whose text keeps
+   * them as written. A brace written as a reference stays one, as an `html`
+   * node: VitePress compiles a page as a Vue template, where an author writes
+   * `&#123;&#123;` exactly so that it is not read as an interpolation, and a
+   * library collected there is embedded into such pages.
+   */
+  const decoded = (text: string): DocumentNode[] => {
+    if (!conversion.textReferences) return [{ type: "text", value: text }]
+    const nodes: DocumentNode[] = []
+    let at = 0
+    for (const brace of text.matchAll(BRACE_REFERENCE)) {
+      const before = decodeCharacterReferences(text.slice(at, brace.index))
+      if (before) nodes.push({ type: "text", value: before })
+      const open = decodeCharacterReferences(brace[0]) === "{"
+      nodes.push({ type: "html", value: open ? "&#123;" : "&#125;" })
+      at = brace.index + brace[0].length
+    }
+    const rest = decodeCharacterReferences(text.slice(at))
+    if (rest || !nodes.length) nodes.push({ type: "text", value: rest })
+    return nodes
+  }
+  // The title of an alert is source text, which VitePress writes into the
+  // page as it is; a container's title is Markdown it renders inline, so a
+  // backslash there escapes the character after it.
+  const alertTitle = (title: string): DocumentNode[] =>
+    title ? decoded(title) : []
+  const containerTitle = (title: string): DocumentNode[] =>
+    !title
+      ? []
+      : !conversion.textReferences
+        ? [{ type: "text", value: title }]
+        : title
+            .split(/(\\[!-/:-@[-`{-~])/)
+            .flatMap((part, index) =>
+              index % 2 ? [{ type: "text", value: part[1]! }] : decoded(part),
+            )
+            .filter((node) => node.type !== "text" || node.value)
+  const codeGroup = (token: Token) =>
+    tabsFromHost && token.type === "container_code-group_open"
   const root: DocumentNode = { type: "root", children: [] }
   const stack = [root]
   const offsets = [0]
@@ -188,7 +269,8 @@ export function tokensToAst(
       if (
         !inline &&
         token.nesting === 1 &&
-        token.type.startsWith("container_")
+        token.type.startsWith("container_") &&
+        !codeGroup(token)
       ) {
         hostContainers.push(token.type.replace(/_open$/, "_close"))
         hosted(list, i, i, inline)
@@ -242,7 +324,11 @@ export function tokensToAst(
     })
     let node: DocumentNode
     if (hosted) node = hosted
-    else if (["text", "text_special"].includes(token.type))
+    else if (token.type === "text" && conversion.textReferences) {
+      const nodes = decoded(token.content)
+      for (const piece of nodes.slice(0, -1)) add(piece)
+      node = nodes.at(-1)!
+    } else if (["text", "text_special"].includes(token.type))
       node = { type: "text", value: token.content }
     // markdown-it-emoji, which VitePress enables: the token holds the emoji.
     else if (token.type === "emoji")
@@ -255,10 +341,13 @@ export function tokensToAst(
       node = {
         type: "code",
         value: token.content.replace(/\n$/, ""),
-        lang: token.info.split(/\s+/)[0] || null,
-        meta: token.info.split(/\s+/).slice(1).join(" "),
+        ...fenceInfo(token),
         ...common,
       }
+      // VitePress's code group labels each fence's tab with its `[name]`,
+      // which is then no code title; normalization reads the mark and drops it.
+      if (hostContainers.includes("container_code-group_close"))
+        node.data = { ...node.data, cudocCodeGroup: true }
       conversion.origins?.set(node, token)
     } else if (token.type === "image") {
       node = {
@@ -268,6 +357,8 @@ export function tokensToAst(
         title: attrs.title ?? null,
         ...common,
       }
+      if (token.meta?.[WRITTEN_ADDRESS] !== undefined)
+        node.data = { ...node.data, ...writtenAddress(token) }
       // markdown-it keeps the alt among the attributes as a placeholder its
       // renderer fills from the label, empty until then; as a hast property
       // it would win over the node's own alt.
@@ -289,12 +380,39 @@ export function tokensToAst(
       const label = String(token.meta.title ?? "")
       const repeatsType =
         label.toLowerCase() === String(token.meta.type ?? "").toLowerCase()
+      // With callouts off the host already read the marker, so the alert
+      // stays the box the host draws, under the host's own title.
+      const off = resolveSyntax(options.syntax).callout === "off"
       node = makeCallout(
         token.meta.type,
-        label && !repeatsType ? [{ type: "text", value: label }] : [],
+        label && (off || !repeatsType) ? alertTitle(label) : [],
         [],
         position(token),
       )
+      if (off) {
+        node.data = {
+          hName: "div",
+          hProperties: {
+            className: [
+              String(token.meta.type),
+              "custom-block",
+              "github-alert",
+            ],
+          },
+        }
+        node.children![0]!.data = {
+          hProperties: { className: ["custom-block-title"] },
+        }
+      }
+    } else if (codeGroup(token)) {
+      // VitePress's code group, read as a group of tabs when tabs take host
+      // syntax: normalization makes each fence a tab labelled by its `[name]`.
+      node = {
+        type: "blockquote",
+        data: { cudoc: { kind: "codeGroup" } },
+        position: position(token),
+        children: [],
+      }
     } else if (
       token.type.startsWith("container_") &&
       token.nesting === 1 &&
@@ -313,16 +431,13 @@ export function tokensToAst(
                 {
                   type: "paragraph",
                   data: { hName: "summary" },
-                  children: [{ type: "text", value: title || "Details" }],
+                  children: title
+                    ? containerTitle(title)
+                    : [{ type: "text", value: "Details" }],
                 },
               ],
             }
-          : makeCallout(
-              type,
-              title ? [{ type: "text", value: title }] : [],
-              [],
-              position(token),
-            )
+          : makeCallout(type, containerTitle(title), [], position(token))
       if (
         type !== "details" &&
         !isHost(resolveSyntax(options.syntax).callout)
@@ -359,6 +474,8 @@ export function tokensToAst(
       if (node.type === "link") {
         node.url = String(attrs.href ?? "")
         node.title = attrs.title ?? null
+        if (token.meta?.[WRITTEN_ADDRESS] !== undefined)
+          node.data = { ...node.data, ...writtenAddress(token) }
         // A host's heading permalink is marked here, before normalization, so
         // every transform that reads a heading's own text can exclude it. Its
         // href is corrected afterwards, once the heading id is resolved.

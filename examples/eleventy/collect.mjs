@@ -1,6 +1,11 @@
 import { collectDocuments } from "@cudoment/cudoc/node/watch"
 import { createDocumentCompiler } from "cudoc-eleventy"
-import { createRenderer, syntax } from "./markdown.mjs"
+import {
+  createRenderer,
+  linkReferences,
+  syntax,
+  variables,
+} from "./markdown.mjs"
 
 // The very renderer the site builds with; no library is needed while collecting
 // because embeds are resolved from the collection itself.
@@ -11,6 +16,8 @@ await collectDocuments({
   // Eleventy writes directory URLs, so `reference.md` is served at `/reference/`.
   routeSuffix: "/",
   syntax,
+  variables,
+  linkReferences,
   compiler: createDocumentCompiler(md),
   compilerId: "eleventy-3.1.7-portable-v1",
 })

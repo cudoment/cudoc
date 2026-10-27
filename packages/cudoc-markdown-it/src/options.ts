@@ -9,7 +9,9 @@
 
 import type { Root } from "mdast"
 import {
+  resolveLinkReferences,
   resolveSyntax,
+  resolveVariables,
   type DocumentDiagnostic,
   type DocumentOptions,
 } from "@cudoment/cudoc/document"
@@ -48,6 +50,8 @@ const KNOWN_KEYS = new Set<string>([
   "tableColumnLayout",
   "tableColumnWidths",
   "ignoreDiagnostics",
+  "variables",
+  "linkReferences",
   "headingIds",
   "onDocument",
   "library",
@@ -80,6 +84,8 @@ export const resolveHostOptions = (
       `${adapter}: headingIds must be "host"; the host slugger assigns ids`,
     )
   resolveSyntax(options.syntax)
+  resolveVariables(options.variables)
+  resolveLinkReferences(options.linkReferences)
   // The table rules are checked the way the remark adapters check them, so
   // a mistyped rule fails here rather than inside the first page's render.
   for (const [key, resolve] of [

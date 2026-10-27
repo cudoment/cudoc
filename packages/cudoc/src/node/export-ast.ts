@@ -11,6 +11,7 @@ import path from "node:path"
 import crypto from "node:crypto"
 import type { Transformer } from "unified"
 import type { Root } from "mdast"
+import { withoutPresentation } from "../present.js"
 import type { VFile } from "vfile"
 import {
   resolveAstVersion,
@@ -32,8 +33,11 @@ type AstNode = Record<string, unknown>
 /** Properties dropped from stored JSON: neither survives a round trip usefully. */
 export const DEFAULT_STRIPPED_PROPERTIES = ["position", "estree"]
 
-/** Node types dropped entirely. ESM export nodes carry no document content. */
-export const DEFAULT_DROPPED_NODE_TYPES = ["mdxjsEsm"]
+/**
+ * Node types dropped entirely. ESM export nodes and front matter carry no
+ * document content; a stored document's front matter is its `frontmatter`.
+ */
+export const DEFAULT_DROPPED_NODE_TYPES = ["mdxjsEsm", "yaml", "toml"]
 
 export type ExportAstOptions = PathOptions & {
   /** Properties removed from every node. */
@@ -139,7 +143,13 @@ export const buildExportedAst = (
   tree: unknown,
   context: ExportAstContext,
 ): AstNode => {
-  const projected = projectTree(tree, context)
+  // A host plugin may run after cudoc drew the page for the screen; what it
+  // drew is not part of the document. It comes off a copy first, since it
+  // puts back the meta it kept, and then the properties are stripped.
+  const copy = projectTree(tree, { ...context, strip: new Set() })
+  if (copy && typeof copy === "object")
+    withoutPresentation(copy as unknown as Root)
+  const projected = projectTree(copy, context)
   if (!projected || typeof projected !== "object") {
     throw new Error("cudoc: the AST root did not survive projection")
   }

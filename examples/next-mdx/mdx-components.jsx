@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { Badge, cudocComponents } from "cudoc-remark/components"
 
 /**
@@ -25,6 +26,19 @@ function Anchor({ id, headerLevel, badge }) {
 }
 
 /**
+ * A link to another page of this site, such as the ones an embedded section
+ * and a summary table carry, goes through `next/link`, which adds the site's
+ * `basePath`: the published demo is served below one.
+ */
+function A({ href, ...props }) {
+  return href?.startsWith("/") ? (
+    <Link href={href} {...props} />
+  ) : (
+    <a href={href} {...props} />
+  )
+}
+
+/**
  * cudoc emits capitalized elements, and MDX throws at render time when one is
  * missing, so every name a configured feature can produce has to resolve here.
  *
@@ -37,5 +51,6 @@ export function useMDXComponents(components) {
     ...components,
     ...cudocComponents,
     Anchor,
+    a: A,
   }
 }

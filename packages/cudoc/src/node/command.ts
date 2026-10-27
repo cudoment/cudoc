@@ -12,9 +12,10 @@ import { generateDataset } from "./dataset.js"
 import { checkReferences } from "./check.js"
 import { formatCheckResult } from "./report.js"
 import { collectDocuments, watchDocuments } from "./watch.js"
+import { serveLanguageServer } from "./lsp.js"
 
 export const USAGE =
-  "Usage: cudoc <collect|check|dataset> --config config.mjs [--watch] [--format text|json] [--strict]"
+  "Usage: cudoc <collect|check|dataset|lsp> --config config.mjs [--watch] [--format text|json] [--strict]"
 
 /** Where the command writes: standard output and standard error. */
 export type CommandOutput = {
@@ -69,7 +70,7 @@ export async function runCommand(
     const formatIndex = argv.indexOf("--format")
     const format = formatIndex === -1 ? "text" : argv[formatIndex + 1]
     if (
-      !["collect", "check", "dataset"].includes(command ?? "") ||
+      !["collect", "check", "dataset", "lsp"].includes(command ?? "") ||
       configIndex === -1 ||
       !argv[configIndex + 1] ||
       (format !== "text" && format !== "json")
@@ -80,6 +81,17 @@ export async function runCommand(
       ? JSON.parse(fs.readFileSync(configPath, "utf8"))
       : (await import(pathToFileURL(path.resolve(configPath)).href)).default
 
+    if (command === "lsp") {
+      // The editor talks on stdin and stdout, so nothing else is written
+      // there; collection reports its diagnostics on stderr.
+      const code = await serveLanguageServer(config, {
+        input: process.stdin,
+        output: process.stdout,
+      })
+      // A paused stdin still holds the process open.
+      process.stdin.destroy()
+      return code
+    }
     if (command === "dataset") {
       io.out(JSON.stringify(generateDataset(config)))
       return 0
@@ -112,11 +124,14 @@ export async function runCommand(
       )
       return blocking.length ? 1 : 0
     }
+    // The check's options do not change what is collected, so they stay out
+    // of the library's configuration, as `cudoc lsp` leaves them out too.
+    const { check: _check, ...collectConfig } = config
     if (flags.has("--watch")) {
       // The first pass starts from whatever the output directory holds, and
       // every pass reports what it compiled; a failed pass is a message and
       // the last good output stays in place.
-      const watcher = watchDocuments(config, {
+      const watcher = watchDocuments(collectConfig, {
         onPass: ({
           documentCount,
           compiled,
@@ -148,7 +163,7 @@ export async function runCommand(
       await watcher.ready
       return 0
     }
-    const { documentCount, outDir } = await collectDocuments(config)
+    const { documentCount, outDir } = await collectDocuments(collectConfig)
     io.out(JSON.stringify({ documentCount, outDir }))
     return 0
   } catch (error) {

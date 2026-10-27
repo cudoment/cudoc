@@ -2,7 +2,9 @@
 
 **English** | [한국어](./dataset.ko.md) · [All guides](./README.md)
 
-Create a filtered copy of compiled documents for indexing or another downstream consumer. Dataset generation reads AST JSON, not Markdown, and does not modify its input. It does not create a search engine or a link monitor.
+`cudoc dataset` writes a filtered copy of the compiled documents, as AST JSON with a manifest, for indexing or another downstream consumer.
+
+Dataset generation reads AST JSON, not Markdown, and does not modify its input. It does not create a search engine or a link monitor.
 
 ## Collect first
 
@@ -31,19 +33,23 @@ Read the filtered ASTs from `.cudoc/dataset/documents/` and the document list fr
 
 ## Choose content
 
-| Option                                | Effect                                                 |
-| ------------------------------------- | ------------------------------------------------------ |
-| `documents: ["guide/start"]`          | Include exact relative document IDs without extensions |
-| `library: ".cudoc/documents"`         | Read root bases and private documents from the library |
-| `scopes: ["en", "ko"]`                | Include documents whose scope segment matches          |
-| `excludeNodeTypes: ["code"]`          | Remove matching nodes and their subtrees recursively   |
-| `excludeComponents: ["InternalNote"]` | Remove MDX JSX nodes with those component names        |
-| `stripProperties: ["position"]`       | Remove named properties recursively                    |
-| `projectionId: "search-v1"`           | Identify this consumer's projection policy             |
+The options in `dataset.config.mjs` choose the documents, remove nodes and name the projection:
 
-The ASTs are the documents as collected, and an embed is not expanded in them: it stays a `code` node with `lang: "cudoc-embed"` whose value names its sources, so a fact shared through embeds appears once, in the document that owns it. A consumer that wants a page as readers see it follows the block's `sources` to that section. `excludeNodeTypes: ["code"]` removes the block along with every other code block.
+| Option                                | Effect                                                                           |
+| ------------------------------------- | -------------------------------------------------------------------------------- |
+| `documents: ["guide/start"]`          | Include exact relative document IDs without extensions                           |
+| `library: ".cudoc/documents"`         | Read root bases and private documents from the library the ASTs were copied from |
+| `scopes: ["en", "ko"]`                | Include documents whose scope segment matches                                    |
+| `excludeNodeTypes: ["code"]`          | Remove matching nodes and their subtrees recursively                             |
+| `excludeComponents: ["InternalNote"]` | Remove MDX JSX nodes with those component names                                  |
+| `stripProperties: ["position"]`       | Remove named properties recursively                                              |
+| `projectionId: "search-v1"`           | Identify this consumer's projection policy                                       |
 
-Nothing is excluded by default. If both `documents` and `scopes` are provided, both must match. A document's scope is its first path segment, or with `library` the first segment after its root's base, so `docs/ko/guide` and `terms/ko/token` collected under bases `docs` and `terms` both belong to `ko`. With `library`, documents collected under a `private` pattern are left out, and naming one in `documents` is an error. `type` and `children` cannot be stripped. A component already normalized into Markdown nodes is no longer selected by its original JSX name.
+The ASTs are the documents as collected, and an embed is not expanded in them. It stays a `code` node with `lang: "cudoc-embed"` whose value names its sources, so a fact shared through embeds appears once, in the document that owns it. A consumer that wants a page as readers see it follows the block's `sources` to that section. `excludeNodeTypes: ["code"]` removes the block along with every other code block.
+
+By default the dataset leaves out the documents collected under a `private` pattern and nothing else, and naming one in `documents` is an error. If both `documents` and `scopes` are provided, both must match. A document's scope is the first segment after its root's base, so `docs/ko/guide` and `terms/ko/token` collected under bases `docs` and `terms` both belong to `ko`. Both rules read the library `inputDir` belongs to, or `library` when the ASTs were copied out of it. In a directory of ASTs without a library, the scope is the first path segment and nothing is private.
+
+`type` and `children` cannot be stripped, and a component already normalized into Markdown nodes is no longer selected by its original JSX name.
 
 Versioned input is required by default. Use `requireVersion: false` only when intentionally consuming an unversioned AST corpus; structural validation still applies.
 

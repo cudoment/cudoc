@@ -19,8 +19,9 @@ export type DatasetOptions = ProjectionOptions & {
   /**
    * The collected library the ASTs came from. Its roots tell the generator
    * where a document's scope segment starts, and its private documents are
-   * left out. Without it, the scope is the first path segment and nothing is
-   * private.
+   * left out. Without it, the library whose `documents` directory
+   * `inputDir` is serves; for any other input the scope is the first path
+   * segment and nothing is private.
    */
   library?: string
   documents?: string[]
@@ -53,6 +54,31 @@ const readLibraryFacts = (
 }
 
 /**
+ * The library whose `documents` directory `inputDir` is, read when no
+ * `library` is given so that a dataset made straight from a collection
+ * leaves its private documents out. A `manifest.json` beside the directory
+ * that is not a library's, such as a dataset's own, is not one.
+ */
+const enclosingLibrary = (inputDir: string): string | undefined => {
+  const dir = path.resolve(inputDir)
+  if (path.basename(dir) !== "documents") return undefined
+  const library = path.dirname(dir)
+  let manifest: unknown
+  try {
+    manifest = JSON.parse(
+      fs.readFileSync(path.join(library, "manifest.json"), "utf8"),
+    )
+  } catch {
+    return undefined
+  }
+  // A library's schema version is a number; a dataset's is a string.
+  return typeof (manifest as { schemaVersion?: unknown })?.schemaVersion ===
+    "number"
+    ? library
+    : undefined
+}
+
+/**
  * The segment that names a document's scope: the first one after the longest
  * root base that prefixes the id, so `docs/ko/guide` under base `docs` and
  * `terms/ko/token` under base `terms` both belong to `ko`.
@@ -75,8 +101,9 @@ export function generateDataset({
   requireVersion = true,
   ...projection
 }: DatasetOptions) {
-  const facts = library
-    ? readLibraryFacts(library)
+  const source = library ?? enclosingLibrary(inputDir)
+  const facts = source
+    ? readLibraryFacts(source)
     : { bases: [""], privateIds: new Set<string>() }
   // A library's own `manifest.json`, or a `meta.json` beside the documents,
   // sits at the top of the input; a document of that name deeper down is

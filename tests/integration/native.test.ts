@@ -15,6 +15,7 @@ import { describe, it, expect, beforeAll } from "vitest"
 import type { Root } from "mdast"
 import { buildDocuments } from "@cudoment/cudoc/node/library"
 import { collectSections } from "@cudoment/cudoc/query"
+import { nodeText, type DocumentNode } from "@cudoment/cudoc/document"
 import { renderDocument } from "@cudoment/cudoc/render"
 import { buildSite } from "cudoc-export"
 import { HOST_CASES, type HostCase } from "./hosts.js"
@@ -128,12 +129,76 @@ for (const host of HOST_CASES.filter((h) => h.name in NATIVE)) {
           "utf8",
         )
         expect(exported.match(/data-callout="warning"/g) ?? []).toHaveLength(2)
+        // The navigation names the deployed page, and the contents beside
+        // the page keep linking within it.
         expect(exported).toContain(
-          'href="https://docs.example.com/project/native#host"',
+          'href="https://docs.example.com/project/native"',
         )
+        expect(exported).toContain('id="host"')
+        expect(exported).toContain('<a href="#host">')
       } finally {
         fs.rmSync(temporary, { recursive: true, force: true })
       }
+    })
+  })
+}
+
+/**
+ * Each host's own tab group, read under `tabs: "both"`, which the shared
+ * options give every host. Eleventy has none of its own.
+ */
+const NATIVE_TABS: Record<string, { source: string; format: "md" | "mdx" }> = {
+  docusaurus: {
+    source:
+      '# Tabs\n\n<Tabs groupId="os">\n  <TabItem value="win" label="Windows">\n\nWin body\n\n  </TabItem>\n  <TabItem value="mac" label="macOS" default>\n\nMac body\n\n  </TabItem>\n</Tabs>\n',
+    format: "mdx",
+  },
+  nextra: {
+    source:
+      "# Tabs\n\n<Tabs items={['Windows', 'macOS']} defaultIndex={1}>\n  <Tabs.Tab>\n\nWin body\n\n  </Tabs.Tab>\n  <Tabs.Tab>\n\nMac body\n\n  </Tabs.Tab>\n</Tabs>\n",
+    format: "mdx",
+  },
+  vitepress: {
+    source:
+      "# Tabs\n\n::: code-group\n\n```sh [Windows]\nWin body\n```\n\n```sh [macOS]\nMac body\n```\n\n:::\n",
+    format: "md",
+  },
+}
+
+for (const host of HOST_CASES.filter((h) => h.name in NATIVE_TABS)) {
+  const native = NATIVE_TABS[host.name]
+  const suite = host.compiler ? describe : describe.skip
+  suite(`${host.name}: the host's own tabs`, () => {
+    it("become one group of tabs, labelled and with its default", async () => {
+      const compile = await host.compiler!()
+      const { tree } = await compile(native.source, {
+        id: "tabs",
+        filePath: `tabs.${native.format}`,
+        options: { format: native.format },
+      })
+      const groups: DocumentNode[] = []
+      const find = (node: DocumentNode) => {
+        if (node.data?.cudoc?.kind === "tabs") groups.push(node)
+        node.children?.forEach(find)
+      }
+      find(tree as unknown as DocumentNode)
+      expect(groups).toHaveLength(1)
+      expect(
+        groups[0]!.children!.map((member) => [
+          member.data?.cudoc?.title,
+          member.data?.cudoc?.default ?? false,
+          nodeText(member).trim(),
+        ]),
+      ).toEqual([
+        ["Windows", false, "Win body"],
+        ["macOS", host.name !== "vitepress", "Mac body"],
+      ])
+      if (host.name === "docusaurus")
+        expect(groups[0]!.data!.cudoc!.group).toBe("os")
+      // The host's own rendering of the group is not kept beside it.
+      expect(JSON.stringify(tree)).not.toMatch(
+        /vp-code-group|"name":"(Tabs|TabItem|Tabs\.Tab)"/,
+      )
     })
   })
 }

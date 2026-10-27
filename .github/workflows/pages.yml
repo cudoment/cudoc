@@ -2,11 +2,12 @@ name: Pages
 
 # The documentation site: this repository's README and docs/, exported by
 # cudoc-export, with the committed export samples beside the guides that
-# describe them. It deploys only when a release is complete, from the
-# publish workflow, or by hand for a version already released. The
-# repository's Pages source has to be set to GitHub Actions once, in its
-# settings, and the github-pages environment allows main alone, so a manual
-# run is dispatched from main and builds the released commit it names.
+# describe them and each host example, built by its own host, under demos/.
+# It deploys only when a release is complete, from the publish workflow, or
+# by hand for a version already released. The repository's Pages source has
+# to be set to GitHub Actions once, in its settings, and the github-pages
+# environment allows main alone, so a manual run is dispatched from main and
+# builds the released commit it names.
 on:
   workflow_call:
     inputs:
@@ -86,6 +87,19 @@ jobs:
           fi
       - run: npm ci
       - run: npm run build
+      # The host examples, built again for publication under demos/, each
+      # installed from its own lockfile. Releases before 1.0.0 have none.
+      - name: Build the host demos
+        run: |
+          if [ ! -f docs-site/demos.mjs ]; then
+            echo "${{ steps.release.outputs.version }} has no host demos"
+            exit 0
+          fi
+          for example in next-mdx docusaurus nextra vitepress eleventy; do
+            (cd "examples/$example" && npm ci)
+          done
+          npm run docs:demos
+          echo "CUDOC_SITE_DEMOS=$PWD/.cudoc/docs-demos" >> "$GITHUB_ENV"
       # The site reads the commit it describes from the checkout above.
       - run: npm run docs:site
       # The directory checked here is the one uploaded.

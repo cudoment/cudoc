@@ -1,6 +1,7 @@
 import createMDX from "@next/mdx"
 import { libraryLoader } from "cudoc-remark/loader"
 import { cudocOptions } from "../fixtures/cudoc-options.mjs"
+import { demo, demoBase, installedVersion } from "../fixtures/demo.mjs"
 
 /**
  * Where the compiled AST of each document is written. `sourceRoot` is relative
@@ -47,7 +48,35 @@ const withMDX = createMDX({
  */
 const library = libraryLoader(".cudoc/documents")
 
+/**
+ * The documentation site publishes this example under a path of its own
+ * (`docs-site/demos.mjs` sets `CUDOC_DEMO_BASE`), which GitHub Pages serves as
+ * static files: exported, below that path, one directory per page. Next.js
+ * 16 writes a page's prefetch data into a directory named after the page, so
+ * page.html beside it would leave GitHub Pages two answers for /page.
+ */
+const published =
+  demoBase === "/"
+    ? {}
+    : {
+        output: "export",
+        basePath: demoBase.replace(/\/$/, ""),
+        trailingSlash: true,
+      }
+
 export default withMDX({
+  ...published,
+  // What the layout's navigation says about this example.
+  env: {
+    CUDOC_DEMO: JSON.stringify(
+      demo({
+        host: "Next.js",
+        version: installedVersion(import.meta.dirname, "next"),
+        example: "next-mdx",
+        guide: "next",
+      }),
+    ),
+  },
   pageExtensions: ["js", "jsx", "md", "mdx"],
   webpack(config) {
     config.module.rules.push({ test: /\.mdx?$/, use: [library] })

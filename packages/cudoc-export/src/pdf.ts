@@ -29,7 +29,8 @@ export type PrintJob = { file: string; output: string; title: string }
 
 const MISSING_BROWSER =
   `cudoc-export: ${BROWSER_CHANNEL} is not installed, so no PDF was produced.\n` +
-  `The print-ready HTML is written either way (<volume>.print.html and <document>.print.html).\n` +
+  `Nothing was written, and the previous output stays as it was.\n` +
+  `A run without pdf writes the print-ready HTML (<volume>.print.html and <document>.print.html) to print yourself.\n` +
   `Install it with: npx cudoc-export install-browser\n` +
   `Or point at an existing browser with pdf.executablePath.\n` +
   `If the download was skipped by CUDOC_SKIP_BROWSER_DOWNLOAD, unset it and reinstall.`
@@ -101,6 +102,100 @@ export function pdfPageCount(bytes: Buffer): number {
       `cudoc-export: unreadable PDF page count (${declared} declared, ${pages} page objects)`,
     )
   return declared || pages
+}
+
+/**
+ * The link from a file to `target`, both `file:` URLs, as a relative URL:
+ * each segment kept as the browser encoded it, so the result is ASCII.
+ */
+export const relativeUrl = (from: string, target: string): string => {
+  const base = new URL(from).pathname.split("/").slice(0, -1)
+  const to = new URL(target)
+  const parts = to.pathname.split("/")
+  let shared = 0
+  while (
+    shared < base.length &&
+    shared < parts.length - 1 &&
+    base[shared] === parts[shared]
+  )
+    shared++
+  return (
+    [...base.slice(shared).map(() => ".."), ...parts.slice(shared)].join("/") +
+    to.search +
+    to.hash
+  )
+}
+
+/** A PDF literal string's text, its escapes read. */
+const literalText = (raw: string): string => raw.replace(/\\([()\\])/g, "$1")
+
+/** Text written as a PDF literal string's contents. */
+const literal = (text: string): string => text.replace(/[()\\]/g, "\\$&")
+
+/**
+ * The PDF with each link `relative` names written as its relative URL.
+ *
+ * Chrome writes a link as the absolute URL it resolved, so a link to a
+ * sibling file names the directory the file was printed in, a staging
+ * directory gone once the output is published, on the machine that printed
+ * it. A relative URI resolves against the PDF's own location (ISO 32000-1,
+ * 12.6.4.7). The rewritten objects move, so every in-use entry of the
+ * cross-reference table and `startxref` are shifted by what changed before
+ * them. A file without the classic table Chrome writes is returned as it is.
+ */
+export function relativeLinks(
+  bytes: Buffer,
+  relative: ReadonlyMap<string, string>,
+): Buffer {
+  if (!relative.size) return bytes
+  const text = bytes.toString("latin1")
+  const end = text.match(/startxref\s+(\d+)\s+%%EOF\s*$/)
+  const xrefAt = end ? Number(end[1]) : -1
+  if (!end || !text.startsWith("xref", xrefAt)) return bytes
+  const edits: { at: number; delta: number }[] = []
+  let out = ""
+  let last = 0
+  for (const match of text.matchAll(/\/URI\s*\(/g)) {
+    const start = match.index + match[0].length
+    // The string ends at the first unescaped `)` that closes it.
+    let depth = 1
+    let at = start
+    for (; at < text.length && depth; at++) {
+      if (text[at] === "\\") at++
+      else if (text[at] === "(") depth++
+      else if (text[at] === ")") depth--
+    }
+    const close = at - 1
+    if (start < last || depth) continue
+    const target = relative.get(literalText(text.slice(start, close)))
+    if (target === undefined) continue
+    const written = literal(target)
+    out += text.slice(last, start) + written
+    edits.push({ at: start, delta: written.length - (close - start) })
+    last = close
+  }
+  if (!edits.length) return bytes
+  out += text.slice(last)
+  const shift = (offset: number) =>
+    edits.reduce(
+      (sum, edit) => (edit.at < offset ? sum + edit.delta : sum),
+      offset,
+    )
+  // Entries are fixed width, so the table keeps its length.
+  const table = text.slice(xrefAt, text.indexOf("trailer", xrefAt))
+  const shifted = table.replace(
+    /^(\d{10}) (\d{5}) n/gm,
+    (_, offset: string, generation: string) =>
+      `${String(shift(Number(offset))).padStart(10, "0")} ${generation} n`,
+  )
+  const newXref = shift(xrefAt)
+  out =
+    out.slice(0, newXref) +
+    shifted +
+    out
+      .slice(newXref + table.length)
+      .replace(/startxref(\s+)\d+(\s+%%EOF\s*)$/, `startxref$1${newXref}$2`)
+  return Buffer.from(out, "latin1")
 }
 
 /**
@@ -181,6 +276,31 @@ export async function openPrinter(
       await tab.goto(pathToFileURL(job.file).href, { waitUntil: "load" })
       // The set itself is not serializable; only the settled promise matters.
       await tab.evaluate(() => document.fonts.ready.then(() => undefined))
+      // Each link the page writes relatively, as the browser resolves it.
+      // Read from the attribute, since an SVG link's `href` is no string.
+      const resolved = await tab.evaluate(() =>
+        Array.from(document.querySelectorAll("a[href]"), (a) => {
+          const written = a.getAttribute("href")!
+          let absolute = ""
+          try {
+            absolute = new URL(written, document.baseURI).href
+          } catch {
+            // An address the browser cannot read makes no link either.
+          }
+          return { absolute, written }
+        }).filter(
+          ({ absolute, written }) =>
+            absolute.startsWith("file:") &&
+            !/^(?:[a-z][a-z\d+.-]*:|\/\/|#)/i.test(written),
+        ),
+      )
+      const output = pathToFileURL(job.output).href
+      const links = new Map(
+        resolved.map(({ absolute }) => [
+          absolute,
+          relativeUrl(output, absolute),
+        ]),
+      )
       const bytes = await tab.pdf({
         preferCSSPageSize: true,
         margin: geometry.margin,
@@ -203,8 +323,9 @@ export async function openPrinter(
         scale: 1,
       })
       fs.mkdirSync(path.dirname(job.output), { recursive: true })
-      fs.writeFileSync(job.output, bytes)
-      return pdfPageCount(bytes)
+      const written = relativeLinks(bytes, links)
+      fs.writeFileSync(job.output, written)
+      return pdfPageCount(written)
     },
     close: () => browser.close(),
   }

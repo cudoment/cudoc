@@ -58,9 +58,11 @@ export function globMatcher(
   if (patterns === undefined) return () => false
   if (
     !Array.isArray(patterns) ||
-    patterns.some((pattern) => typeof pattern !== "string")
+    patterns.some((pattern) => typeof pattern !== "string" || !pattern.trim())
   )
-    throw new Error(`cudoc: ${option} must be an array of glob patterns`)
+    throw new Error(
+      `cudoc: ${option} must be an array of non-empty glob patterns`,
+    )
   const expressions = patterns.map(globToRegExp)
   return (libraryPath) =>
     expressions.some((expression) => expression.test(libraryPath))

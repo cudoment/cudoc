@@ -98,6 +98,20 @@ describe("section selector", () => {
       }),
     ).toBe(true)
   })
+
+  it("reads a brace a VitePress library keeps as its reference", () => {
+    const kept: Heading = {
+      type: "heading",
+      depth: 3,
+      children: [
+        { type: "text", value: "Use " },
+        { type: "html", value: "&#123;" },
+        { type: "text", value: "x" },
+        { type: "html", value: "&#125;" },
+      ],
+    }
+    expect(matchesSectionHeading(kept, { titles: ["Use {x}"] })).toBe(true)
+  })
 })
 
 describe("contract validation", () => {

@@ -7,6 +7,7 @@
 
 import type { Heading, Parent, PhrasingContent } from "mdast"
 import type { AncestorLocation } from "./walk.js"
+import { referencedCharacter } from "./references.js"
 
 /** Concatenates the text of a phrasing subtree, ignoring node kinds. */
 export const getInlineText = (nodes: readonly PhrasingContent[]): string =>
@@ -14,7 +15,9 @@ export const getInlineText = (nodes: readonly PhrasingContent[]): string =>
 
 const getInlineTextFromNode = (node: PhrasingContent): string => {
   if (node.type === "text") return node.value
-  if ("value" in node && typeof node.value === "string") return node.value
+  // A brace a VitePress library keeps as its reference matches as the brace.
+  if ("value" in node && typeof node.value === "string")
+    return referencedCharacter(node) ?? node.value
   if ("children" in node && Array.isArray(node.children)) {
     return getInlineText(node.children as PhrasingContent[])
   }

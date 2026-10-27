@@ -68,7 +68,11 @@ import hljs from "highlight.js"
 import { fromHtml } from "hast-util-from-html"
 import type { Root as HastRoot, RootContent as HastContent } from "hast"
 import type { Root } from "mdast"
-import { capturedImage, type DocumentNode } from "@cudoment/cudoc/document"
+import {
+  capturedImage,
+  referencedCharacter,
+  type DocumentNode,
+} from "@cudoment/cudoc/document"
 import {
   TREE_PRINT_ATTRIBUTE,
   isPageBreak,
@@ -96,7 +100,7 @@ import {
   type ResolvedPageOptions,
   type RunningText,
 } from "./design/page.js"
-import { imageSize } from "./image-size.js"
+import { imageSize } from "@cudoment/cudoc/node/image-size"
 
 export type DocxLinkMode = "relative" | "host" | "none"
 
@@ -440,6 +444,11 @@ function inline(node: DocumentNode, context: Context): ParagraphChild[] {
       // A line break written as HTML, which a table cell needs for one.
       if (/^<br\s*\/?>$/i.test((node.value ?? "").trim()))
         return [new TextRun({ break: 1 })]
+      // A character kept as its reference, as a VitePress library keeps a
+      // brace so that Vue does not read it, is that character.
+      const character = referencedCharacter(node)
+      if (character !== undefined)
+        return [new TextRun({ text: character, ...context.run })]
       if (context.options.rawHtml === "text") {
         context.warn(
           "html-as-text",
@@ -466,14 +475,19 @@ function inline(node: DocumentNode, context: Context): ParagraphChild[] {
   }
 }
 
+/** An HTML node that is one character reference and nothing else. */
 function linkRun(node: DocumentNode, context: Context): ParagraphChild[] {
+  // A host's heading permalink, such as VitePress's `&ZeroWidthSpace;` link,
+  // is a control on its site; a Word heading has nothing to show for it.
+  if (node.data?.cudoc?.kind === "permalink") return []
   const children = inlineChildren(node, context)
   const url = typeof node.url === "string" ? node.url : ""
   // Hyperlink removal strips the anchor entirely, matching what the HTML
   // output does when it turns every `<a>` into a `<span>`.
   if (context.options.links === "none" || !url) return children
-  // A link that would run code where it is opened is kept as its text.
-  if (/^\s*(?:javascript|vbscript|data):/i.test(url)) {
+  // A link that would run code where it is opened, or open a file on the
+  // reader's machine or network, is kept as its text.
+  if (/^\s*(?:javascript|vbscript|data|file):/i.test(url)) {
     context.warn(
       "unsafe-link",
       `a ${url.trim().split(":")[0]!.toLowerCase()}: link was written as text`,
@@ -615,20 +629,37 @@ function codeParagraphs(node: DocumentNode, context: Context): Paragraph[] {
   // The box's inner padding is the style's border space; these keep the box
   // off the paragraphs around it.
   const gap = context.rhythm.block
-  return lines.map((children, index) =>
-    emit(
-      context,
-      {
-        style: "CudocCodeBlock",
-        ...EAST_ASIAN_PARAGRAPH,
-        spacing: {
-          before: index === 0 ? gap : 0,
-          after: index === lines.length - 1 ? gap : 0,
+  // What the fence's meta gave: a title above the block, lines to mark.
+  const { title, lines: marked } = (node.data?.cudoc ?? {}) as {
+    title?: string
+    lines?: number[]
+  }
+  const highlighted = new Set(marked ?? [])
+  return [
+    ...(title
+      ? [
+          emit(context, { style: "CudocCodeTitle", keepNext: true }, [
+            new TextRun(title),
+          ]),
+        ]
+      : []),
+    ...lines.map((children, index) =>
+      emit(
+        context,
+        {
+          style: highlighted.has(index + 1)
+            ? "CudocCodeHighlighted"
+            : "CudocCodeBlock",
+          ...EAST_ASIAN_PARAGRAPH,
+          spacing: {
+            before: index === 0 && !title ? gap : 0,
+            after: index === lines.length - 1 ? gap : 0,
+          },
         },
-      },
-      children.length ? children : [new TextRun("")],
+        children.length ? children : [new TextRun("")],
+      ),
     ),
-  )
+  ]
 }
 
 /* ---------- tables ---------- */
@@ -670,12 +701,20 @@ const lengthTwips = (
 
 function gridFromGfm(node: DocumentNode, context: Context): Cell[][] {
   const align = (node.align ?? []) as (string | null)[]
+  // A table with merged cells carries its alignment on each cell instead,
+  // and a merged cell its `colSpan` and `rowSpan`.
+  const count = (value: unknown) =>
+    Math.max(1, Number.parseInt(String(value ?? "1"), 10) || 1)
   return (node.children ?? []).map((row, rowIndex) =>
     (row.children ?? []).map((cell, columnIndex) => ({
       children: cellBlocks(cell, context, rowIndex === 0),
-      span: 1,
+      span: count(properties(cell).colSpan),
+      ...(count(properties(cell).rowSpan) > 1
+        ? { rows: count(properties(cell).rowSpan) }
+        : {}),
       header: rowIndex === 0,
-      alignment: ALIGNMENT[align[columnIndex] ?? ""],
+      alignment:
+        ALIGNMENT[String(properties(cell).align ?? align[columnIndex] ?? "")],
       ...(rowIndex === 0 &&
       cssValue(properties(cell).style, "min-width") !== undefined
         ? { minWidth: cssValue(properties(cell).style, "min-width") }
@@ -1375,6 +1414,16 @@ function block(
     return [paragraph]
   }
   if (node.data?.cudoc?.kind === "callout") return calloutBlocks(node, context)
+  if (node.data?.cudoc?.kind === "tableNote")
+    return blocksOf(node.children ?? [], context, "CudocTableNote")
+  // A page cannot switch tabs, so each is written under its label in turn.
+  if (node.data?.cudoc?.kind === "tab")
+    return [
+      emit(context, { style: "CudocTabLabel", keepNext: true }, [
+        new TextRun(node.data.cudoc.title ?? ""),
+      ]),
+      ...blocksOf(node.children ?? [], context, style),
+    ]
   if (isTree(node)) return listBlocks(printedTree(node), context, style)
 
   // `hName` before `node.type`: a lowered `<table>` is a `blockquote`.

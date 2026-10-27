@@ -138,9 +138,26 @@ const alignmentAttributes = (
 }
 
 /**
+ * What a merge left on a cell: whether another cell covers it, and the rows
+ * and columns it spans when it owns the merge.
+ */
+const mergeOf = (cell: { data?: unknown }) => {
+  const data = cell.data as
+    | { cudocCovered?: boolean; hProperties?: Record<string, unknown> }
+    | undefined
+  return {
+    covered: data?.cudocCovered === true,
+    rows: Number(data?.hProperties?.rowSpan ?? 1),
+    columns: Number(data?.hProperties?.colSpan ?? 1),
+  }
+}
+
+/**
  * A split in any body row widens the column for the whole table, so the header
  * cell and every unsplit cell in that column carry a span to keep the grid
- * rectangular.
+ * rectangular. A cell a merge covers is left out, and the cell that owns the
+ * merge spans its rows and its columns, the split column counted as wide as
+ * it is laid out.
  */
 export const createLayoutTable = ({
   columnIndex,
@@ -166,22 +183,47 @@ export const createLayoutTable = ({
     return cell ? splitCell(cell.children, split) : [[]]
   })
   const hasSplitCell = cellLayouts.some((layout) => layout.length > 1)
-  const spanValue = String(split.columns)
+  /** How many columns of the laid-out grid a cell starting at `index` spans. */
+  const widthOf = (index: number, columns: number) =>
+    columns +
+    (hasSplitCell && index <= columnIndex && columnIndex < index + columns
+      ? split.columns - 1
+      : 0)
 
-  const headerElements = headerRow.children.map((cell, index) =>
-    createHeadElement(cell, components.head, [
-      ...alignmentAttributes(table, index, components.head, cell),
-      ...(index === columnIndex && hasSplitCell
-        ? [createMdxAttribute(spanAttribute, spanValue)]
-        : []),
-    ]),
-  )
+  const headerElements = headerRow.children.flatMap((cell, index) => {
+    const { covered, columns } = mergeOf(cell)
+    if (covered) return []
+    const width = widthOf(index, columns)
+    return [
+      createHeadElement(cell, components.head, [
+        ...alignmentAttributes(table, index, components.head, cell),
+        ...(width > 1
+          ? [createMdxAttribute(spanAttribute, String(width))]
+          : []),
+      ]),
+    ]
+  })
 
   const bodyRows = cudocTable.children.slice(1).map((row, rowIndex) => {
     const cellElements = row.children.flatMap((cell, index) => {
+      const { covered, rows, columns } = mergeOf(cell)
+      if (covered) return []
+      const width = widthOf(index, columns)
+      /** The rows the cell spans, and `across` columns of the laid-out grid. */
+      const spans = (across: number) => [
+        ...(rows > 1 ? [createMdxAttribute("rowSpan", String(rows))] : []),
+        ...(across > 1
+          ? [createMdxAttribute(spanAttribute, String(across))]
+          : []),
+      ]
       const attributes = alignmentAttributes(table, index, components.cell)
       if (index !== columnIndex) {
-        return [createCellElement(cell.children, components.cell, attributes)]
+        return [
+          createCellElement(cell.children, components.cell, [
+            ...attributes,
+            ...spans(width),
+          ]),
+        ]
       }
 
       const layout = cellLayouts[rowIndex] ?? [cell.children]
@@ -189,15 +231,18 @@ export const createLayoutTable = ({
         return [
           createCellElement(layout[0] ?? [], components.cell, [
             ...attributes,
-            ...(hasSplitCell
-              ? [createMdxAttribute(spanAttribute, spanValue)]
-              : []),
+            ...spans(width),
           ]),
         ]
       }
 
-      return layout.map((children) =>
-        createCellElement(children, components.cell, attributes),
+      // Each piece takes a column; the last also takes what the cell spans
+      // past the split column, the cells merged into it from the right.
+      return layout.map((children, piece) =>
+        createCellElement(children, components.cell, [
+          ...attributes,
+          ...spans(piece === layout.length - 1 ? width - piece : 1),
+        ]),
       )
     })
 

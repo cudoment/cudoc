@@ -4,6 +4,7 @@
 // so nothing else in the repository can reach the site.
 import { execFileSync } from "node:child_process"
 import path from "node:path"
+import { demoMounts } from "./demos.mjs"
 
 const ROOT = path.resolve(import.meta.dirname, "..")
 // Links to source files point at the commit the site was built from: the
@@ -20,6 +21,9 @@ export default {
   outDir: path.join(ROOT, ".cudoc/docs-site"),
   libraryDir: path.join(ROOT, ".cudoc/docs-library"),
   title: "cudoc",
+  // Where GitHub Pages serves the site, for each page's canonical address,
+  // its other language under hreflang, and sitemap.xml.
+  siteUrl: "https://cudoment.github.io/cudoc/",
   home: "README.md",
   navigation: path.join(ROOT, "docs-site/nav.yml"),
   locales: { en: "English", ko: "한국어" },
@@ -52,5 +56,9 @@ export default {
       from: path.join(ROOT, "examples/export/annotate-output"),
       to: "samples/annotate",
     },
+    // The host examples, as each host builds them, under demos/: built by
+    // `npm run docs:demos` into the directory CUDOC_SITE_DEMOS names, which
+    // the deploy sets. Without it the site has no demos and links to none.
+    ...demoMounts(process.env.CUDOC_SITE_DEMOS),
   ],
 }

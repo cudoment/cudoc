@@ -9,12 +9,21 @@
  */
 
 import cudoc from "cudoc-vitepress"
+import { portableOptions } from "../fixtures/cudoc-options.mjs"
 
-export const syntax = { headingAnchor: "both", callout: "both" }
+export const syntax = {
+  headingAnchor: "both",
+  callout: "both",
+  ...portableOptions.syntax,
+}
+/** The values and link labels every example site shares. */
+export const { variables, linkReferences } = portableOptions
 
 /** The `markdown.config` callback VitePress calls with its own instance. */
 export const configure = (library, overrides) => (md) =>
   md.use(cudoc, {
+    variables,
+    linkReferences,
     ...overrides,
     syntax: { ...syntax, ...overrides?.syntax },
     library,

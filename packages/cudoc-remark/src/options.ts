@@ -36,7 +36,13 @@ import {
   type TocOptions,
 } from "./toc.js"
 import type { Toc } from "./toc.js"
-import { resolveSyntax, type DocumentOptions } from "@cudoment/cudoc/document"
+import {
+  resolveLinkReferences,
+  resolveSyntax,
+  resolveVariables,
+  type DocumentOptions,
+} from "@cudoment/cudoc/document"
+import { resolveTabElements, type TabElements } from "@cudoment/cudoc/present"
 
 export type CudocState = TransformState & {
   toc: Toc
@@ -54,7 +60,14 @@ export type CudocRemarkOptions = Pick<
   | "components"
   | "headingIds"
   | "ignoreDiagnostics"
+  | "variables"
+  | "linkReferences"
 > & {
+  /**
+   * The site's own components to draw tabs with, on an MDX host; `false`
+   * draws cudoc's own. The `docs` host defaults to `Tabs` and `TabsContent`.
+   */
+  tabElements?: TabElements | false
   /** List syntax inside table cells. */
   tableCellList?: boolean
   /** Anchor id and badge written in a heading. */
@@ -101,6 +114,9 @@ const KNOWN_KEYS = new Set([
   "tableColumnLayout",
   "tableColumnWidths",
   "ignoreDiagnostics",
+  "variables",
+  "linkReferences",
+  "tabElements",
   "transforms",
 ])
 
@@ -139,17 +155,26 @@ export const resolveOptions = (
   assertKnownKeys(options)
   if (options.syntax !== undefined) {
     resolveSyntax(options.syntax)
+    // A component option owns its feature; `syntax` may still choose the
+    // syntax of every other one, which applies where cudoc normalizes.
     for (const [feature, legacy] of [
       ["headingAnchor", "headingMetadata"],
       ["badge", "badge"],
       ["tableCellList", "tableCellList"],
     ] as const) {
-      if (options[legacy] !== undefined)
+      if (
+        (options.syntax as Record<string, unknown>)[feature] !== undefined &&
+        options[legacy] !== undefined
+      )
         throw new TypeError(
           `cudoc: configure ${feature} through syntax or ${legacy}, not both`,
         )
     }
   }
+
+  resolveVariables(options.variables)
+  resolveLinkReferences(options.linkReferences)
+  resolveTabElements(options.tabElements)
 
   if (
     options.tableColumnLayout !== undefined &&

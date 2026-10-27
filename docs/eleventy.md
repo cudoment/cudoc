@@ -2,9 +2,15 @@
 
 **English** | [한국어](./eleventy.ko.md) · [All guides](./README.md)
 
-Follow the steps in order. Steps 1–4 enable the Markdown extensions. Steps 5–7 add document embedding, which is what lets one document reuse another. Step 8 is optional.
+Set up cudoc in an Eleventy site: the Markdown extensions first, then document embedding, and an optional HTML export at the end.
+
+**See it first:** the [Eleventy demo](https://cudoment.github.io/cudoc/demos/eleventy/portable/) is the [runnable example](../examples/eleventy/eleventy.config.mjs) built by Eleventy 3.1.7, with links to the Markdown it was built from. → [Host demos](./README.md#host-demos)
+
+Follow the steps in order. Steps 1–4 enable the Markdown extensions; steps 5–7 add document embedding, which lets one document reuse another; step 8 is optional.
 
 ## Step 1 — Install
+
+Install the core package, the Eleventy adapter and three markdown-it plugins:
 
 ```sh
 npm install @cudoment/cudoc cudoc-eleventy markdown-it-attrs markdown-it-anchor markdown-it-container
@@ -14,7 +20,7 @@ Eleventy uses markdown-it, not remark, so it does not use `cudoc-remark`. `cudoc
 
 ## Step 2 — Build the renderer in a shared module
 
-Eleventy owns the markdown-it instance, so create it once in a module that both the configuration and the collector import:
+Create the markdown-it instance once, in a module that both the configuration and the collector import, because Eleventy owns that instance:
 
 ```js
 // markdown.mjs
@@ -60,11 +66,13 @@ export default function (eleventyConfig) {
 >
 > `markdownTemplateEngine: false` stops Liquid rewriting the Markdown before markdown-it sees it. cudoc reads source positions out of the token stream, and the adapter raises an error when it detects a source another engine already rendered.
 >
-> `anchor.permalink.linkInsideHeader()` puts the permalink **inside** the heading. A permalink that wraps the heading puts the heading's own text inside a link, where cudoc's `(#id)` anchors are no longer part of it.
+> `anchor.permalink.linkInsideHeader()` puts the permalink **inside** the heading, and cudoc tells the permalink from the heading's text by its default class `header-anchor`. A permalink that wraps the heading puts the heading's own text inside a link, where cudoc's `(#id)` anchors are no longer part of it.
 
 ## Step 4 — Link the stylesheet from your layout
 
-Eleventy ships no theme, so your layout is where the stylesheet and navigation belong. Link `/cudoc.css`, copied through by step 3.
+Link `/cudoc.css`, copied through by step 3, from your layout: Eleventy ships no theme, so the layout is where the stylesheet and navigation belong.
+
+The stylesheet draws callouts, code titles and tabs dark when the system prefers dark and leaves the text colour to the page. So a layout that stays light gives its `<html>` the class `light`, and one that follows the system declares `<meta name="color-scheme" content="light dark">`.
 
 **Stop here if you only want the syntax extensions.** Build your site and the features in [Markdown syntax](./syntax.md) work. Continue for document embedding.
 
@@ -96,7 +104,7 @@ await collectDocuments({
 
 ## Step 6 — Load the library into the renderer
 
-`eleventy.config.mjs` then reads as follows, your site's other settings kept:
+Pass `loadLibrary(".cudoc/documents")` into `createRenderer()` in `eleventy.config.mjs`, keeping your site's other settings:
 
 ```js
 // eleventy.config.mjs
@@ -118,7 +126,7 @@ export default function (eleventyConfig) {
 }
 ```
 
-**Collection and rendering must agree** on every Markdown option. Because both come from `markdown.mjs`, that happens by construction — keep it that way, and change `compilerId` when relevant settings change.
+**Collection and rendering must agree** on every Markdown option. Both come from `markdown.mjs`, so they agree by construction: keep it that way, and change `compilerId` when relevant settings change.
 
 ## Step 7 — Collect before every build
 
@@ -135,7 +143,7 @@ Add the scripts to `package.json`:
 }
 ```
 
-`cudoc check` reads the library the collector published and collects nothing, so it runs after `collect`, and its configuration only has to say where that library is:
+`cudoc check` runs after `collect`: it reads the library the collector published and collects nothing, so its configuration only has to say where that library is:
 
 ```js
 // cudoc.config.mjs
@@ -144,9 +152,13 @@ export default { sourceRoot: "docs", outDir: ".cudoc/documents" }
 
 Root-relative images, such as `/img/logo.png`, are looked up under `docs`. If your passthrough copies them from a directory outside it, name that directory in `check: { assetDirs: [...] }` here and with `--asset-dir` in step 8.
 
-After editing a source document, run collection again — [`watchDocuments`](./api-reference/node.md#watching) called with the collector's configuration does that on every change, and so does `cudoc collect --watch` given a configuration file that holds the collector's whole configuration, `compiler` included — **and restart the dev server**: the plugin holds the library it loaded when the configuration was evaluated, and reports a stale source until it is reloaded. Front matter does not count: Eleventy hands the renderer the page without it, and a page whose text after the front matter is what was collected is current. → [Reference checking](./check.md)
+After editing a source document, run collection again **and restart the dev server**. [`watchDocuments`](./api-reference/node.md#watching) called with the collector's configuration collects on every change, and so does `cudoc collect --watch` given a configuration file that holds the collector's whole configuration, `compiler` included. The restart is needed because the plugin holds the library it loaded when the configuration was evaluated, and reports a stale source until it is reloaded. → [Reference checking](./check.md)
+
+Front matter does not count as a change: Eleventy hands the renderer the page without it, and a page whose text after the front matter is what was collected is current.
 
 ## Step 8 — Optionally export HTML
+
+Install `cudoc-export` and export the collected library as HTML:
 
 ```sh
 npm install cudoc-export
@@ -160,42 +172,54 @@ Your Eleventy build and its collected data are not modified. → [Export](./expo
 
 ## What you can now write
 
-| Feature                     | Example                            | Details                                                    |
-| --------------------------- | ---------------------------------- | ---------------------------------------------------------- |
-| Explicit heading anchors    | `## Limits (#limits)`              | [Syntax](./syntax.md#anchors-and-badges)                   |
-| Native heading anchors      | `## Limits {#limits}`              | [Syntax](./syntax.md#anchors-and-badges)                   |
-| Heading badges              | `## Limits (#limits) (@New)`       | [Syntax](./syntax.md#anchors-and-badges)                   |
-| Callouts with titles        | `> [!NOTE] Before you start`       | [Syntax](./syntax.md#callouts)                             |
-| Native containers           | `::: warning Title`                | [Syntax](./syntax.md#callouts)                             |
-| Nested lists in table cells | `- Account<br />-- Verified email` | [Syntax](./syntax.md#lists-inside-table-cells)             |
-| Embed a whole document      | `sources: [reference.md]`          | [Embedding](./embedding.md#reuse-a-section)                |
-| Embed one section           | `sources: [reference.md#limits]`   | [Embedding](./embedding.md#reuse-a-section)                |
-| Heading summary table       | `select: { depth: 2 }`             | [Embedding](./embedding.md#create-a-heading-summary-table) |
-| Document tree               | `render: { type: tree }`           | [Embedding](./embedding.md#draw-a-tree-of-documents)       |
-| Replace text in the copy    | `replace: [{ find, replace }]`     | [Embedding](./embedding.md#find-and-replace)               |
+The syntax rows below work after step 4, and the embedding rows after step 7:
+
+| Feature                           | Example                            | Details                                                       |
+| --------------------------------- | ---------------------------------- | ------------------------------------------------------------- |
+| Explicit heading anchors          | `## Limits (#limits)`              | [Syntax](./syntax.md#anchors-and-badges)                      |
+| Native heading anchors            | `## Limits {#limits}`              | [Syntax](./syntax.md#anchors-and-badges)                      |
+| Heading badges                    | `## Limits (#limits) (@New)`       | [Syntax](./syntax.md#anchors-and-badges)                      |
+| Callouts with titles              | `> [!NOTE] Before you start`       | [Syntax](./syntax.md#callouts)                                |
+| Native containers                 | `::: warning Title`                | [Syntax](./syntax.md#callouts)                                |
+| Nested lists in table cells       | `- Account<br />-- Verified email` | [Syntax](./syntax.md#lists-inside-table-cells)                |
+| Merged table cells                | `^^` or `>>` alone in a cell       | [Syntax](./syntax.md#merged-table-cells)                      |
+| Code titles and highlighted lines | ` ```js title="retry.js" {2} `     | [Syntax](./syntax.md#code-block-titles-and-highlighted-lines) |
+| Tabs                              | `> [!TAB] npm`                     | [Syntax](./syntax.md#tabs)                                    |
+| Variables                         | `(=version)`                       | [Syntax](./syntax.md#variables)                               |
+| Embed a whole document            | `sources: [reference.md]`          | [Embedding](./embedding.md#reuse-a-section)                   |
+| Embed one section                 | `sources: [reference.md#limits]`   | [Embedding](./embedding.md#reuse-a-section)                   |
+| Heading summary table             | `select: { depth: 2 }`             | [Embedding](./embedding.md#create-a-heading-summary-table)    |
+| Document tree                     | `render: { type: tree }`           | [Embedding](./embedding.md#draw-a-tree-of-documents)          |
+| Replace text in the copy          | `replace: [{ find, replace }]`     | [Embedding](./embedding.md#find-and-replace)                  |
 
 `details` containers keep their expandable behaviour.
 
 ## Eleventy specifics
 
-**Routes are directory URLs.** The collector uses `routeSuffix: "/"` to match Eleventy's default, so `reference.md` is collected as `/reference/`. Change the collected routes when you change `permalink`, output extensions or path prefixes.
+**Routes are directory URLs.** The collector uses `routeSuffix: "/"` to match Eleventy's default, so `reference.md` is collected as `/reference/`. Change the collected routes when you change `permalink` or output extensions, and for a `pathPrefix` unless Eleventy's `HtmlBasePlugin` is added, which puts the prefix in front of every root-relative address in the built pages, the ones an embed draws included.
 
-**Gitignored input.** Eleventy skips gitignored files by default. If your documents are gitignored — as the synced fixtures in this repository's example are — add `eleventyConfig.setUseGitIgnore(false)`.
+**Links to `.md` files stay as written.** Eleventy does not rewrite a link's address, so `[Limits](reference.md#limits)` points at a file the site does not serve. Link to the page's URL, `/reference/#limits`, in documents and in `linkReferences` alike; the links an embed draws already use the collected routes.
+
+**Gitignored input.** Eleventy skips gitignored files by default. If your documents are gitignored, as the synced fixtures in this repository's example are, add `eleventyConfig.setUseGitIgnore(false)`.
 
 **Markdown only.** Write `.md`. React `.mdx` is not processed. → [Choosing `.md` or `.mdx`](./README.md#choosing-md-or-mdx)
 
-**YAML or JSON front matter.** Collection splits front matter the way Eleventy does with its default front-matter options, and reads YAML, the default, or `---json`. JavaScript front matter (`---js`) would have to run to be read, so collection fails on it, naming the file; write that page's front matter as YAML. Leave `setFrontMatterParsingOptions` at its defaults: an excerpt or other delimiters change the text Eleventy renders, so collection no longer matches it, and another default language has Eleventy read front matter that names no language differently from collection, which reads it as YAML. → [markdown-it internals](./api-reference/adapters.md#markdown-it)
+**YAML or JSON front matter.** Collection splits front matter the way Eleventy does with its default front-matter options, and reads YAML, the default, or `---json`. JavaScript front matter (`---js`) would have to run to be read, so collection fails on it, naming the file; write that page's front matter as YAML.
 
-**Your plugins keep their rendering.** A code block goes through the fence renderer your site registered, and a `markdown-it-container` whose name is not a callout type, such as a site's own `::: demo`, opens and closes as that plugin renders it, around content cudoc reads like the rest of the page, so a heading anchor or an embed inside it still works. cudoc replaces only what it normalizes.
+Leave `setFrontMatterParsingOptions` at its defaults. An excerpt or other delimiters change the text Eleventy renders, so collection no longer matches it, and another default language has Eleventy read front matter that names no language differently from collection, which reads it as YAML. → [markdown-it internals](./api-reference/adapters.md#markdown-it)
+
+**Your plugins keep their rendering.** A code block goes through the fence renderer your site registered. A `markdown-it-container` whose name is not a callout type, such as a site's own `::: demo`, opens and closes as that plugin renders it. Inside it, cudoc reads the content like the rest of the page, so a heading anchor or an embed there still works. cudoc replaces only what it normalizes.
 
 **Tables of contents and embedded headings.** Eleventy has none of its own. One built by a markdown-it plugin reads the tokens and lists the page's own headings; one built from the rendered HTML, such as an Eleventy transform, also lists headings that arrive through an embed.
 
-**Warnings while building.** A diagnostic, such as an unregistered callout type or two headings with the same ID, is printed as a warning naming the page and line while Eleventy renders it; the line counts from the top of the file when the renderer has the collected library, and from the end of the front matter otherwise. Pass `onDiagnostic(diagnostic, documentId)` in the renderer options to handle them yourself. → [markdown-it internals](./api-reference/adapters.md#markdown-it)
+**Warnings while building.** A diagnostic, such as an unregistered callout type or two headings with the same ID, is printed as a warning naming the page and line while Eleventy renders it. The line counts from the top of the file when the renderer has the collected library, and from the end of the front matter otherwise. Pass `onDiagnostic(diagnostic, documentId)` in the renderer options to handle them yourself. → [markdown-it internals](./api-reference/adapters.md#markdown-it)
 
 **Shared with VitePress.** This adapter and the [VitePress adapter](./vitepress.md) both sit on `cudoc-markdown-it`, so the two hosts convert the actual native token stream through the same code and keep heading and TOC integration identical.
 
 ## Next
 
-- [Document embedding](./embedding.md) — selection, multiple sources, refresh rules
-- [markdown-it internals](./api-reference/adapters.md#markdown-it) — token conversion and host definitions
-- [Runnable example](../examples/eleventy/eleventy.config.mjs) — a working site
+Continue with the embedding guide, the markdown-it internals or the runnable example:
+
+- [Document embedding](./embedding.md): selection, multiple sources, refresh rules
+- [markdown-it internals](./api-reference/adapters.md#markdown-it): token conversion and host definitions
+- [Runnable example](../examples/eleventy/eleventy.config.mjs): a working site

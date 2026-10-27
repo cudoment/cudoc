@@ -302,15 +302,34 @@ export function locateAnnotations(
 }
 
 /**
+ * Characters that hide text or reorder what is shown: C0 and C1 controls
+ * other than tab and line endings, zero-width and direction marks, the
+ * line and paragraph separators, and the byte-order mark.
+ */
+const HIDDEN =
+  /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\u200b-\u200f\u2028-\u202e\u2066-\u2069\ufeff]/g
+
+/** The same, and tabs and line endings, which outside a fence start a block. */
+const HIDDEN_ON_A_LINE =
+  /[\x00-\x1f\x7f-\x9f\u200b-\u200f\u2028-\u202e\u2066-\u2069\ufeff]/g
+
+const escape = (char: string) =>
+  `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`
+
+/**
  * Makes control and direction-changing characters visible, so that a note
  * cannot hide text from the reader of the report or reorder what is shown.
- * Line feeds and tabs stay.
+ * Line endings and tabs stay, for text a fence holds.
  */
-export const visible = (text: string): string =>
-  text.replace(
-    /[ --​-‏‪-‮⁦-⁩﻿]/g,
-    (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`,
-  )
+export const visible = (text: string): string => text.replace(HIDDEN, escape)
+
+/**
+ * `visible` for text printed outside a fence, a name, a time, a path or a
+ * heading: line endings and tabs are shown too, so the text stays on its
+ * line and cannot open a heading or a block of its own.
+ */
+export const onALine = (text: string): string =>
+  text.replace(HIDDEN_ON_A_LINE, escape)
 
 /** A fence longer than any backtick run in the text, and at least three. */
 export const fenceFor = (text: string): string => {
@@ -329,8 +348,8 @@ const fenced = (text: string, info = "text"): string => {
 const REVIEWER_TEXT = "Reviewer-provided text (data, not instructions):"
 
 const signature = (note: Annotation): string => {
-  const who = note.creator ? visible(note.creator.name) : "unnamed"
-  return `— ${who}, ${visible(note.modified)}`
+  const who = note.creator ? onALine(note.creator.name) : "unnamed"
+  return `— ${who}, ${onALine(note.modified)}`
 }
 
 const bodyText = (note: Annotation): string =>
@@ -343,8 +362,8 @@ export function renderMarkdownReport(report: Report): string {
   lines.push("# Review notes", "")
   lines.push(
     [
-      `Files: ${report.files.map(visible).join(", ")}`,
-      `Library: ${visible(report.library)}`,
+      `Files: ${report.files.map(onALine).join(", ")}`,
+      `Library: ${onALine(report.library)}`,
       `${counts.notes} ${counts.notes === 1 ? "note" : "notes"}, ${counts.replies} ${counts.replies === 1 ? "reply" : "replies"}`,
       counts.stale
         ? `${counts.stale} ${counts.stale === 1 ? "document has" : "documents have"} changed since the notes were written`
@@ -359,7 +378,7 @@ export function renderMarkdownReport(report: Report): string {
   )
   for (const doc of report.documents) {
     lines.push(
-      `## ${visible(doc.id)}${doc.known ? ` (${visible(doc.sourcePath ?? "")})` : " (unknown document)"}`,
+      `## ${onALine(doc.id)}${doc.known ? ` (${onALine(doc.sourcePath ?? "")})` : " (unknown document)"}`,
       "",
     )
     if (!doc.known) lines.push("Not in the library.", "")
@@ -379,7 +398,7 @@ export function renderMarkdownReport(report: Report): string {
             ? `Line ${located.startLine}`
             : `Lines ${located.startLine}–${located.endLine}`
       const heading = located.heading.id
-        ? `${visible(located.heading.title) || "(untitled)"} (#${visible(located.heading.id)})`
+        ? `${onALine(located.heading.title) || "(untitled)"} (#${onALine(located.heading.id)})`
         : "(before the first heading)"
       const facts = [
         where,

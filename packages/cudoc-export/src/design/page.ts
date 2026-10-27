@@ -148,10 +148,43 @@ const toTwips = (value: PageLength) => Math.round((mm(value) * 1440) / 25.4)
 const isLength = (value: unknown): value is PageLength =>
   typeof value === "string" || typeof value === "number"
 
+/** The keys `page` takes; any other is a misspelling. */
+const PAGE_KEYS = [
+  "paper",
+  "orientation",
+  "margin",
+  "header",
+  "footer",
+  "date",
+  "breakBefore",
+  "linkUrls",
+  "authoredBreaks",
+  "wideTables",
+]
+
 export function resolvePageGeometry(
   geometry: PageGeometry = {},
 ): ResolvedGeometry {
   const orientation = geometry.orientation ?? "portrait"
+  if (orientation !== "portrait" && orientation !== "landscape")
+    throw new Error(
+      'cudoc-export: page.orientation must be "portrait" or "landscape"',
+    )
+  if (geometry.margin !== undefined) {
+    if (
+      !geometry.margin ||
+      typeof geometry.margin !== "object" ||
+      Array.isArray(geometry.margin)
+    )
+      throw new Error(
+        "cudoc-export: page.margin is an object of top, right, bottom and left",
+      )
+    for (const side of Object.keys(geometry.margin))
+      if (!["top", "right", "bottom", "left"].includes(side))
+        throw new Error(
+          `cudoc-export: unknown option page.margin.${side}; the sides are top, right, bottom and left`,
+        )
+  }
   const paper = geometry.paper ?? "A4"
   let width: PageLength, height: PageLength
   if (typeof paper === "string") {
@@ -236,6 +269,11 @@ const runningText = (value: unknown, name: string): RunningText | false => {
 export function resolvePageOptions(
   page: PageOptions = {},
 ): ResolvedPageOptions {
+  if (!page || typeof page !== "object" || Array.isArray(page))
+    throw new Error("cudoc-export: page must be an object")
+  for (const key of Object.keys(page))
+    if (!PAGE_KEYS.includes(key))
+      throw new Error(`cudoc-export: unknown option page.${key}`)
   const geometry = resolvePageGeometry(page)
   const header =
     page.header === undefined ? "{title}" : runningText(page.header, "header")

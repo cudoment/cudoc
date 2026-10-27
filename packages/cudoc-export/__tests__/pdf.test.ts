@@ -15,6 +15,8 @@ import {
   browserInstallCommand,
   pdfPageCount,
   printPdfs,
+  relativeLinks,
+  relativeUrl,
   runningTemplate,
 } from "../src/pdf.js"
 import { resolvePageGeometry, resolvePageOptions } from "../src/design/page.js"
@@ -160,6 +162,89 @@ describe("page counting", () => {
   })
 })
 
+/** Every in-use cross-reference entry names the offset its object starts at. */
+const xrefHolds = (bytes: Buffer) => {
+  const text = bytes.toString("latin1")
+  const at = Number(text.match(/startxref\s+(\d+)\s+%%EOF\s*$/)![1])
+  expect(text.startsWith("xref", at)).toBe(true)
+  const entries = text
+    .slice(at, text.indexOf("trailer", at))
+    .split("\n")
+    .slice(2)
+    .filter(Boolean)
+  entries.forEach((entry, number) => {
+    if (entry.endsWith("n ") || entry.endsWith("n"))
+      expect(
+        text.startsWith(`${number} 0 obj`, Number(entry.slice(0, 10))),
+        `object ${number}`,
+      ).toBe(true)
+  })
+}
+
+describe("links between files", () => {
+  it("relates a target to the file that links it", () => {
+    const from = "file:///out/guide/setup.pdf"
+    expect(relativeUrl(from, "file:///out/guide/next.pdf")).toBe("next.pdf")
+    expect(relativeUrl(from, "file:///out/index.pdf")).toBe("../index.pdf")
+    expect(relativeUrl(from, "file:///out/ref/a%20b.pdf#x")).toBe(
+      "../ref/a%20b.pdf#x",
+    )
+  })
+
+  it("rewrites the named links and moves the cross-reference table", () => {
+    const objects = [
+      "<</Type /Catalog>>",
+      "<</A <</S /URI /URI (file:///stage/a\\(1\\).pdf)>>>>",
+      "<</A <</S /URI /URI (https://example.com/)>>>>",
+      "<</A <</S /URI /URI (file:///stage/b.pdf)>>>>",
+    ]
+    let body = "%PDF-1.4\n"
+    const offsets: number[] = []
+    objects.forEach((object, index) => {
+      offsets.push(body.length)
+      body += `${index + 1} 0 obj\n${object}\nendobj\n`
+    })
+    const xref = body.length
+    body +=
+      `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n` +
+      offsets
+        .map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`)
+        .join("") +
+      `trailer\n<</Size ${objects.length + 1} /Root 1 0 R>>\nstartxref\n${xref}\n%%EOF\n`
+    // Objects are numbered from 1 here, so shift the reading by one.
+    const bytes = relativeLinks(
+      Buffer.from(body, "latin1"),
+      new Map([
+        ["file:///stage/a(1).pdf", "sub/a(1).pdf"],
+        ["file:///stage/b.pdf", "b.pdf"],
+      ]),
+    )
+    const text = bytes.toString("latin1")
+    expect(text).toContain("/URI (sub/a\\(1\\).pdf)")
+    expect(text).toContain("/URI (b.pdf)")
+    expect(text).toContain("/URI (https://example.com/)")
+    expect(text).not.toContain("file:")
+    const at = Number(text.match(/startxref\s+(\d+)/)![1])
+    expect(text.startsWith("xref", at)).toBe(true)
+    const entries = text
+      .slice(at)
+      .split("\n")
+      .slice(3, 3 + objects.length)
+    entries.forEach((entry, index) =>
+      expect(
+        text.startsWith(`${index + 1} 0 obj`, Number(entry.slice(0, 10))),
+      ).toBe(true),
+    )
+  })
+
+  it("leaves a file without a classic cross-reference table alone", () => {
+    const bytes = Buffer.from("%PDF-1.5\n/URI (file:///stage/b.pdf)\n%%EOF")
+    expect(
+      relativeLinks(bytes, new Map([["file:///stage/b.pdf", "b.pdf"]])),
+    ).toBe(bytes)
+  })
+})
+
 const available = await browserAvailable()
 const suite = available ? describe : describe.skip
 
@@ -186,6 +271,32 @@ suite("printing", () => {
       const bytes = fs.readFileSync(output)
       expect(bytes.subarray(0, 5).toString()).toBe("%PDF-")
       expect(bytes.subarray(-6).toString()).toContain("%%EOF")
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  }, 60_000)
+
+  it("writes a link to a sibling file relative to the PDF", async () => {
+    const { root, file } = write(
+      '<p><a href="sub/next.pdf">Next</a> <a href="../up.pdf">Up</a> <a href="https://example.com/">Site</a> <a href="#here" id="here">Here</a></p><svg xmlns="http://www.w3.org/2000/svg" width="200" height="40"><a href="https://example.com/svg"><text y="20">Away</text></a><a href="sub/drawn.pdf"><text x="100" y="20">Drawn</text></a></svg>',
+    )
+    try {
+      const output = path.join(root, "out.pdf")
+      const pages = await printPdfs(
+        [{ file, output, title: "Links" }],
+        resolvePageOptions(),
+      )
+      expect(pages.get(output)).toBe(1)
+      const bytes = fs.readFileSync(output)
+      const text = bytes.toString("latin1")
+      expect(text).toContain("/URI (sub/next.pdf)")
+      expect(text).toContain("/URI (../up.pdf)")
+      expect(text).toContain("/URI (https://example.com/)")
+      // An SVG link, whose `href` is no string, reads as written too.
+      expect(text).toContain("/URI (https://example.com/svg)")
+      expect(text).toContain("/URI (sub/drawn.pdf)")
+      expect(text).not.toContain("file:")
+      xrefHolds(bytes)
     } finally {
       fs.rmSync(root, { recursive: true, force: true })
     }
