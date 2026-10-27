@@ -6,10 +6,12 @@
  * included; a generated landing page lists the navigation in its body instead
  * of beside it, and has no contents; a single page, standalone or for review,
  * has no navigation, since the other documents are not beside it. A page with
- * no heading to list has no contents column. Every link here
- * is written as a source path or an output path and goes through the link
- * policy with the rest of the page, so `none` removes it and `host` points
- * it at the deployment.
+ * no heading to list has no contents column. On a narrow screen the sidebar
+ * opens from a menu button in the header: a label for a checkbox written
+ * before the header, which the stylesheet reads, so no script is needed.
+ * Every link here is written as a source path or an output path and goes
+ * through the link policy with the rest of the page, so `none` removes it
+ * and `host` points it at the deployment.
  */
 
 import { escapeHtml } from "./styles.js"
@@ -83,6 +85,10 @@ const tocList = (toc: ShellToc): string =>
     )
     .join("")}</ul>`
 
+/** Three bars, drawn on the same grid: the button that opens the sidebar on a narrow screen. */
+const BARS =
+  '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>'
+
 /** A globe, drawn like the theme menu's sun and moon on a 24-unit grid. */
 const GLOBE =
   '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>'
@@ -133,10 +139,20 @@ export function renderShell(page: ShellPage): string {
   const sidebar = page.navigation
     ? `<nav class="sidebar" aria-label="${escapeHtml(ui.documents)}"><p class="nav-title">${escapeHtml(ui.documents)}</p>${navList(page.navigation)}</nav>`
     : ""
+  // The checkbox stands before the header so `:checked ~ .layout` reaches the
+  // sidebar; the label, the button a reader sees, opens the header. Hidden
+  // on a wide screen, where the sidebar is beside the page.
+  const navToggle = page.navigation
+    ? {
+        input:
+          '<input type="checkbox" id="cudoc-nav-toggle" class="cudoc-nav-toggle" hidden>',
+        label: `<label for="cudoc-nav-toggle" class="nav-toggle">${BARS}<span class="nav-toggle-label">${escapeHtml(ui.documents)}</span></label>`,
+      }
+    : { input: "", label: "" }
   const toc = page.toc
     ? `<nav class="toc" aria-label="${escapeHtml(ui.onThisPage)}"><p class="nav-title">${escapeHtml(ui.onThisPage)}</p>${tocList(page.toc)}</nav>`
     : ""
-  return `<!doctype html><html lang="${escapeHtml(page.lang)}"${page.htmlAttributes ?? ""}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(page.title)}</title>${page.head}</head><body>${page.skip ? `<a class="skip" href="#main-content">${escapeHtml(ui.skip)}</a>` : ""}<header>${title}${headerEnd}</header><div class="${classes}">${sidebar}<main id="main-content"${page.mainAttributes}>${page.body}<footer>${escapeHtml(page.footer)}</footer></main>${toc}</div></body></html>`
+  return `<!doctype html><html lang="${escapeHtml(page.lang)}"${page.htmlAttributes ?? ""}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(page.title)}</title>${page.head}</head><body>${page.skip ? `<a class="skip" href="#main-content">${escapeHtml(ui.skip)}</a>` : ""}${navToggle.input}<header>${navToggle.label}${title}${headerEnd}</header><div class="${classes}">${sidebar}<main id="main-content"${page.mainAttributes}>${page.body}<footer>${escapeHtml(page.footer)}</footer></main>${toc}</div></body></html>`
 }
 
 /** The page a language opens on when no document is its home. */

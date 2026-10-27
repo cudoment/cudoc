@@ -1,8 +1,9 @@
 /**
- * What the site builder adds to a page for its two opt-in scripts: for
+ * What the site builder adds to a page for its opt-in scripts: for
  * `annotations`, the block ids notes anchor to, the runtime's two files and
- * the tags that load them; for `themeSwitch`, the theme script. Everything
- * here runs in Node at build time; the scripts themselves are under
+ * the tags that load them; for `themeSwitch`, the theme script; for
+ * `scripts`, the tags that load a caller's own files after cudoc's. Everything
+ * here runs in Node at build time; cudoc's scripts themselves are under
  * `src/browser/`, bundled by esbuild into `dist/browser/`.
  */
 
@@ -261,4 +262,40 @@ export function injectAnnotationAssets(
     properties: { defer: true, src: hrefs.script },
     children: [],
   })
+}
+
+/**
+ * Loads a caller's own scripts from the end of `<body>`, after cudoc's, in
+ * the order given. Classic deferred scripts, as the annotation runtime is: a
+ * module script is refused over `file://`.
+ */
+export function injectConsumerScripts(page: HastRoot, hrefs: string[]): void {
+  const head = findElement(page, "head")
+  const body = findElement(page, "body")
+  if (!head || !body)
+    throw new Error("cudoc-export: page has no head or body for the scripts")
+  ensurePolicy(head)
+  for (const href of hrefs)
+    body.children.push({
+      type: "element",
+      tagName: "script",
+      properties: { defer: true, src: href },
+      children: [],
+    })
+}
+
+/** A caller's own scripts written into the page itself, at the same place. */
+export function inlineConsumerScripts(page: HastRoot, texts: string[]): void {
+  const head = findElement(page, "head")
+  const body = findElement(page, "body")
+  if (!head || !body)
+    throw new Error("cudoc-export: page has no head or body for the scripts")
+  ensurePolicy(head)
+  for (const text of texts)
+    body.children.push({
+      type: "element",
+      tagName: "script",
+      properties: {},
+      children: [{ type: "text", value: text }],
+    })
 }

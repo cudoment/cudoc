@@ -437,7 +437,7 @@ The site opens on `index.md`, or on the document `home` names, such as `home: "R
 
 The built-in stylesheet follows the viewer's light or dark system setting, needs no script to do so, and keeps every colour in a custom property that both themes define.
 
-`themeSwitch: true` (or `--theme-switch`) adds a theme menu to the header with Light and Dark, a drop-down drawn like the language menu rather than the browser's own control. Until the reader chooses, the page follows the system setting and the menu shows which one it is, and the browser remembers a choice. It is the one small script the site loads besides the review-note runtime, and the default output stays without it.
+`themeSwitch: true` (or `--theme-switch`) adds a theme menu to the header with Light and Dark, a drop-down drawn like the language menu rather than the browser's own control. Until the reader chooses, the page follows the system setting and the menu shows which one it is, and the browser remembers a choice. It is the one script of cudoc's own the site loads besides the review-note runtime, and the default output stays without it.
 
 `css` names one stylesheet or a list, loaded after the built-in one. A site links each as its own file under `cudoc-css/`, and copies an image or font it loads to `cudoc-css/files/` under a name taken from the file's content; a single page carries its text and those files inline. To restyle the site, redefine the custom properties rather than rewriting the rules; the full token list is in the [adapter reference](./api-reference/adapters.md#export):
 
@@ -463,6 +463,10 @@ The built-in stylesheet follows the viewer's light or dark system setting, needs
   --accent-soft: #2a2244;
 }
 ```
+
+**Scripts of your own.** `scripts` names one JavaScript file or a list, loaded after cudoc's own scripts. A site copies each to `cudoc-js/` and loads it with `<script defer>` at the end of every page's `<body>`; a single page carries its text there. The files are classic scripts, since a module script does not load from `file://`, and a page that loads one gets the same Content-Security-Policy as `themeSwitch`, which allows no plugin, `<base>`, form post or fetch request. The `<main>` of a document page then names the document in `data-cudoc-document`, so a script knows which page it runs on. → [Consumer scripts](./api-reference/adapters.md#consumer-scripts)
+
+**On a narrow screen.** The contents column leaves at 1024px, and at 768px the sidebar folds behind a menu button in the header: a label for a checkbox, which opens it without a script. On a touch screen a folding line is at least 2.75rem tall, a checkbox in a list takes 2.75rem of its line, and a wide table scrolls inside the page rather than widening it.
 
 ### Files that are not documents
 
@@ -576,7 +580,7 @@ The file format, the anchoring rules and the report's contract are in the [adapt
 
 A site is a directory: open `site/index.html`, copy the whole `site/` directory to another machine, or upload it to a static host. Choose `relative` for navigation within the shared directory, `host` to direct readers to the primary site, or `none` for reading without clickable links; stylesheets and copied local assets use relative paths either way.
 
-The generated shell needs no client-side fetch, JavaScript or CDN; `themeSwitch: true` and a hosted review each add local scripts and still no network access. To hand over one page instead, write it with `mode: "standalone"`: the file is the whole page.
+The generated shell needs no client-side fetch, JavaScript or CDN; `themeSwitch: true` and a hosted review each add local scripts and still no network access, and `scripts` adds files of your own, loaded locally. To hand over one page instead, write it with `mode: "standalone"`: the file is the whole page.
 
 Each document page carries a `<meta name="description">`: the document's front matter `description`, or its first paragraph that is more than a row of links or an image, cut to 160 characters.
 

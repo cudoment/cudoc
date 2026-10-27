@@ -8,7 +8,12 @@ import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import { parse } from "node-html-parser"
-import { buildSite, buildExport, type SiteOptions } from "../src/index.js"
+import {
+  buildSite,
+  buildExport,
+  siteStyles,
+  type SiteOptions,
+} from "../src/index.js"
 import { VOLUME_FILE, volumeId } from "../src/print.js"
 
 const roots: string[] = []
@@ -646,6 +651,42 @@ describe("the rest of the shell", () => {
       expect(() => p.build({ [key]: true } as never)).toThrow(
         new RegExp(`unknown option ${key}`),
       )
+  })
+
+  it("opens the sidebar on a narrow screen from a checkbox and its label, without a script", () => {
+    const p = project({
+      "docs/a.md": doc("A"),
+      "docs/b.md": doc("B"),
+      "docs/a.ko.md": doc("가"),
+    })
+    p.build({ locales: { en: "English", ko: "한국어" } })
+    const html = p.read("a.html")
+    // The checkbox before the header, so the stylesheet reaches the sidebar
+    // from it; the label, named like the sidebar, first in the header.
+    expect(html).toContain(
+      '</a><input type="checkbox" id="cudoc-nav-toggle" class="cudoc-nav-toggle" hidden><header><label for="cudoc-nav-toggle" class="nav-toggle"><svg',
+    )
+    expect(parse(html).querySelector("header label.nav-toggle")!.text).toBe(
+      "Documents",
+    )
+    expect(
+      parse(p.read("a.ko.html")).querySelector("label.nav-toggle")!.text,
+    ).toBe("문서")
+    expect(html).not.toContain("<script")
+    expect(siteStyles).toContain(
+      ".cudoc-nav-toggle:checked ~ .layout > .sidebar {\n    display: block;\n  }",
+    )
+    // A sidebar left open does not print: the print block, later in the
+    // stylesheet, hides it at the same specificity.
+    expect(siteStyles.slice(siteStyles.indexOf("@media print"))).toContain(
+      "  header,\n  .sidebar,\n  .cudoc-nav-toggle:checked ~ .layout > .sidebar,\n  .toc,\n  .skip {\n    display: none;\n  }",
+    )
+    // A generated landing page lists the navigation in its body, a single
+    // page has none, and the print HTML draws no header: nothing to open.
+    expect(p.read("index.html")).not.toContain('id="cudoc-nav-toggle"')
+    expect(p.read("a.print.html")).not.toContain('id="cudoc-nav-toggle"')
+    p.build({ mode: "standalone" })
+    expect(p.read("a.html")).not.toContain('id="cudoc-nav-toggle"')
   })
 
   it("keeps the contents on the page under every policy that keeps links", () => {

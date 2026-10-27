@@ -246,6 +246,7 @@ body {
 }
 header,
 .sidebar,
+.cudoc-nav-toggle:checked ~ .layout > .sidebar,
 .toc,
 .skip {
   display: none;

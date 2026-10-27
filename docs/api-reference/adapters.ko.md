@@ -387,6 +387,7 @@ type NavigationDiagnostic = {
 | `locales`       | 선택적 `Record<string, LocaleOption>`                              | 사이트의 언어이며 첫 언어가 기본 언어이고, 각 언어는 파일 이름 접미사로 찾습니다. [사이트 구성](#사이트-구성)을 참고합니다.                                                                                                                                                                                                                                                  |
 | `toc`           | `false \| { depth?: number }`, `{ depth: 6 }`                      | 오른쪽 목차가 `depth`(2–6) 단계까지 나열할 제목입니다. `false`는 모든 페이지에서, front matter `toc: false`는 그 페이지에서만 목차 열을 뺍니다.                                                                                                                                                                                                                              |
 | `css`           | 선택적 `string \| string[]`                                        | 기본 스타일시트 다음에 불러올 로컬 스타일시트이며 사이트에서는 파일로 연결하고, 단일 페이지에서는 본문에 넣어 싣습니다. HTML 표현 전용이며 CSS를 읽지 않는 형식에는 닿지 않습니다.                                                                                                                                                                                           |
+| `scripts`       | 선택적 `string \| string[]`                                        | cudoc의 스크립트 다음에 읽을 로컬 JavaScript 파일이며, 사이트에서는 `cudoc-js/` 아래에 복사해 `<body>` 끝에서 `<script defer>`로 읽고 단일 페이지에서는 본문에 넣어 싣습니다. 클래식 스크립트만 쓸 수 있습니다. [사용자 스크립트](#사용자-스크립트)를 참고합니다.                                                                                                            |
 | `sourceLinks`   | 선택적 `{ root: string; url: string }`                             | `root` 아래에 있지만 수집하지 않은 파일로 가는 링크의 대상이며 `url` 뒤에 그 파일의 라이브러리 경로를 붙입니다. `url`은 쿼리나 프래그먼트가 없는 `http(s)` 절대 URL입니다.                                                                                                                                                                                                   |
 | `mounts`        | `{ from: string; to: string }[]`, `[]`                             | 출력의 `to` 아래로 복사할 디렉터리이며 `from` 안으로 가는 링크는 그 복사본을 가리킵니다. `relative` 링크를 쓰는 사이트 전용입니다.                                                                                                                                                                                                                                           |
 | `tokens`        | 선택적 `DesignTokenOverrides`                                      | 기본 토큰 위에 그룹마다 한 단계씩 병합하는 재정의이며 모든 출력 형식이 함께 읽습니다. 기본값에 없는 그룹이나 키는 그 이름을 밝힌 오류입니다.                                                                                                                                                                                                                                 |
@@ -437,7 +438,9 @@ type NavigationDiagnostic = {
 
 글자 크기는 고정 픽셀 루트가 아니라 브라우저의 기본 크기에서 확대·축소하므로 독자의 글자 크기 설정을 존중합니다. `html`이 `font-size: 100%`이고 본문은 `--text-base`(0.9375rem)에 `--leading-body`(1.7)를 적용합니다. 폰트 스택은 IBM Plex Sans와 JetBrains Mono를 먼저 지정하고 플랫폼 UI 폰트와 한글 폰트로 이어지며, 어떤 폰트도 내려받지 않으므로 `file://`과 오프라인에서 그대로 동작합니다. 본문은 `--measure`(72ch)로 한 줄 길이를 제한하고, 제목과 표, 코드 블록, 콜아웃은 본문 열 전체 폭을 사용합니다.
 
-페이지 구조는 고정 헤더와 고정 문서 사이드바, 제목 목차가 그 열 양옆에 놓인 형태이며 1024px에서 두 열, 768px에서 한 열로 접힙니다. 한 열이 되면 내비게이션 대상과 메뉴 항목의 높이가 2.75rem으로 커집니다. 표는 전체 테두리 격자 대신 가로 구분선과 교차 행 배경, 레이블 형태의 머리글, 고정폭 숫자를 사용하며 페이지를 넓히지 않고 가로로 스크롤합니다. 상호작용 상태는 `--ease`로 전환하고 `prefers-reduced-motion`에서는 1ms로 줄어듭니다.
+페이지 구조는 고정 헤더와 고정 문서 사이드바, 제목 목차가 그 열 양옆에 놓인 형태이며 1024px에서 두 열, 768px에서 한 열로 접힙니다. 한 열이 되면 사이드바는 머리글의 메뉴 버튼 뒤로 접히고, 내비게이션 대상과 메뉴 항목의 높이가 2.75rem으로 커집니다. 이 버튼은 머리글 앞에 쓴 체크박스의 레이블이라 스크립트가 필요하지 않습니다. 터치 화면에서는 `summary`가 2.75rem 이상의 높이를 갖고, 목록 항목의 체크박스는 한 줄에서 2.75rem을 차지합니다.
+
+표는 전체 테두리 격자 대신 가로 구분선과 교차 행 배경, 레이블 형태의 머리글, 고정폭 숫자를 사용하며 페이지를 넓히지 않고 가로로 스크롤합니다. 상호작용 상태는 `--ease`로 전환하고 `prefers-reduced-motion`에서는 1ms로 줄어듭니다.
 
 `css` 파일은 이 스타일 다음에 불러오므로 규칙을 다시 쓰지 않고 속성만 재정의해서 디자인을 바꿉니다. 형식을 가로질러 유지해야 하는 변경은 `tokens`로 지정합니다. `tokens`는 데이터여서 CSS를 쓰지 않는 작성기도 같은 객체를 읽지만, `css`는 스타일시트를 불러오는 출력에만 닿습니다. `resolveTokens`는 그룹마다 한 단계씩 병합하므로 색 하나를 재정의해도 나머지 팔레트가 유지되며, 폰트 스택은 병합하지 않고 통째로 교체합니다. `--radius`, `--measure`, `--head-h`, `--ease`, 다크 팔레트는 CSS 밖에 대응물이 없습니다.
 
@@ -527,7 +530,7 @@ front matter `lang`은 그 코드를 더 구체적으로 만들 때만 쓸 수 �
 
 - 머리에는 `<style>` 하나가 있으며, 해석한 토큰으로 만든 `cudoc.css` 다음에 각 `css` 파일의 텍스트가 그 파일이 불러오는 것을 본문에 넣은 채로 이어집니다. 페이지는 어떤 스타일시트에도 연결하지 않습니다. 작성한 `<link rel="stylesheet">`가 로컬 파일을 가리키면 그 파일의 텍스트를 담은 `<style>`로 바꾸고 그 파일이 불러오는 것도 페이지 안에 담으며, 다른 서버를 가리키면 거부합니다.
 - [자산 규칙](#내보내기-링크와-자산)이 복사할 렌더링 자원 가운데 `<img>`, `<input>`, SVG `<image>`·`<feImage>`가 불러오는 것(`src`, 각 `srcset` 후보, `href`), 동영상의 `poster`, 인라인 `style`의 `url()`, 작성한 `<style>` 안의 `url()`은 모두 그 파일의 `data:` URL이 됩니다. 실을 수 있는 것은 이미지(PNG, JPEG, GIF, WebP, AVIF, SVG, BMP, ICO)와 글꼴(WOFF, WOFF2, TTF, OTF)뿐이며, 그 밖의 로컬 자원은 그 자원을 밝힌 오류입니다. `<object data>`, `<use href>`, `<iframe>`, `<audio>`, 동영상 자체의 `src`, 미디어 `<source>`처럼 다른 요소가 불러오는 로컬 자원도 오류입니다.
-- 테마 스크립트와 메모 런타임은 인라인 `<script>` 요소로, 런타임의 스타일시트는 인라인 `<style>`로 싣습니다. 요소를 끝낼 수 있는 텍스트는 이스케이프하며(`<\/script`, `<\/style`), `<!--`를 담은 스크립트는 거부합니다. 빌드한 런타임에는 `<!--`가 없습니다.
+- 테마 스크립트, 메모 런타임, `scripts`는 인라인 `<script>` 요소로, 런타임의 스타일시트는 인라인 `<style>`로 싣습니다. 요소를 끝낼 수 있는 텍스트는 이스케이프하며(`<\/script`, `<\/style`), `<!--`를 담은 스크립트는 거부합니다. 빌드한 런타임에는 `<!--`가 없습니다.
 - 다른 문서로 가는 하이퍼링크는 상대 `<id>.html` 링크로 남고, 이번 실행이 그 문서도 쓰지 않는 한 `page`로 보고하며, `host`에서는 배포된 페이지를 가리키고 보고하지 않습니다. 다른 로컬 파일로 가는 하이퍼링크는 사이트와 같이 그 파일을 페이지 옆에 복사하고 `file`로 보고합니다. 다른 서버의 자원은 쓴 그대로 두고 `remote`로 보고합니다.
 - `dependencies`가 그 보고를 나열합니다. CLI는 각각을 표준 오류에 `cudoc-export: <document>: needs a page beside it|a file beside it|a remote resource: <url>`로 출력하며, `strict`는 목록이 비어 있지 않으면 아무것도 게시하기 전에 그 목록을 담은 오류로 바꿉니다.
 - `standalone.maxAssetBytes`(기본 5 MiB)는 base64를 포함해 본문에 넣어 쓴 자원 하나의 크기를, `standalone.maxPageBytes`(기본 20 MiB)는 써 낸 페이지의 크기를 제한합니다. 둘 다 `LIMITS.htmlBytes − LIMITS.fileBytes − 2 MiB`인 28 MiB 이하이므로, 메모와 함께 저장한 사본도 독자가 다시 불러올 수 있는 32 MiB 안에 들어갑니다.
@@ -773,6 +776,20 @@ tokens: {
 
 스크립트는 `<html>`에 `data-theme="light"` 또는 `"dark"`를 설정하거나 제거하고, 선택을 `localStorage["cudoc-theme"]`에 기억합니다. 스타일시트가 이 속성에 응답하는 방식은 `siteStyles` 설명을 따릅니다. 저장된 값이 없으면 시스템 설정을 따르고, 저장은 주석과 같이 최선 노력이며, 다른 탭의 변경은 `storage` 이벤트로 따라갑니다.
 
+### 사용자 스크립트
+
+`scripts`는 호출자가 직접 쓴 로컬 JavaScript 파일을 지정하며, cudoc의 스크립트 다음에 읽히므로 소비자는 cudoc이 내용을 알 필요 없이 자기 페이지 런타임을 더합니다. 기본값은 비어 있고, 기본 출력에는 스크립트가 없습니다.
+
+각 항목은 `outDir` 밖에 있는 `.js` 파일의 경로입니다. 그렇지 않은 값과, 페이지가 인라인으로 실을 수 없는 `<!--`를 담은 파일은 아무것도 쓰기 전에 오류입니다. 파일은 주석 런타임과 같은 방식으로 읽는 클래식 스크립트입니다. 모듈 스크립트는 `file://`에서 거부되기 때문입니다.
+
+사이트에서는 `css` 파일이 `cudoc-css/`에 놓이듯 각 파일을 옵션에서의 순서(1부터)를 붙인 `cudoc-js/<n>-<name>`으로 복사하고, `SiteResult.files`가 그 사본을 나열합니다. 문서 자산은 `cudoc-js/` 아래에 쓸 수 없습니다.
+
+사이트가 쓰는 모든 페이지는 생성된 랜딩 페이지를 포함해 `<body>` 끝에서 `<script defer src>` 태그로 이 파일들을 읽습니다. `cudoc-annotations.js`가 있으면 그 뒤이고, 옵션의 순서를 따르며, 경로는 페이지 기준 상대 경로입니다. 단일 페이지는 같은 자리에 각 파일의 텍스트를 `<script>`로 싣고, cudoc의 스크립트와 같이 `</script`를 이스케이프합니다.
+
+스크립트가 있는 페이지에는 [테마 전환](#테마-전환)에서 설명한 Content-Security-Policy 메타를 먼저 요청하는 옵션이 한 번만 넣습니다. 이 정책에는 `script-src`가 없으므로 복사하거나 인라인으로 실은 스크립트에 해시가 필요하지 않습니다. `connect-src 'none'`은 fetch, XHR, WebSocket, beacon 요청을 거부하되, 스크립트가 페이지에 넣는 것은 제한하지 않습니다. 문서 페이지의 `<main>`에는 리뷰 페이지처럼 문서 id인 `data-cudoc-document`가 붙습니다. 랜딩 페이지에는 붙지 않고, 그 밖의 리뷰 속성은 `mode: "annotate"`에서만 붙습니다.
+
+CLI에는 이 옵션의 플래그가 없으며, `css`처럼 설정 파일에 파일을 적습니다.
+
 ### 주석
 
 `mode: "annotate"`(CLI `--mode annotate`)는 페이지에 메모 런타임을 실어, 페이지를 받은 사람이 글자나 블록을 골라 평문 메모를 남기고, 답글을 달고, 해결로 표시하고, 저자에게 돌려줄 수 있게 합니다. 다른 모드의 출력은 이 기능 때문에 바이트 하나도 바뀌지 않습니다. 스크립트도, 정책 메타도, 블록 id도 없습니다.
@@ -791,7 +808,7 @@ type AnnotateOptions = {
 
 **모드가 더하는 것.** 사이트에서는 출력 루트에 예약된 파일 둘을 패키지의 `dist/browser/`에서 복사합니다. `cudoc-annotations.js`는 의존성과 네트워크 접근이 없는 클래식 지연 스크립트 하나이고, `cudoc-annotations.css`가 그 스타일입니다. 모든 페이지가 두 파일의 `<link>`와 `<script defer>`를 갖습니다(생성된 랜딩 페이지도 스크립트를 읽지만 문서가 없어 아무 일도 하지 않습니다). 단일 페이지는 두 파일을 인라인으로 싣습니다.
 
-인쇄용 HTML, PDF, Word는 공유 트리로 만들어지므로 바뀌지 않습니다. 사이트 페이지와 단일 페이지의 문자 집합 메타 바로 뒤에는 `<meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'none'; form-action 'none'; connect-src 'none'">`가 붙습니다. 이 정책은 출처와 무관한 지시문만 씁니다. 일부 브라우저에서 `file://` 페이지의 불투명 출처는 `'self'`와 맞지 않아 스타일시트까지 막히기 때문입니다. `object-src 'none'`과 `form-action 'none'`은 이 모드나 `themeSwitch`에서만 저자의 raw `<embed>`·`<form>`에 미칩니다.
+인쇄용 HTML, PDF, Word는 공유 트리로 만들어지므로 바뀌지 않습니다. 사이트 페이지와 단일 페이지의 문자 집합 메타 바로 뒤에는 `<meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'none'; form-action 'none'; connect-src 'none'">`가 붙습니다. 이 정책은 출처와 무관한 지시문만 씁니다. 일부 브라우저에서 `file://` 페이지의 불투명 출처는 `'self'`와 맞지 않아 스타일시트까지 막히기 때문입니다. `object-src 'none'`과 `form-action 'none'`은 이 모드나 `themeSwitch`, `scripts`에서만 저자의 raw `<embed>`·`<form>`에 미칩니다.
 
 `<main>`에는 `data-cudoc-document`(문서 id), `data-cudoc-ast-hash`와 `data-cudoc-source-hash`(라이브러리 매니페스트의 그 문서 `astHash`와 `hash`), `data-cudoc-site`(위의 저장소 키), `data-cudoc-generator`가 붙고, 받는 곳이 있으면 그 JSON인 `data-cudoc-inbox`도 붙습니다.
 

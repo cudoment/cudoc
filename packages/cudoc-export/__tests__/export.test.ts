@@ -1056,6 +1056,23 @@ describe("buildExport", () => {
     ).rejects.toThrow(/unknown granularity/)
   })
 
+  it("passes scripts through to the site, which lists the copied file", async () => {
+    const { sourceRoot, outDir, libraryDir } = workspace()
+    const script = path.join(path.dirname(sourceRoot), "ready.js")
+    fs.writeFileSync(script, 'document.title += " (ready)"\n')
+    const result = await buildExport({
+      sourceRoot,
+      outDir,
+      libraryDir,
+      scripts: script,
+    })
+    expect(result.files.html).toContain("cudoc-js/1-ready.js")
+    expect(read(outDir, "guide.html")).toContain(
+      '<script defer src="cudoc-js/1-ready.js"></script></body>',
+    )
+    expect(read(outDir, "guide.print.html")).not.toContain("<script")
+  })
+
   it("refuses a key no option has, as buildSite does", async () => {
     const { sourceRoot, outDir, libraryDir } = workspace()
     const base = { sourceRoot, outDir, libraryDir }

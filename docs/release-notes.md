@@ -4,6 +4,15 @@
 
 This page lists each version's changes, newest first. All eight packages share one version; [Supported versions](./README.md#supported-versions) says what each kind of release may change.
 
+## 1.1.0
+
+The HTML export takes scripts of your own and lays a site out for a phone, and a tree embed is easier to tap on a host site.
+
+- `scripts` names local JavaScript files an exported page loads after cudoc's own: a site copies them under `cudoc-js/` and loads each with `<script defer>` at the end of `<body>`, and a single page carries their text. Such a page gets the same Content-Security-Policy as `themeSwitch` and names its document in `data-cudoc-document`; the default output stays script-free. → [Scripts of your own](./export.md#look), [Consumer scripts](./api-reference/adapters.md#consumer-scripts)
+- On a screen 768px wide or narrower an exported site folds the sidebar behind a menu button in the header, a label for a checkbox that opens it without a script. On a touch screen a folding line and a group's summary are at least 2.75rem tall, and a checkbox in a list takes 2.75rem of its line. → [Look](./export.md#look)
+- `@cudoment/cudoc/styles.css` gives a tree embed's folding lines the same touch height on a touch screen, and wraps a long line instead of letting it overflow.
+- An authored `data-*` attribute inside a list item reaches the exported page as written, and a test now holds the export to it, so a consumer's hooks cannot be dropped in silence.
+
 ## 1.0.0
 
 The first stable release. The public imports, options, syntax, commands, diagnostic codes and stored formats the [API reference](./api-reference/README.md) documents now change only in a major release; a minor release adds to them and a patch release fixes defects ([Supported versions](./README.md#supported-versions)).
