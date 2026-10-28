@@ -168,10 +168,11 @@ export type SiteOptions = DocumentOptions & {
    */
   scripts?: string | string[]
   /**
-   * Where those scripts may send requests: Content-Security-Policy sources
-   * such as `'self'` or `https://api.example.com`, written into the page's
-   * policy in place of `connect-src 'none'`. Needs `scripts`; a review page
-   * (`mode: "annotate"`) sends nothing and refuses it.
+   * Where a page's scripts may send requests: Content-Security-Policy
+   * sources such as `'self'` or `https://api.example.com`, written into the
+   * policy in place of `connect-src 'none'`. Needs `scripts` or
+   * `themeSwitch`, which write the policy; a review page (`mode:
+   * "annotate"`) sends nothing and refuses it.
    */
   connect?: string[]
   /**

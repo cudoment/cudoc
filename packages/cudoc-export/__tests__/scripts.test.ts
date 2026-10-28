@@ -317,12 +317,20 @@ describe("buildSite with scripts", () => {
     // Without connect the policy still refuses every request.
     s.build({ scripts: [s.a] })
     expect(s.read("index.html")).toContain(policy)
+    // The theme switch writes the policy too, for a caller that adds its
+    // scripts to the pages itself.
+    if (runtimeBuilt) {
+      s.build({ themeSwitch: true, connect: ["'self'"] })
+      expect(s.read("index.html")).toContain(
+        "form-action &#x27;none&#x27;; connect-src &#x27;self&#x27;",
+      )
+    }
   })
 
   it("refuses connect without scripts, on a review page, or with a source that could add a directive", () => {
     const s = site()
     expect(() => s.build({ connect: ["'self'"] })).toThrow(
-      /connect needs scripts/,
+      /connect widens the policy that scripts or themeSwitch write/,
     )
     expect(() =>
       s.build({ mode: "annotate", scripts: [s.a], connect: ["'self'"] }),

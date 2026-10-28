@@ -499,9 +499,9 @@ export function stageSite(
     throw new Error(
       `cudoc-export: connect is a list of Content-Security-Policy sources such as "'self'" or "https://api.example.com", got ${JSON.stringify(connect)}`,
     )
-  if (connect !== undefined && !consumerScripts.length)
+  if (connect !== undefined && !consumerScripts.length && !themeSwitch)
     throw new Error(
-      "cudoc-export: connect needs scripts: it lets a page's own scripts send requests, and a page without them sends none",
+      "cudoc-export: connect widens the policy that scripts or themeSwitch write, and a page without either has none",
     )
   if (connect !== undefined && mode === "annotate")
     throw new Error(
