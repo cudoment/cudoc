@@ -951,7 +951,9 @@ suite("review notes in the browser", () => {
       await small.waitForSelector(".cudoc-ann-toggle")
       const nav = (await small.locator(".cudoc-nav-button").boundingBox())!
       const notes = (await small.locator(".cudoc-ann-toggle").boundingBox())!
-      // Side by side at the bottom, the navigation's to the left.
+      // At the bottom, the navigation's at the left edge and the notes' to
+      // its right.
+      expect(Math.round(nav.x)).toBe(16)
       expect(nav.x + nav.width).toBeLessThanOrEqual(notes.x)
       expect(Math.round(nav.y + nav.height)).toBe(
         Math.round(notes.y + notes.height),

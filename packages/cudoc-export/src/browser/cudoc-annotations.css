@@ -513,15 +513,6 @@ html.cudoc-ann-push body {
   html.cudoc-ann-push body {
     padding-right: 0;
   }
-  /* The site's floating navigation button stands left of the notes button,
-     and its checkbox, where the keyboard's focus is, with it. */
-  input.cudoc-nav-toggle,
-  .cudoc-nav-toggle ~ .cudoc-nav-button {
-    right: calc(
-      var(--space-4) + 2.75rem + var(--space-3) +
-        env(safe-area-inset-right, 0px)
-    );
-  }
 }
 
 @media print {

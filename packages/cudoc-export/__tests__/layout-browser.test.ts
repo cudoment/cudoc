@@ -183,20 +183,27 @@ suite("the site's layout in the browser", () => {
     try {
       const page = await context.newPage()
       await page.goto(url)
-      // Closed: no button in the header, a pill at the bottom right, and
-      // nothing of the panel.
+      // Closed: no button in the header, a round button at the bottom left
+      // with the bars in its middle and its word out of sight, and nothing
+      // of the panel.
       expect(await page.$$("header label")).toHaveLength(0)
-      const pill = (await page.locator(".cudoc-nav-button").boundingBox())!
+      const round = (await page.locator(".cudoc-nav-button").boundingBox())!
       expect(
-        [
-          390 - pill.x - pill.width,
-          844 - pill.y - pill.height,
-          pill.height,
-        ].map(Math.round),
-      ).toEqual([16, 16, 48])
+        [round.x, 844 - round.y - round.height, round.width, round.height].map(
+          Math.round,
+        ),
+      ).toEqual([16, 16, 48, 48])
+      const bars = (await page.locator(".cudoc-nav-button svg").boundingBox())!
+      expect(
+        [bars.x + bars.width / 2, bars.y + bars.height / 2].map(Math.round),
+      ).toEqual(
+        [round.x + round.width / 2, round.y + round.height / 2].map(Math.round),
+      )
       expect(await page.locator(".cudoc-nav-button").textContent()).toBe(
         "Documents",
       )
+      const word = (await page.locator(".cudoc-nav-button span").boundingBox())!
+      expect(word.width).toBeLessThanOrEqual(1)
       await page.evaluate(() => scrollTo(0, 300))
       expect(await panelState(page)).toMatchObject({
         open: false,

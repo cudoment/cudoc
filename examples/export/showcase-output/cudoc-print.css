@@ -914,7 +914,7 @@ footer {
   .cudoc-nav-toggle {
     display: block;
     position: fixed;
-    right: calc(var(--space-4) + env(safe-area-inset-right, 0px));
+    left: calc(var(--space-4) + env(safe-area-inset-left, 0px));
     bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
     width: 1px;
     height: 1px;
@@ -922,20 +922,26 @@ footer {
     opacity: 0;
     pointer-events: none;
   }
-  /* Below the review runtime's controls and an open menu's layer. */
+  /*
+   * A round button with the bars alone, at the bottom left: on the side the
+   * panel opens from, and clear of the review runtime's notes button at the
+   * bottom right. Below that runtime's controls and an open menu's layer.
+   * Its word stays in the page for a reader who cannot see the bars.
+   */
   .cudoc-nav-button {
     position: fixed;
-    right: calc(var(--space-4) + env(safe-area-inset-right, 0px));
+    left: calc(var(--space-4) + env(safe-area-inset-left, 0px));
     bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
     z-index: 5;
     display: inline-flex;
     align-items: center;
-    gap: var(--space-2);
+    justify-content: center;
+    width: 3rem;
     height: 3rem;
-    padding: 0 var(--space-6) 0 var(--space-4);
+    padding: 0;
     /* Drawn in forced colours, where the fill is dropped. */
     border: 1px solid transparent;
-    border-radius: 1.5rem;
+    border-radius: 50%;
     background: var(--accent);
     color: var(--paper);
     box-shadow: 0 4px 14px rgb(0 0 0 / 0.2);
@@ -948,6 +954,14 @@ footer {
     flex: none;
     width: 1.25rem;
     height: 1.25rem;
+  }
+  .cudoc-nav-button span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
   .cudoc-nav-toggle:focus-visible ~ .cudoc-nav-button {
     outline: 2px solid var(--accent);

@@ -440,7 +440,7 @@ Type scales from the browser's own base size rather than a fixed pixel root, so 
 
 The page shell is a sticky header with a sticky document sidebar and heading TOC beside that column, collapsing to two columns at 1024px and to one at 768px. The sidebar and the TOC scroll inside themselves without containing their overscroll, so a wheel or a swipe that starts on one that is short or scrolled to its end scrolls the page.
 
-At 768px the sidebar becomes a panel that a floating button at the bottom right opens over the page, and navigation targets and menu items grow to 2.75rem. The button, a backdrop and the panel's close line are labels for a checkbox written between the header and the layout, so no script is needed. On a coarse pointer a `summary` is at least 2.75rem tall and a checkbox in a list item takes 2.75rem of its line.
+At 768px the sidebar becomes a panel that a round button at the bottom left opens over the page, and navigation targets and menu items grow to 2.75rem. The button shows the menu bars alone, and its word stays in the page out of sight. The button, a backdrop and the panel's close line are labels for a checkbox written between the header and the layout, so no script is needed. On a coarse pointer a `summary` is at least 2.75rem tall and a checkbox in a list item takes 2.75rem of its line.
 
 The open panel is fixed to the left edge, the screen's full height and `min(86vw, 22rem)` wide, over the header and the review runtime. It scrolls inside itself with its overscroll contained, and a long word in it wraps (`overflow-wrap: anywhere`).
 
@@ -847,7 +847,7 @@ The print HTML, PDF and Word are built from the shared tree and do not change. E
 
 Every `p`, `li`, `tr`, `pre`, `blockquote`, `dt`, `dd`, heading and `aside.cudoc-callout` carries `data-cudoc-block="<heading id>:<8 hex>"`. The value is the nearest preceding heading's id (empty before the first) and the first eight hex digits of the SHA-256 of the block's whitespace-collapsed text, with `~2`, `~3` … when one section repeats a text. A content hash survives blocks inserted or moved anywhere else, and an edited block gets a new id, so its notes fall back to the quote search.
 
-**The runtime.** Selecting text shows a note button; hovering a block shows `+` in its gutter, and the button stays while the pointer crosses the margin to reach it; each opens a composer for plain text. A round toggle at the bottom right, a speech-bubble icon with the number of notes on this document, opens the panel; on a narrow screen a site's navigation button stands to its left.
+**The runtime.** Selecting text shows a note button; hovering a block shows `+` in its gutter, and the button stays while the pointer crosses the margin to reach it; each opens a composer for plain text. A round toggle at the bottom right, a speech-bubble icon with the number of notes on this document, opens the panel; on a narrow screen a site's navigation button sits at the bottom left.
 
 The note button follows the selection. A press anywhere but on it or in the composer hides it at once (`pointerdown`, captured). It comes back on release only for a press that started in `main` outside a control (`button`, `select`, `input`, `textarea`, `label`, `summary`, `[role=button]`, editable text) and that started a selection (`selectstart`) or moved the old one. Using the theme menu, a details summary or pressing a picture, which leave the selection in place, therefore never brings it back beside an old selection.
 
