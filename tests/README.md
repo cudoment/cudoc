@@ -117,6 +117,13 @@ header menus: the theme menu's light and dark choice, the system setting it
 follows and the remembered choice. It does the same for the language menu,
 which closes on a press elsewhere without a script and on Escape or a focus move with one.
 
+`packages/cudoc-export/__tests__/layout-browser.test.ts` opens a site in that
+browser at a phone's width and a desktop's, and skips, naming the command, when
+the browser is absent; it needs no built bundle. On the phone a swipe that
+starts on the open sidebar scrolls the page, and a long word in the navigation
+does not widen it; on the desktop the sidebar stays beside the page and scrolls
+inside itself.
+
 `integration/table-parsers.test.ts` compares the tables `cudoc check` reads on
 the two markdown-it hosts with the host's own: VitePress's renderer, and the
 Eleventy example's markdown-it with the containers it registers. It runs fixed

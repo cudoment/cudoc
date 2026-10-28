@@ -689,6 +689,50 @@ describe("the rest of the shell", () => {
     expect(p.read("a.html")).not.toContain('id="cudoc-nav-toggle"')
   })
 
+  it("makes the sidebar part of the page on a narrow screen, so a swipe on it scrolls the page", () => {
+    /** One block of the stylesheet, from its start to its closing brace. */
+    const block = (start: string) => {
+      const from = siteStyles.indexOf(start)
+      expect(from, start).toBeGreaterThan(-1)
+      let depth = 0
+      for (let i = siteStyles.indexOf("{", from); i < siteStyles.length; i++)
+        if (siteStyles[i] === "{") depth++
+        else if (siteStyles[i] === "}" && --depth === 0)
+          return { from, text: siteStyles.slice(from, i + 1) }
+      throw new Error(`${start} is not closed`)
+    }
+    // Beside a wide page the sidebar and the contents stay put and scroll
+    // inside themselves, keeping the gesture from the page behind them.
+    const wide = block(".sidebar,\n.toc {")
+    expect(wide.text).toContain(
+      "  overflow-y: auto;\n  overscroll-behavior: contain;",
+    )
+    // The contents leave at 1024px, so at a phone's width the sidebar is the
+    // one such box left.
+    expect(block("@media (max-width: 1024px) {").text).toContain(
+      "  .toc {\n    display: none;\n  }",
+    )
+    // There, later in the stylesheet at the same specificity, the sidebar is
+    // no box of its own: a box that cannot scroll but contains its overscroll
+    // takes a swipe and moves nothing. Nothing clips it, so a long word has
+    // to wrap.
+    const narrow = block("@media (max-width: 768px) {")
+    expect(narrow.from).toBeGreaterThan(wide.from)
+    const sidebar = narrow.text.match(/\n {2}\.sidebar \{[^{}]*\}/)?.[0] ?? ""
+    expect(sidebar).toContain("\n    overflow: visible;\n")
+    expect(sidebar).toContain("\n    overflow-wrap: anywhere;\n")
+    // No other rule there, the one that opens it included, makes it a
+    // scroll box again.
+    const rules = [...narrow.text.matchAll(/([^{}]*)\{([^{}]*)\}/g)]
+      .map(([, selector, body]) => ({ selector: selector!.trim(), body }))
+      .filter(({ selector }) => selector.includes(".sidebar"))
+    expect(rules.map(({ selector }) => selector)).toContain(
+      ".cudoc-nav-toggle:checked ~ .layout > .sidebar",
+    )
+    for (const { selector, body } of rules)
+      expect(body, selector).not.toMatch(/overflow(-[xy])?:(?!\s*visible)/)
+  })
+
   it("keeps the contents on the page under every policy that keeps links", () => {
     const p = project({ "docs/a.md": doc("A", "## One\n\n[Up](#one)") })
     p.build({ links: "host", hostUrl: "https://docs.example.com/" })

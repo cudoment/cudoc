@@ -12,6 +12,7 @@ The HTML export takes scripts of your own and lays a site out for a phone, and a
 - On a screen 768px wide or narrower an exported site folds the sidebar behind a menu button in the header, a label for a checkbox that opens it without a script. On a touch screen a folding line and a group's summary are at least 2.75rem tall, and a checkbox in a list takes 2.75rem of its line. → [Look](./export.md#look)
 - `@cudoment/cudoc/styles.css` gives a tree embed's folding lines the same touch height on a touch screen, and wraps a long line instead of letting it overflow.
 - An authored `data-*` attribute inside a list item reaches the exported page as written, and a test now holds the export to it, so a consumer's hooks cannot be dropped in silence.
+- On a screen 768px wide or narrower a swipe that starts on an exported site's sidebar scrolls the page. The sidebar stayed a scroll box that could not scroll, so such a swipe moved nothing, and a long navigation left no place on the screen to swipe. A word in it too long for the screen wraps rather than scrolling the sidebar sideways.
 
 ## 1.0.0
 

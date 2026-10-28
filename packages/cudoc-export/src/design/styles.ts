@@ -880,10 +880,19 @@ footer {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
   }
+  /*
+   * Open, the sidebar is part of the page, not a box of its own. Left a
+   * scroll box with its overscroll contained, as it is beside a wide page, it
+   * would take a swipe that starts on it and scroll neither itself nor the
+   * page. Nothing clips it now, so a long word in it has to wrap, or it
+   * would widen the page.
+   */
   .sidebar {
     display: none;
     position: static;
     max-height: none;
+    overflow: visible;
+    overflow-wrap: anywhere;
     margin-bottom: var(--space-6);
     padding-bottom: var(--space-4);
     border-bottom: 1px solid var(--line);
