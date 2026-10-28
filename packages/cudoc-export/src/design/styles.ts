@@ -308,13 +308,18 @@ header:has(.menu[open]) {
   margin: 0 auto;
   padding: var(--space-8) var(--space-6) 40vh;
 }
+/*
+ * The navigation and the contents stay beside the text and scroll inside
+ * themselves. Neither contains its overscroll: a wheel or a swipe that starts
+ * on one with nothing left to scroll, a short one or one at its end, goes on
+ * to the page instead of moving nothing.
+ */
 .sidebar,
 .toc {
   position: sticky;
   top: calc(var(--head-h) + var(--space-4));
   max-height: calc(100vh - var(--head-h) - var(--space-8));
   overflow-y: auto;
-  overscroll-behavior: contain;
   font-size: var(--text-sm);
 }
 nav ul {
@@ -881,11 +886,10 @@ footer {
     outline-offset: 2px;
   }
   /*
-   * Open, the sidebar is part of the page, not a box of its own. Left a
-   * scroll box with its overscroll contained, as it is beside a wide page, it
-   * would take a swipe that starts on it and scroll neither itself nor the
-   * page. Nothing clips it now, so a long word in it has to wrap, or it
-   * would widen the page.
+   * Open, the sidebar is part of the page, not a box that scrolls on its
+   * own. Nothing clips it, so a long word in it has to wrap, where a scroll
+   * box would hide it behind a sideways scroll and a wrap-less sidebar would
+   * widen the page.
    */
   .sidebar {
     display: none;

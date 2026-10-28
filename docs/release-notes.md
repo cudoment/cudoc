@@ -13,6 +13,7 @@ The HTML export takes scripts of your own and lays a site out for a phone, and a
 - `@cudoment/cudoc/styles.css` gives a tree embed's folding lines the same touch height on a touch screen, and wraps a long line instead of letting it overflow.
 - An authored `data-*` attribute inside a list item reaches the exported page as written, and a test now holds the export to it, so a consumer's hooks cannot be dropped in silence.
 - On a screen 768px wide or narrower a swipe that starts on an exported site's sidebar scrolls the page. The sidebar stayed a scroll box that could not scroll, so such a swipe moved nothing, and a long navigation left no place on the screen to swipe. A word in it too long for the screen wraps rather than scrolling the sidebar sideways.
+- Beside the text, a wheel or a swipe that starts on an exported site's sidebar or contents column scrolls the page when that column is short or already scrolled to its end. Both columns kept such a gesture from passing on, so it moved nothing.
 
 ## 1.0.0
 

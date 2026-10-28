@@ -79,6 +79,18 @@ function project(files: Record<string, string>) {
   }
 }
 
+/** One block of the stylesheet, from its start to its closing brace. */
+function block(start: string) {
+  const from = siteStyles.indexOf(start)
+  expect(from, start).toBeGreaterThan(-1)
+  let depth = 0
+  for (let i = siteStyles.indexOf("{", from); i < siteStyles.length; i++)
+    if (siteStyles[i] === "{") depth++
+    else if (siteStyles[i] === "}" && --depth === 0)
+      return { from, text: siteStyles.slice(from, i + 1) }
+  throw new Error(`${start} is not closed`)
+}
+
 const doc = (title: string, body = "Text.") => `# ${title}\n\n${body}\n`
 
 describe("the navigation", () => {
@@ -690,32 +702,18 @@ describe("the rest of the shell", () => {
   })
 
   it("makes the sidebar part of the page on a narrow screen, so a swipe on it scrolls the page", () => {
-    /** One block of the stylesheet, from its start to its closing brace. */
-    const block = (start: string) => {
-      const from = siteStyles.indexOf(start)
-      expect(from, start).toBeGreaterThan(-1)
-      let depth = 0
-      for (let i = siteStyles.indexOf("{", from); i < siteStyles.length; i++)
-        if (siteStyles[i] === "{") depth++
-        else if (siteStyles[i] === "}" && --depth === 0)
-          return { from, text: siteStyles.slice(from, i + 1) }
-      throw new Error(`${start} is not closed`)
-    }
     // Beside a wide page the sidebar and the contents stay put and scroll
-    // inside themselves, keeping the gesture from the page behind them.
+    // inside themselves.
     const wide = block(".sidebar,\n.toc {")
-    expect(wide.text).toContain(
-      "  overflow-y: auto;\n  overscroll-behavior: contain;",
-    )
+    expect(wide.text).toContain("  position: sticky;\n")
+    expect(wide.text).toContain("  overflow-y: auto;\n")
     // The contents leave at 1024px, so at a phone's width the sidebar is the
     // one such box left.
     expect(block("@media (max-width: 1024px) {").text).toContain(
       "  .toc {\n    display: none;\n  }",
     )
     // There, later in the stylesheet at the same specificity, the sidebar is
-    // no box of its own: a box that cannot scroll but contains its overscroll
-    // takes a swipe and moves nothing. Nothing clips it, so a long word has
-    // to wrap.
+    // no box of its own: nothing clips it, so a long word has to wrap.
     const narrow = block("@media (max-width: 768px) {")
     expect(narrow.from).toBeGreaterThan(wide.from)
     const sidebar = narrow.text.match(/\n {2}\.sidebar \{[^{}]*\}/)?.[0] ?? ""
@@ -731,6 +729,21 @@ describe("the rest of the shell", () => {
     )
     for (const { selector, body } of rules)
       expect(body, selector).not.toMatch(/overflow(-[xy])?:(?!\s*visible)/)
+  })
+
+  it("lets a gesture on the sidebar or the contents go on to the page once they have nothing to scroll", () => {
+    // Neither contains its overscroll at any width: one with nothing left to
+    // scroll, short or at its end, would take a wheel or a swipe and move
+    // nothing. A table's sideways containment is the only one left.
+    const declarations = siteStyles.match(
+      /^\s*overscroll-behavior[\w-]*:[^;]+;/gm,
+    )
+    expect(declarations?.map((line) => line.trim())).toEqual([
+      "overscroll-behavior-x: contain;",
+    ])
+    expect(block("\ntable {").text).toContain(
+      "  overscroll-behavior-x: contain;\n",
+    )
   })
 
   it("keeps the contents on the page under every policy that keeps links", () => {
