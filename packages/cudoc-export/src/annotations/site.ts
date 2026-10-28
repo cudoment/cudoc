@@ -189,6 +189,26 @@ function ensurePolicy(head: Element): void {
 }
 
 /**
+ * Lets a page's scripts send requests to `sources`: the policy that
+ * `ensurePolicy` wrote names them in place of `connect-src 'none'`.
+ */
+export function setConnectSources(page: HastRoot, sources: string[]): void {
+  const head = findElement(page, "head")
+  const meta = head?.children.find(
+    (child): child is Element =>
+      child.type === "element" &&
+      child.tagName === "meta" &&
+      Array.isArray(child.properties.httpEquiv) &&
+      child.properties.httpEquiv.includes("Content-Security-Policy"),
+  )
+  if (!meta) throw new Error("cudoc-export: page has no policy for connect")
+  meta.properties.content = String(meta.properties.content).replace(
+    "connect-src 'none'",
+    `connect-src ${sources.join(" ")}`,
+  )
+}
+
+/**
  * Loads the theme script from the end of `<head>`, without `defer`: it must
  * set `data-theme` before the body paints, and it is a few hundred bytes.
  */

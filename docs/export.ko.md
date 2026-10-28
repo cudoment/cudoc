@@ -578,7 +578,7 @@ npx cudoc-export annotations review.annotations.json --library .cudoc/documents 
 
 사이트는 디렉터리입니다. `site/index.html`을 열거나, `site/` 전체를 다른 컴퓨터에 복사하거나, 정적 호스트에 업로드합니다. 공유 디렉터리 안에서 탐색하려면 `relative`, 기본 사이트로 연결하려면 `host`, 클릭 가능한 링크 없이 읽으려면 `none`을 고르며, 스타일시트와 복사한 로컬 자산은 어느 쪽이든 상대 경로를 씁니다.
 
-생성된 사이트 기본 구조에는 클라이언트 fetch, JavaScript, CDN이 필요하지 않습니다. `themeSwitch: true`와 호스팅 리뷰는 각각 로컬 스크립트를 더하지만 네트워크 접근은 여전히 없고, `scripts`는 사용자가 직접 쓴 파일을 로컬에서 읽습니다. 페이지 하나만 건네려면 `mode: "standalone"`으로 씁니다. 그 파일 하나가 페이지 전체입니다.
+생성된 사이트 기본 구조에는 클라이언트 fetch, JavaScript, CDN이 필요하지 않습니다. `themeSwitch: true`와 호스팅 리뷰는 각각 로컬 스크립트를 더하지만 네트워크 접근은 여전히 없고, `scripts`는 사용자가 직접 쓴 파일을 로컬에서 읽으며 그 파일은 `connect`가 지정한 서버에만 닿습니다. 페이지 하나만 건네려면 `mode: "standalone"`으로 씁니다. 그 파일 하나가 페이지 전체입니다.
 
 문서 페이지마다 `<meta name="description">`이 들어갑니다. 문서의 front matter `description`이거나, 없으면 링크만 나열하거나 이미지만 든 문단이 아닌 첫 문단을 160자 안에서 자른 글입니다.
 

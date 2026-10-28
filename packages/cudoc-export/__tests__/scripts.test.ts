@@ -292,6 +292,56 @@ describe("buildSite with scripts", () => {
       )
   })
 
+  it("lets the scripts send requests to the sources connect names, on every page and in a single page", () => {
+    const s = site()
+    s.build({
+      scripts: [s.a],
+      connect: ["'self'", "https://api.example.com/v1/"],
+    })
+    const widened = CONTENT_SECURITY_POLICY.replace(
+      "connect-src 'none'",
+      "connect-src 'self' https://api.example.com/v1/",
+    ).replaceAll("'", "&#x27;")
+    for (const file of ["index.html", "guide/setup.html"]) {
+      const html = s.read(file)
+      expect(html.match(/http-equiv/g)).toHaveLength(1)
+      expect(html).toContain(
+        `<meta http-equiv="Content-Security-Policy" content="${widened}">`,
+      )
+      expect(html).not.toContain("connect-src &#x27;none&#x27;")
+    }
+    s.build({ mode: "standalone", scripts: [s.a], connect: ["'self'"] })
+    expect(s.read("index.html")).toContain(
+      "form-action &#x27;none&#x27;; connect-src &#x27;self&#x27;",
+    )
+    // Without connect the policy still refuses every request.
+    s.build({ scripts: [s.a] })
+    expect(s.read("index.html")).toContain(policy)
+  })
+
+  it("refuses connect without scripts, on a review page, or with a source that could add a directive", () => {
+    const s = site()
+    expect(() => s.build({ connect: ["'self'"] })).toThrow(
+      /connect needs scripts/,
+    )
+    expect(() =>
+      s.build({ mode: "annotate", scripts: [s.a], connect: ["'self'"] }),
+    ).toThrow(/does not apply to mode: "annotate"/)
+    for (const connect of [
+      [],
+      "'self'",
+      ["'self'; script-src *"],
+      ["'unsafe-inline'"],
+      ["http://example.com"],
+      ["https://example.com, https://other.example"],
+      ["https://example.com/it's"],
+    ])
+      expect(() => s.build({ scripts: [s.a], connect })).toThrow(
+        /connect is a list of Content-Security-Policy sources/,
+      )
+    expect(fs.existsSync(s.outDir)).toBe(false)
+  })
+
   it("still refuses an option it does not know", () => {
     const s = site()
     expect(() => s.build({ scrpits: [s.a] })).toThrow(/unknown option scrpits/)

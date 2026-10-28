@@ -580,7 +580,7 @@ The file format, the anchoring rules and the report's contract are in the [adapt
 
 A site is a directory: open `site/index.html`, copy the whole `site/` directory to another machine, or upload it to a static host. Choose `relative` for navigation within the shared directory, `host` to direct readers to the primary site, or `none` for reading without clickable links; stylesheets and copied local assets use relative paths either way.
 
-The generated shell needs no client-side fetch, JavaScript or CDN; `themeSwitch: true` and a hosted review each add local scripts and still no network access, and `scripts` adds files of your own, loaded locally. To hand over one page instead, write it with `mode: "standalone"`: the file is the whole page.
+The generated shell needs no client-side fetch, JavaScript or CDN; `themeSwitch: true` and a hosted review each add local scripts and still no network access. `scripts` adds files of your own, loaded locally, which reach a server only where `connect` names it. To hand over one page instead, write it with `mode: "standalone"`: the file is the whole page.
 
 Each document page carries a `<meta name="description">`: the document's front matter `description`, or its first paragraph that is more than a row of links or an image, cut to 160 characters.
 

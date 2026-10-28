@@ -87,6 +87,7 @@ import {
   inlineAnnotationAssets,
   inlineConsumerScripts,
   inlineThemeScript,
+  setConnectSources,
   siteId,
   themeRuntimeFile,
 } from "./annotations/site.js"
@@ -196,6 +197,14 @@ export type InternalOptions = SiteOptions & {
 const COVER_IMAGE_TYPES = ["png", "jpg", "gif", "bmp"]
 
 /**
+ * A `connect` entry: `'self'`, a secure scheme, a secure origin with an
+ * optional path, or a loopback address for local work. No quote, space,
+ * comma or semicolon, so an entry cannot add a directive of its own.
+ */
+const CONNECT_SOURCE =
+  /^(?:'self'|(?:https|wss):|(?:https|wss):\/\/(?:\*\.)?[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*(?::\d{1,5})?(?:\/[A-Za-z0-9._~!$&()*+=:@%/-]*)?|http:\/\/(?:localhost|127\.0\.0\.1)(?::\d{1,5})?)$/
+
+/**
  * Every key the builder reads, so a mistyped or retired one is an error
  * rather than an option that silently does nothing. The collection keys are
  * checked against `buildDocuments`' own type, so a new collection option
@@ -245,6 +254,7 @@ const SITE_KEYS = {
   toc: true,
   css: true,
   scripts: true,
+  connect: true,
   sourceLinks: true,
   mounts: true,
   tokens: true,
@@ -327,6 +337,7 @@ export function stageSite(
     toc: tocOption = {},
     css,
     scripts,
+    connect,
     sourceLinks,
     mounts = [],
     tokens,
@@ -476,6 +487,27 @@ export function stageSite(
       )
     return { file, text: scriptText(fs.readFileSync(file, "utf8"), file) }
   })
+  // Where those scripts may send requests; nothing unless the caller names it.
+  if (
+    connect !== undefined &&
+    (!Array.isArray(connect) ||
+      !connect.length ||
+      connect.some(
+        (source) => typeof source !== "string" || !CONNECT_SOURCE.test(source),
+      ))
+  )
+    throw new Error(
+      `cudoc-export: connect is a list of Content-Security-Policy sources such as "'self'" or "https://api.example.com", got ${JSON.stringify(connect)}`,
+    )
+  if (connect !== undefined && !consumerScripts.length)
+    throw new Error(
+      "cudoc-export: connect needs scripts: it lets a page's own scripts send requests, and a page without them sends none",
+    )
+  if (connect !== undefined && mode === "annotate")
+    throw new Error(
+      'cudoc-export: connect does not apply to mode: "annotate", whose review pages send nothing',
+    )
+  const connectSources = connect ?? []
   let sourceBase: { root: string; url: string } | undefined
   if (sourceLinks !== undefined) {
     if (
@@ -1310,6 +1342,7 @@ export function stageSite(
               tree,
               consumerAssets.map((asset) => relativeTo(file, asset)),
             )
+        if (connectSources.length) setConnectSources(tree, connectSources)
         const text = toHtml(tree)
         if (singlePages && Buffer.byteLength(text) > maxPageBytes)
           throw new Error(

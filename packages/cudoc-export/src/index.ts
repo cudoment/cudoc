@@ -168,6 +168,13 @@ export type SiteOptions = DocumentOptions & {
    */
   scripts?: string | string[]
   /**
+   * Where those scripts may send requests: Content-Security-Policy sources
+   * such as `'self'` or `https://api.example.com`, written into the page's
+   * policy in place of `connect-src 'none'`. Needs `scripts`; a review page
+   * (`mode: "annotate"`) sends nothing and refuses it.
+   */
+  connect?: string[]
+  /**
    * Links to files that are neither documents nor in the output: a link
    * whose target exists under `root`, in the library's coordinates, becomes
    * `url` followed by that path, under `relative` and `host` alike.
