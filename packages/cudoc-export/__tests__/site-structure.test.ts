@@ -665,81 +665,134 @@ describe("the rest of the shell", () => {
       )
   })
 
-  it("opens the sidebar on a narrow screen from a checkbox and its label, without a script", () => {
+  it("opens the sidebar as a panel on a narrow screen from a floating button, without a script", () => {
     const p = project({
-      "docs/a.md": doc("A"),
+      "docs/a.md": doc("A", "## One"),
       "docs/b.md": doc("B"),
       "docs/a.ko.md": doc("가"),
     })
     p.build({ locales: { en: "English", ko: "한국어" } })
     const html = p.read("a.html")
-    // The checkbox before the header, so the stylesheet reaches the sidebar
-    // from it; the label, named like the sidebar, first in the header.
+    const tree = parse(html)
+    // The header carries no menu button. The checkbox stands between the
+    // header and the layout, named on its own, since its labels say both
+    // "Documents" and "Close".
+    expect(tree.querySelector("header label")).toBeNull()
     expect(html).toContain(
-      '</a><input type="checkbox" id="cudoc-nav-toggle" class="cudoc-nav-toggle" hidden><header><label for="cudoc-nav-toggle" class="nav-toggle"><svg',
+      '</header><input type="checkbox" id="cudoc-nav-toggle" class="cudoc-nav-toggle" aria-label="Documents" autocomplete="off" hidden><div class="layout',
     )
-    expect(parse(html).querySelector("header label.nav-toggle")!.text).toBe(
-      "Documents",
+    // The close line comes first in the sidebar; the floating button and the
+    // backdrop follow the layout, all three labels for the checkbox.
+    expect(html).toContain(
+      '<nav class="sidebar" aria-label="Documents"><label for="cudoc-nav-toggle" class="cudoc-nav-close"><svg',
     )
-    expect(
-      parse(p.read("a.ko.html")).querySelector("label.nav-toggle")!.text,
-    ).toBe("문서")
+    expect(html).toMatch(
+      /<\/nav><\/div><label for="cudoc-nav-toggle" class="cudoc-nav-button"><svg[^]*?<\/svg><span>Documents<\/span><\/label><label for="cudoc-nav-toggle" class="cudoc-nav-backdrop" aria-hidden="true"><\/label><\/body>/,
+    )
+    expect(tree.querySelector(".cudoc-nav-close")!.text).toBe("Close")
+    const korean = parse(p.read("a.ko.html"))
+    expect([
+      korean.querySelector("#cudoc-nav-toggle")!.getAttribute("aria-label"),
+      korean.querySelector(".cudoc-nav-button")!.text,
+      korean.querySelector(".cudoc-nav-close")!.text,
+    ]).toEqual(["문서", "문서", "닫기"])
     expect(html).not.toContain("<script")
-    expect(siteStyles).toContain(
-      ".cudoc-nav-toggle:checked ~ .layout > .sidebar {\n    display: block;\n  }",
+    // The stylesheet opens the panel from the checkbox and hides the button
+    // while it is open.
+    const narrow = block("@media (max-width: 768px) {").text
+    for (const rule of [
+      ".cudoc-nav-toggle:checked ~ .layout > .sidebar {\n    position: fixed;",
+      ".cudoc-nav-toggle:checked ~ .cudoc-nav-backdrop {\n    position: fixed;\n    inset: 0;",
+      ".cudoc-nav-toggle:checked ~ .cudoc-nav-button {\n    display: none;\n  }",
+      ".cudoc-nav-toggle:focus-visible ~ .cudoc-nav-button {\n    outline: 2px solid var(--accent);",
+      "html:has(.cudoc-nav-toggle:checked) {\n    overflow: hidden;\n    scrollbar-gutter: stable;\n  }",
+    ])
+      expect(narrow, rule).toContain(rule)
+    // Beyond it none of the three is drawn.
+    const base = block(
+      ".cudoc-nav-button,\n.cudoc-nav-backdrop,\n.cudoc-nav-close {",
     )
-    // A sidebar left open does not print: the print block, later in the
-    // stylesheet, hides it at the same specificity.
-    expect(siteStyles.slice(siteStyles.indexOf("@media print"))).toContain(
-      "  header,\n  .sidebar,\n  .cudoc-nav-toggle:checked ~ .layout > .sidebar,\n  .toc,\n  .skip {\n    display: none;\n  }",
+    expect(base.text).toContain("  display: none;\n")
+    expect(base.from).toBeLessThan(
+      siteStyles.indexOf("@media (max-width: 768px)"),
+    )
+    // A panel left open does not print, and does not hold the page still
+    // there: the print block, later in the stylesheet, undoes each rule at
+    // the same specificity.
+    const print = siteStyles.slice(siteStyles.indexOf("@media print"))
+    expect(print).toContain(
+      "  header,\n  .sidebar,\n  .cudoc-nav-toggle:checked ~ .layout > .sidebar,\n  .cudoc-nav-toggle,\n  .cudoc-nav-button,\n  .cudoc-nav-toggle:checked ~ .cudoc-nav-backdrop,\n  .toc,\n  .skip {\n    display: none;\n  }",
+    )
+    expect(print).toContain(
+      "  html:has(.cudoc-nav-toggle:checked) {\n    overflow: visible;\n  }",
     )
     // A generated landing page lists the navigation in its body, a single
     // page has none, and the print HTML draws no header: nothing to open.
-    expect(p.read("index.html")).not.toContain('id="cudoc-nav-toggle"')
-    expect(p.read("a.print.html")).not.toContain('id="cudoc-nav-toggle"')
+    // (A single page carries the stylesheet, so only the markup is read.)
+    for (const file of ["index.html", "a.print.html"])
+      expect(p.read(file), file).not.toMatch(
+        /(id|for)="cudoc-nav-toggle"|class="cudoc-nav-/,
+      )
     p.build({ mode: "standalone" })
-    expect(p.read("a.html")).not.toContain('id="cudoc-nav-toggle"')
+    expect(p.read("a.html")).not.toMatch(
+      /(id|for)="cudoc-nav-toggle"|class="cudoc-nav-/,
+    )
   })
 
-  it("makes the sidebar part of the page on a narrow screen, so a swipe on it scrolls the page", () => {
+  it("lays the open panel over everything and keeps its scrolling inside it", () => {
     // Beside a wide page the sidebar and the contents stay put and scroll
-    // inside themselves.
+    // inside themselves, and the contents leave at 1024px.
     const wide = block(".sidebar,\n.toc {")
     expect(wide.text).toContain("  position: sticky;\n")
     expect(wide.text).toContain("  overflow-y: auto;\n")
-    // The contents leave at 1024px, so at a phone's width the sidebar is the
-    // one such box left.
     expect(block("@media (max-width: 1024px) {").text).toContain(
       "  .toc {\n    display: none;\n  }",
     )
-    // There, later in the stylesheet at the same specificity, the sidebar is
-    // no box of its own: nothing clips it, so a long word has to wrap.
+    // On a narrow screen the open panel scrolls inside itself, keeps its
+    // overscroll, and wraps a long word rather than scrolling sideways.
     const narrow = block("@media (max-width: 768px) {")
     expect(narrow.from).toBeGreaterThan(wide.from)
-    const sidebar = narrow.text.match(/\n {2}\.sidebar \{[^{}]*\}/)?.[0] ?? ""
-    expect(sidebar).toContain("\n    overflow: visible;\n")
-    expect(sidebar).toContain("\n    overflow-wrap: anywhere;\n")
-    // No other rule there, the one that opens it included, makes it a
-    // scroll box again.
-    const rules = [...narrow.text.matchAll(/([^{}]*)\{([^{}]*)\}/g)]
-      .map(([, selector, body]) => ({ selector: selector!.trim(), body }))
-      .filter(({ selector }) => selector.includes(".sidebar"))
-    expect(rules.map(({ selector }) => selector)).toContain(
-      ".cudoc-nav-toggle:checked ~ .layout > .sidebar",
-    )
-    for (const { selector, body } of rules)
-      expect(body, selector).not.toMatch(/overflow(-[xy])?:(?!\s*visible)/)
+    /** A rule's declarations, by its selector as written. */
+    const rule = (selector: string, text = narrow.text) => {
+      const at = text.indexOf(`\n  ${selector} {`)
+      const from = at < 0 ? text.indexOf(`\n${selector} {`) : at
+      expect(from, selector).toBeGreaterThan(-1)
+      return text.slice(from, text.indexOf("}", from) + 1)
+    }
+    const panel = rule(".cudoc-nav-toggle:checked ~ .layout > .sidebar")
+    for (const declaration of [
+      "top: 0;",
+      "bottom: 0;",
+      "left: 0;",
+      "overflow-y: auto;",
+      "overscroll-behavior: contain;",
+      "overflow-wrap: anywhere;",
+    ])
+      expect(panel, declaration).toContain(`\n    ${declaration}\n`)
+    // The button sits under the review runtime's controls (z-index 39 to 43)
+    // and an open menu's layer (44); the backdrop and the panel lie over all
+    // of them.
+    const zIndex = (text: string) => Number(text.match(/z-index: (\d+);/)?.[1])
+    expect([
+      zIndex(rule(".cudoc-nav-button")),
+      zIndex(rule("header:has(.menu[open])", siteStyles)),
+      zIndex(rule(".cudoc-nav-toggle:checked ~ .cudoc-nav-backdrop")),
+      zIndex(panel),
+    ]).toEqual([5, 44, 45, 46])
   })
 
   it("lets a gesture on the sidebar or the contents go on to the page once they have nothing to scroll", () => {
-    // Neither contains its overscroll at any width: one with nothing left to
-    // scroll, short or at its end, would take a wheel or a swipe and move
-    // nothing. A table's sideways containment is the only one left.
+    // Beside the text neither contains its overscroll: one with nothing left
+    // to scroll, short or at its end, would take a wheel or a swipe and move
+    // nothing. A table's sideways containment and the narrow screen's open
+    // panel, over a page that does not scroll, are the only ones left.
+    expect(block(".sidebar,\n.toc {").text).not.toContain("overscroll")
     const declarations = siteStyles.match(
       /^\s*overscroll-behavior[\w-]*:[^;]+;/gm,
     )
     expect(declarations?.map((line) => line.trim())).toEqual([
       "overscroll-behavior-x: contain;",
+      "overscroll-behavior: contain;",
     ])
     expect(block("\ntable {").text).toContain(
       "  overscroll-behavior-x: contain;\n",

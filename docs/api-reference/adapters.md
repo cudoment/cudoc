@@ -440,7 +440,11 @@ Type scales from the browser's own base size rather than a fixed pixel root, so 
 
 The page shell is a sticky header with a sticky document sidebar and heading TOC beside that column, collapsing to two columns at 1024px and to one at 768px. The sidebar and the TOC scroll inside themselves without containing their overscroll, so a wheel or a swipe that starts on one that is short or scrolled to its end scrolls the page.
 
-At 768px the sidebar folds behind a menu button in the header, a label for a checkbox written before the header that needs no script, and navigation targets and menu items grow to 2.75rem. An open sidebar there is no scroll box: a swipe on it scrolls the page, and a long word in it wraps (`overflow-wrap: anywhere`). On a coarse pointer a `summary` is at least 2.75rem tall and a checkbox in a list item takes 2.75rem of its line.
+At 768px the sidebar becomes a panel that a floating button at the bottom right opens over the page, and navigation targets and menu items grow to 2.75rem. The button, a backdrop and the panel's close line are labels for a checkbox written between the header and the layout, so no script is needed. On a coarse pointer a `summary` is at least 2.75rem tall and a checkbox in a list item takes 2.75rem of its line.
+
+The open panel is fixed to the left edge, the screen's full height and `min(86vw, 22rem)` wide, over the header and the review runtime. It scrolls inside itself with its overscroll contained, and a long word in it wraps (`overflow-wrap: anywhere`).
+
+`html:has(.cudoc-nav-toggle:checked)` keeps a wheel or a swipe from scrolling the page behind the panel in Chrome 105, Firefox 121 and Safari 16 or later, keeping that page's scrollbar room; an older browser leaves the page scrollable. Opening another page closes the panel, and the checkbox is written `autocomplete="off"` so that Back does not restore it checked. Tab can still move the focus to the page behind, and Escape does not close the panel: both need a script. → [Consumer scripts](#consumer-scripts)
 
 Tables use horizontal rules, alternating row backgrounds, label-style headers and tabular figures rather than a full border grid, and scroll horizontally instead of widening the page. Interactive states transition over `--ease`, which `prefers-reduced-motion` collapses to 1ms.
 
@@ -493,7 +497,14 @@ A folder's entries sort with `compareNames` by title, then name, after the ones 
 type LocaleOption =
   string | { label: string; suffix?: string; ui?: Partial<UiStrings> }
 type UiStrings = Record<
-  "skip" | "documents" | "onThisPage" | "language" | "theme" | "light" | "dark",
+  | "skip"
+  | "documents"
+  | "close"
+  | "onThisPage"
+  | "language"
+  | "theme"
+  | "light"
+  | "dark",
   string
 >
 ```
@@ -790,6 +801,26 @@ Every page the site writes, a generated landing page included, loads them with `
 
 A page with a script gets the Content-Security-Policy meta described under [Theme switch](#theme-switch), once, whichever option asks first. The policy has no `script-src`, so a copied or inlined script needs no hash; `connect-src 'none'` refuses fetch, XHR, WebSocket and beacon requests, and bounds nothing a script inserts into the page. The `<main>` of a document page carries `data-cudoc-document`, the document id, as a review page does; a landing page carries none, and the other review attributes stay with `mode: "annotate"`.
 
+A site page with a sidebar keeps stable hooks for the narrow screen's panel, which a script can read or set:
+
+| Hook                                           | What it is                                                            |
+| ---------------------------------------------- | --------------------------------------------------------------------- |
+| `#cudoc-nav-toggle` (class `cudoc-nav-toggle`) | The checkbox; `checked` is the panel's open state                     |
+| `.cudoc-nav-button`                            | The floating button that opens the panel, a label for the checkbox    |
+| `.cudoc-nav-backdrop`                          | The backdrop beside the open panel, a label for the checkbox          |
+| `.cudoc-nav-close`                             | The close line at the top of the open panel, a label for the checkbox |
+
+Escape does not close the panel until a script adds it, for example:
+
+```js
+document.addEventListener("keydown", (event) => {
+  const toggle = document.getElementById("cudoc-nav-toggle")
+  if (event.key !== "Escape" || !toggle?.checked) return
+  toggle.checked = false
+  toggle.focus()
+})
+```
+
 The CLI has no flag for it; a configuration file names the files, as it names `css`.
 
 ### Annotations
@@ -816,7 +847,7 @@ The print HTML, PDF and Word are built from the shared tree and do not change. E
 
 Every `p`, `li`, `tr`, `pre`, `blockquote`, `dt`, `dd`, heading and `aside.cudoc-callout` carries `data-cudoc-block="<heading id>:<8 hex>"`. The value is the nearest preceding heading's id (empty before the first) and the first eight hex digits of the SHA-256 of the block's whitespace-collapsed text, with `~2`, `~3` … when one section repeats a text. A content hash survives blocks inserted or moved anywhere else, and an edited block gets a new id, so its notes fall back to the quote search.
 
-**The runtime.** Selecting text shows a note button; hovering a block shows `+` in its gutter, and the button stays while the pointer crosses the margin to reach it; each opens a composer for plain text. A round toggle at the bottom right, a speech-bubble icon with the number of notes on this document, opens the panel.
+**The runtime.** Selecting text shows a note button; hovering a block shows `+` in its gutter, and the button stays while the pointer crosses the margin to reach it; each opens a composer for plain text. A round toggle at the bottom right, a speech-bubble icon with the number of notes on this document, opens the panel; on a narrow screen a site's navigation button stands to its left.
 
 The note button follows the selection. A press anywhere but on it or in the composer hides it at once (`pointerdown`, captured). It comes back on release only for a press that started in `main` outside a control (`button`, `select`, `input`, `textarea`, `label`, `summary`, `[role=button]`, editable text) and that started a selection (`selectstart`) or moved the old one. Using the theme menu, a details summary or pressing a picture, which leave the selection in place, therefore never brings it back beside an old selection.
 

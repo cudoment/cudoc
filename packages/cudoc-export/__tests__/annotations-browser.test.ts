@@ -930,6 +930,50 @@ suite("review notes in the browser", () => {
     await page.evaluate(() => localStorage.clear())
   }, 60_000)
 
+  it("keeps a hosted review's navigation button beside the notes button on a phone, and its open panel's backdrop over the notes button", async () => {
+    const hosted = path.join(root, "hosted-phone")
+    buildSite({
+      sourceRoot: path.join(root, "docs"),
+      outDir: hosted,
+      libraryDir: path.join(root, "hosted-phone-library"),
+      title: "Demo",
+      mode: "annotate",
+      annotate: { target: "hosted", reviewId: "phone-review" },
+    })
+    const phone = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      isMobile: true,
+      hasTouch: true,
+    })
+    try {
+      const small = await phone.newPage()
+      await small.goto(pathToFileURL(path.join(hosted, "index.html")).href)
+      await small.waitForSelector(".cudoc-ann-toggle")
+      const nav = (await small.locator(".cudoc-nav-button").boundingBox())!
+      const notes = (await small.locator(".cudoc-ann-toggle").boundingBox())!
+      // Side by side at the bottom, the navigation's to the left.
+      expect(nav.x + nav.width).toBeLessThanOrEqual(notes.x)
+      expect(Math.round(nav.y + nav.height)).toBe(
+        Math.round(notes.y + notes.height),
+      )
+      await small.tap(".cudoc-nav-button")
+      // Open, the panel's backdrop lies over the notes button.
+      expect(
+        await small.evaluate(() => {
+          const box = document
+            .querySelector(".cudoc-ann-toggle")!
+            .getBoundingClientRect()
+          return document.elementFromPoint(
+            box.x + box.width / 2,
+            box.y + box.height / 2,
+          )?.className
+        }),
+      ).toBe("cudoc-nav-backdrop")
+    } finally {
+      await phone.close()
+    }
+  }, 60_000)
+
   it("logged no errors along the way", () => {
     expect(errors).toEqual([])
   })

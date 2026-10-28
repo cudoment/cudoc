@@ -247,9 +247,15 @@ body {
 header,
 .sidebar,
 .cudoc-nav-toggle:checked ~ .layout > .sidebar,
+.cudoc-nav-toggle,
+.cudoc-nav-button,
+.cudoc-nav-toggle:checked ~ .cudoc-nav-backdrop,
 .toc,
 .skip {
   display: none;
+}
+html:has(.cudoc-nav-toggle:checked) {
+  overflow: visible;
 }
 .layout {
   display: block;

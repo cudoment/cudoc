@@ -107,10 +107,13 @@ describe("buildSite with scripts", () => {
     ] as const) {
       const html = s.read(file)
       expect(html.match(/<script/g)).toHaveLength(2)
-      // After the footer, in the option's order, with relative paths.
+      // At the end of the body, after the footer and the narrow screen's
+      // navigation button and backdrop, in the option's order, with
+      // relative paths.
       expect(html).toContain(
-        `</footer></main></div><script defer src="${prefix}cudoc-js/1-a.js"></script><script defer src="${prefix}cudoc-js/2-b.js"></script></body></html>`,
+        `<label for="cudoc-nav-toggle" class="cudoc-nav-backdrop" aria-hidden="true"></label><script defer src="${prefix}cudoc-js/1-a.js"></script><script defer src="${prefix}cudoc-js/2-b.js"></script></body></html>`,
       )
+      expect(html.indexOf("</footer>")).toBeLessThan(html.indexOf("<script"))
       expect(html.match(/http-equiv/g)).toHaveLength(1)
       expect(html).toContain(policy)
       // The one attribute a caller's script is given: the document's id.
