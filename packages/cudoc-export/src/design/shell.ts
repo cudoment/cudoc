@@ -151,9 +151,9 @@ export function renderShell(page: ShellPage): string {
   // it is hidden on a wide screen, where the sidebar is beside the page.
   const navToggle = page.navigation
     ? {
-        input: `<input type="checkbox" id="cudoc-nav-toggle" class="cudoc-nav-toggle" aria-label="${escapeHtml(ui.documents)}" autocomplete="off" hidden>`,
+        input: `<input type="checkbox" id="cudoc-nav-toggle" class="cudoc-nav-toggle" aria-label="${escapeHtml(ui.menu)}" autocomplete="off" hidden>`,
         close: `<label for="cudoc-nav-toggle" class="cudoc-nav-close">${CROSS}<span>${escapeHtml(ui.close)}</span></label>`,
-        after: `<label for="cudoc-nav-toggle" class="cudoc-nav-button">${BARS}<span>${escapeHtml(ui.documents)}</span></label><label for="cudoc-nav-toggle" class="cudoc-nav-backdrop" aria-hidden="true"></label>`,
+        after: `<label for="cudoc-nav-toggle" class="cudoc-nav-button">${BARS}<span>${escapeHtml(ui.menu)}</span></label><label for="cudoc-nav-toggle" class="cudoc-nav-backdrop" aria-hidden="true"></label>`,
       }
     : { input: "", close: "", after: "" }
   const sidebar = page.navigation

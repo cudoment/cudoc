@@ -440,7 +440,7 @@ Type scales from the browser's own base size rather than a fixed pixel root, so 
 
 The page shell is a sticky header with a sticky document sidebar and heading TOC beside that column, collapsing to two columns at 1024px and to one at 768px. The sidebar and the TOC scroll inside themselves without containing their overscroll, so a wheel or a swipe that starts on one that is short or scrolled to its end scrolls the page.
 
-At 768px the sidebar becomes a panel that a round button at the bottom left opens over the page, and navigation targets and menu items grow to 2.75rem. The button shows the menu bars alone, and its word stays in the page out of sight. The button, a backdrop and the panel's close line are labels for a checkbox written between the header and the layout, so no script is needed. On a coarse pointer a `summary` is at least 2.75rem tall and a checkbox in a list item takes 2.75rem of its line.
+At 768px the sidebar becomes a panel that a round button at the bottom left opens over the page, and navigation targets and menu items grow to 2.75rem. The button shows the menu bars alone, and its name, the `menu` word, stays in the page out of sight. The button, a backdrop and the panel's close line are labels for a checkbox written between the header and the layout, so no script is needed. On a coarse pointer a `summary` is at least 2.75rem tall and a checkbox in a list item takes 2.75rem of its line.
 
 The open panel is fixed to the left edge, the screen's full height and `min(86vw, 22rem)` wide, over the header and the review runtime. It scrolls inside itself with its overscroll contained, and a long word in it wraps (`overflow-wrap: anywhere`).
 
@@ -499,6 +499,7 @@ type LocaleOption =
 type UiStrings = Record<
   | "skip"
   | "documents"
+  | "menu"
   | "close"
   | "onThisPage"
   | "language"

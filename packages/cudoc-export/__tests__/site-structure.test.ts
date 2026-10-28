@@ -676,10 +676,10 @@ describe("the rest of the shell", () => {
     const tree = parse(html)
     // The header carries no menu button. The checkbox stands between the
     // header and the layout, named on its own, since its labels say both
-    // "Documents" and "Close".
+    // "Menu" and "Close".
     expect(tree.querySelector("header label")).toBeNull()
     expect(html).toContain(
-      '</header><input type="checkbox" id="cudoc-nav-toggle" class="cudoc-nav-toggle" aria-label="Documents" autocomplete="off" hidden><div class="layout',
+      '</header><input type="checkbox" id="cudoc-nav-toggle" class="cudoc-nav-toggle" aria-label="Menu" autocomplete="off" hidden><div class="layout',
     )
     // The close line comes first in the sidebar; the floating button and the
     // backdrop follow the layout, all three labels for the checkbox.
@@ -687,7 +687,7 @@ describe("the rest of the shell", () => {
       '<nav class="sidebar" aria-label="Documents"><label for="cudoc-nav-toggle" class="cudoc-nav-close"><svg',
     )
     expect(html).toMatch(
-      /<\/nav><\/div><label for="cudoc-nav-toggle" class="cudoc-nav-button"><svg[^]*?<\/svg><span>Documents<\/span><\/label><label for="cudoc-nav-toggle" class="cudoc-nav-backdrop" aria-hidden="true"><\/label><\/body>/,
+      /<\/nav><\/div><label for="cudoc-nav-toggle" class="cudoc-nav-button"><svg[^]*?<\/svg><span>Menu<\/span><\/label><label for="cudoc-nav-toggle" class="cudoc-nav-backdrop" aria-hidden="true"><\/label><\/body>/,
     )
     expect(tree.querySelector(".cudoc-nav-close")!.text).toBe("Close")
     const korean = parse(p.read("a.ko.html"))
@@ -695,7 +695,7 @@ describe("the rest of the shell", () => {
       korean.querySelector("#cudoc-nav-toggle")!.getAttribute("aria-label"),
       korean.querySelector(".cudoc-nav-button")!.text,
       korean.querySelector(".cudoc-nav-close")!.text,
-    ]).toEqual(["문서", "문서", "닫기"])
+    ]).toEqual(["메뉴", "메뉴", "닫기"])
     expect(html).not.toContain("<script")
     // The stylesheet opens the panel from the checkbox and hides the button
     // while it is open.

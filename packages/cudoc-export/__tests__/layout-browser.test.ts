@@ -199,9 +199,7 @@ suite("the site's layout in the browser", () => {
       ).toEqual(
         [round.x + round.width / 2, round.y + round.height / 2].map(Math.round),
       )
-      expect(await page.locator(".cudoc-nav-button").textContent()).toBe(
-        "Documents",
-      )
+      expect(await page.locator(".cudoc-nav-button").textContent()).toBe("Menu")
       const word = (await page.locator(".cudoc-nav-button span").boundingBox())!
       expect(word.width).toBeLessThanOrEqual(1)
       await page.evaluate(() => scrollTo(0, 300))

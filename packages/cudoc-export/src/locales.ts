@@ -16,6 +16,7 @@ import type { StoredDocument } from "@cudoment/cudoc/node/library"
 export type UiStrings = {
   skip: string
   documents: string
+  menu: string
   close: string
   onThisPage: string
   language: string
@@ -28,6 +29,7 @@ const BUILT_IN: Record<string, UiStrings> = {
   en: {
     skip: "Skip to content",
     documents: "Documents",
+    menu: "Menu",
     close: "Close",
     onThisPage: "On this page",
     language: "Language",
@@ -38,6 +40,7 @@ const BUILT_IN: Record<string, UiStrings> = {
   ko: {
     skip: "본문으로 건너뛰기",
     documents: "문서",
+    menu: "메뉴",
     close: "닫기",
     onThisPage: "이 페이지 목차",
     language: "언어",
