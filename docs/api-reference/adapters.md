@@ -441,7 +441,9 @@ Type scales from the browser's own base size rather than a fixed pixel root, so 
 
 The page shell is a sticky header with a sticky document sidebar and heading TOC beside that column, collapsing to two columns at 1024px and to one at 768px. The sidebar and the TOC scroll inside themselves without containing their overscroll, so a wheel or a swipe that starts on one that is short or scrolled to its end scrolls the page.
 
-At 768px the sidebar becomes a panel that a round button at the bottom left opens over the page, and navigation targets and menu items grow to 2.75rem. The button shows the menu bars alone, and its name, the `menu` word, stays in the page out of sight. The button, a backdrop and the panel's close line are labels for a checkbox written between the header and the layout, so no script is needed. On a coarse pointer a `summary` is at least 2.75rem tall and a checkbox in a list item takes 2.75rem of its line.
+At 768px the sidebar becomes a panel that a round button at the bottom left opens over the page, and navigation targets and menu items grow to 2.75rem. The button shows the menu bars alone, and its name, the `menu` word, stays in the page out of sight.
+
+The same bars stand before the header's title in a 2.75rem square that opens the same panel, hidden from assistive technology since the checkbox carries the name. The two buttons, a backdrop and the panel's close line are labels for a checkbox written between the header and the layout, so no script is needed. On a coarse pointer a `summary` is at least 2.75rem tall and a checkbox in a list item takes 2.75rem of its line.
 
 The open panel is fixed to the left edge, the screen's full height and `min(86vw, 22rem)` wide, over the header and the review runtime. It scrolls inside itself with its overscroll contained, and a long word in it wraps (`overflow-wrap: anywhere`).
 
@@ -779,7 +781,7 @@ The character styles are `IndexLink`, `CudocCode`, `CudocCodeKeyword`, `CudocCod
 
 `themeSwitch: true` (CLI `--theme-switch`) adds a theme menu to every page's header. It is off by default; the default output stays script-free and follows the system setting.
 
-The menu is a `<details class="menu theme-switch">` drawn like the language menu: its summary shows a sun or moon and the theme in effect, and its list holds a Light and a Dark button, the one in effect marked `aria-pressed="true"`. A choice closes the menu and returns focus to the summary. Until the reader chooses, the page follows the system setting and the menu shows which of the two that is, following a change of the setting while the page is open. The menu marks the theme `data-theme` holds, so a choice the browser refuses to store is still the one shown for the page.
+The menu is a `<details class="menu theme-switch">` drawn like the language menu: its summary shows a sun or moon alone for the theme in effect, and its list holds a Light and a Dark button, the one in effect marked `aria-pressed="true"`. A choice closes the menu and returns focus to the summary. Until the reader chooses, the page follows the system setting and the menu shows which of the two that is, following a change of the setting while the page is open. The menu marks the theme `data-theme` holds, so a choice the browser refuses to store is still the one shown for the page.
 
 The browser opens and closes the menu from the keyboard and announces it as expanded or collapsed, and the stylesheet's layer closes it on a press elsewhere. The script closes the open menu of the header, the language menu included, on Escape (focus returns to its summary) or when focus moves to an element outside it.
 
@@ -810,6 +812,7 @@ A site page with a sidebar keeps stable hooks for the narrow screen's panel, whi
 | Hook                                           | What it is                                                            |
 | ---------------------------------------------- | --------------------------------------------------------------------- |
 | `#cudoc-nav-toggle` (class `cudoc-nav-toggle`) | The checkbox; `checked` is the panel's open state                     |
+| `.cudoc-nav-header`                            | The bars before the header's title, a label for the checkbox          |
 | `.cudoc-nav-button`                            | The floating button that opens the panel, a label for the checkbox    |
 | `.cudoc-nav-backdrop`                          | The backdrop beside the open panel, a label for the checkbox          |
 | `.cudoc-nav-close`                             | The close line at the top of the open panel, a label for the checkbox |

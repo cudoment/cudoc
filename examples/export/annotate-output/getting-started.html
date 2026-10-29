@@ -196,9 +196,10 @@ header > span {
   flex: none;
 }
 /*
- * The button that opens the sidebar as a panel, the backdrop and the line
+ * The buttons that open the sidebar as a panel, the backdrop and the line
  * that close it: drawn on a narrow screen only.
  */
+.cudoc-nav-header,
 .cudoc-nav-button,
 .cudoc-nav-backdrop,
 .cudoc-nav-close {
@@ -992,6 +993,30 @@ footer {
     font-weight: 600;
     cursor: pointer;
   }
+  /*
+   * The same bars before the header's title, for a reader at the top of the
+   * page: a finger's square, its bars lined up with the text below.
+   */
+  .cudoc-nav-header {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    margin: 0 var(--space-1) 0 calc(-1 * var(--space-3));
+    border-radius: var(--radius);
+    color: var(--muted);
+    cursor: pointer;
+    transition:
+      background var(--ease),
+      color var(--ease);
+  }
+  .cudoc-nav-header:hover {
+    background: var(--wash);
+    color: var(--accent);
+  }
+  .cudoc-nav-header svg,
   .cudoc-nav-button svg,
   .cudoc-nav-close svg {
     flex: none;
@@ -1300,8 +1325,10 @@ footer {
    as well goes in the configuration's tokens instead. */
 
 /* The handbook's mark before the site title: a picture the stylesheet
-   loads, copied beside it on the site and written into a standalone page. */
-header > :first-child::before {
+   loads, copied beside it on the site and written into a standalone page.
+   The title is the header's first link or text; on a narrow site page the
+   menu bars stand before it. */
+header > :is(a, span):first-of-type::before {
   content: "";
   display: inline-block;
   width: 1.375rem;
@@ -1882,9 +1909,6 @@ html.cudoc-ann-push body {
     const menu = document.createElement("details");
     menu.className = "menu theme-switch";
     const summary = document.createElement("summary");
-    const label = document.createElement("span");
-    label.className = "menu-label";
-    summary.append(label);
     const list = document.createElement("ul");
     list.className = "menu-list";
     const buttons = CHOICES.map((mode) => {
@@ -1906,9 +1930,7 @@ html.cudoc-ann-push body {
     });
     const render = () => {
       const mode = current();
-      summary.querySelector("svg")?.remove();
-      summary.prepend(icon(mode));
-      label.textContent = STRINGS[mode];
+      summary.replaceChildren(icon(mode));
       summary.setAttribute("aria-label", `${STRINGS.theme}: ${STRINGS[mode]}`);
       for (const button of buttons)
         button.setAttribute("aria-pressed", String(button.value === mode));

@@ -674,15 +674,19 @@ describe("the rest of the shell", () => {
     p.build({ locales: { en: "English", ko: "한국어" } })
     const html = p.read("a.html")
     const tree = parse(html)
-    // The header carries no menu button. The checkbox stands between the
-    // header and the layout, named on its own, since its labels say both
-    // "Menu" and "Close".
-    expect(tree.querySelector("header label")).toBeNull()
+    // The header opens with the bars, a label for the checkbox that only the
+    // eye reads, before the title. The checkbox stands between the header and
+    // the layout, named on its own, since its labels say both "Menu" and
+    // "Close".
+    expect(html).toMatch(
+      /<header><label for="cudoc-nav-toggle" class="cudoc-nav-header" aria-hidden="true"><svg[^]*?<\/svg><\/label><a href="[^"]*">Demo<\/a>/,
+    )
+    expect(tree.querySelector(".cudoc-nav-header")!.text).toBe("")
     expect(html).toContain(
       '</header><input type="checkbox" id="cudoc-nav-toggle" class="cudoc-nav-toggle" aria-label="Menu" autocomplete="off" hidden><div class="layout',
     )
     // The close line comes first in the sidebar; the floating button and the
-    // backdrop follow the layout, all three labels for the checkbox.
+    // backdrop follow the layout, all four labels for the checkbox.
     expect(html).toContain(
       '<nav class="sidebar" aria-label="Documents"><label for="cudoc-nav-toggle" class="cudoc-nav-close"><svg',
     )
@@ -705,12 +709,13 @@ describe("the rest of the shell", () => {
       ".cudoc-nav-toggle:checked ~ .cudoc-nav-backdrop {\n    position: fixed;\n    inset: 0;",
       ".cudoc-nav-toggle:checked ~ .cudoc-nav-button {\n    display: none;\n  }",
       ".cudoc-nav-toggle:focus-visible ~ .cudoc-nav-button {\n    outline: 2px solid var(--accent);",
+      ".cudoc-nav-header {\n    display: inline-flex;",
       "html:has(.cudoc-nav-toggle:checked) {\n    overflow: hidden;\n    scrollbar-gutter: stable;\n  }",
     ])
       expect(narrow, rule).toContain(rule)
-    // Beyond it none of the three is drawn.
+    // Beyond it none of the four is drawn.
     const base = block(
-      ".cudoc-nav-button,\n.cudoc-nav-backdrop,\n.cudoc-nav-close {",
+      ".cudoc-nav-header,\n.cudoc-nav-button,\n.cudoc-nav-backdrop,\n.cudoc-nav-close {",
     )
     expect(base.text).toContain("  display: none;\n")
     expect(base.from).toBeLessThan(

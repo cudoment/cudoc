@@ -7,9 +7,9 @@
  * of beside it, and has no contents; a single page, standalone or for review,
  * has no navigation, since the other documents are not beside it. A page with
  * no heading to list has no contents column. On a narrow screen the sidebar
- * opens as a panel from a floating button: the button, a backdrop and the
- * panel's close line are labels for one checkbox, which the stylesheet reads,
- * so no script is needed.
+ * opens as a panel from a floating button or a button before the header's
+ * title: the two buttons, a backdrop and the panel's close line are labels for
+ * one checkbox, which the stylesheet reads, so no script is needed.
  * Every link here is written as a source path or an output path and goes
  * through the link policy with the rest of the page, so `none` removes it
  * and `host` points it at the deployment.
@@ -86,7 +86,7 @@ const tocList = (toc: ShellToc): string =>
     )
     .join("")}</ul>`
 
-/** Three bars, drawn on the same grid: the button that opens the sidebar on a narrow screen. */
+/** Three bars, drawn on the same grid: the buttons that open the sidebar on a narrow screen. */
 const BARS =
   '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>'
 
@@ -148,21 +148,25 @@ export function renderShell(page: ShellPage): string {
   // word: its labels together would read "Close Documents", so the close
   // line's word is left out of it. `autocomplete="off"` keeps a browser from
   // restoring it checked, the page locked, when the reader comes back. All of
-  // it is hidden on a wide screen, where the sidebar is beside the page.
+  // it is hidden on a wide screen, where the sidebar is beside the page. The
+  // button before the header's title does what the floating one does; the
+  // checkbox already carries the name, so it is hidden from assistive
+  // technology rather than read twice.
   const navToggle = page.navigation
     ? {
+        header: `<label for="cudoc-nav-toggle" class="cudoc-nav-header" aria-hidden="true">${BARS}</label>`,
         input: `<input type="checkbox" id="cudoc-nav-toggle" class="cudoc-nav-toggle" aria-label="${escapeHtml(ui.menu)}" autocomplete="off" hidden>`,
         close: `<label for="cudoc-nav-toggle" class="cudoc-nav-close">${CROSS}<span>${escapeHtml(ui.close)}</span></label>`,
         after: `<label for="cudoc-nav-toggle" class="cudoc-nav-button">${BARS}<span>${escapeHtml(ui.menu)}</span></label><label for="cudoc-nav-toggle" class="cudoc-nav-backdrop" aria-hidden="true"></label>`,
       }
-    : { input: "", close: "", after: "" }
+    : { header: "", input: "", close: "", after: "" }
   const sidebar = page.navigation
     ? `<nav class="sidebar" aria-label="${escapeHtml(ui.documents)}">${navToggle.close}<p class="nav-title">${escapeHtml(ui.documents)}</p>${navList(page.navigation)}</nav>`
     : ""
   const toc = page.toc
     ? `<nav class="toc" aria-label="${escapeHtml(ui.onThisPage)}"><p class="nav-title">${escapeHtml(ui.onThisPage)}</p>${tocList(page.toc)}</nav>`
     : ""
-  return `<!doctype html><html lang="${escapeHtml(page.lang)}"${page.htmlAttributes ?? ""}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(page.title)}</title>${page.head}</head><body>${page.skip ? `<a class="skip" href="#main-content">${escapeHtml(ui.skip)}</a>` : ""}<header>${title}${headerEnd}</header>${navToggle.input}<div class="${classes}">${sidebar}<main id="main-content"${page.mainAttributes}>${page.body}<footer>${escapeHtml(page.footer)}</footer></main>${toc}</div>${navToggle.after}</body></html>`
+  return `<!doctype html><html lang="${escapeHtml(page.lang)}"${page.htmlAttributes ?? ""}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(page.title)}</title>${page.head}</head><body>${page.skip ? `<a class="skip" href="#main-content">${escapeHtml(ui.skip)}</a>` : ""}<header>${navToggle.header}${title}${headerEnd}</header>${navToggle.input}<div class="${classes}">${sidebar}<main id="main-content"${page.mainAttributes}>${page.body}<footer>${escapeHtml(page.footer)}</footer></main>${toc}</div>${navToggle.after}</body></html>`
 }
 
 /** The page a language opens on when no document is its home. */

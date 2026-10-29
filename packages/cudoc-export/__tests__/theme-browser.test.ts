@@ -183,11 +183,11 @@ suite("theme switch in the browser", () => {
     await open(home)
     await page.evaluate(() => localStorage.clear())
     await open(home)
-    // Nothing chosen: the page follows the system, and the menu shows it.
+    // Nothing chosen: the page follows the system, and the menu shows it by
+    // its icon alone, the word only in its name.
     expect(await state()).toMatchObject({
-      label: "Light",
-      // The visible words say it; a tooltip would follow the open menu's
-      // layer over the whole page.
+      label: "",
+      // A tooltip would follow the open menu's layer over the whole page.
       title: null,
       name: "Theme: Light",
       options: ["Light", "Dark"],
@@ -200,7 +200,7 @@ suite("theme switch in the browser", () => {
     })
     await choose("light")
     expect(await state()).toMatchObject({
-      label: "Light",
+      name: "Theme: Light",
       theme: "light",
       canvas: designTokens.colors.light.canvas,
       scheme: "light",
@@ -208,7 +208,7 @@ suite("theme switch in the browser", () => {
     })
     await choose("dark")
     expect(await state()).toMatchObject({
-      label: "Dark",
+      name: "Theme: Dark",
       pressed: ["Dark"],
       icons: 1,
       open: false,
@@ -220,13 +220,13 @@ suite("theme switch in the browser", () => {
     // The choice is applied from the head on the next load, before any click.
     await open(home)
     expect(await state()).toMatchObject({
-      label: "Dark",
+      name: "Theme: Dark",
       theme: "dark",
       canvas: designTokens.colors.dark.canvas,
     })
     await choose("light")
     expect(await state()).toMatchObject({
-      label: "Light",
+      name: "Theme: Light",
       theme: "light",
       canvas: designTokens.colors.light.canvas,
       stored: "light",
@@ -239,19 +239,19 @@ suite("theme switch in the browser", () => {
     try {
       await open(home)
       expect(await state()).toMatchObject({
-        label: "Dark",
+        name: "Theme: Dark",
         theme: null,
         canvas: designTokens.colors.dark.canvas,
         stored: null,
       })
       // The menu follows the system as it changes, until a choice.
       await page.emulateMedia({ colorScheme: "light" })
-      await expect.poll(async () => (await state()).label).toBe("Light")
+      await expect.poll(async () => (await state()).name).toBe("Theme: Light")
       await page.emulateMedia({ colorScheme: "dark" })
-      await expect.poll(async () => (await state()).label).toBe("Dark")
+      await expect.poll(async () => (await state()).name).toBe("Theme: Dark")
       await choose("light")
       expect(await state()).toMatchObject({
-        label: "Light",
+        name: "Theme: Light",
         canvas: designTokens.colors.light.canvas,
         scheme: "light",
       })
@@ -264,7 +264,7 @@ suite("theme switch in the browser", () => {
   it("labels the menu in the document's language", async () => {
     await open(korean)
     expect(await state()).toMatchObject({
-      label: "라이트",
+      label: "",
       name: "테마: 라이트",
       options: ["라이트", "다크"],
     })
@@ -300,11 +300,13 @@ suite("theme switch in the browser", () => {
       expect(
         await blocked.evaluate(() => [
           document.documentElement.getAttribute("data-theme"),
-          document.querySelector(".theme-switch .menu-label")!.textContent,
+          document
+            .querySelector(".theme-switch > summary")!
+            .getAttribute("aria-label"),
           document.querySelector('.theme-switch [aria-pressed="true"]')!
             .textContent,
         ]),
-      ).toEqual(["dark", "Dark", "Dark"])
+      ).toEqual(["dark", "Theme: Dark", "Dark"])
     } finally {
       await blocked.close()
     }

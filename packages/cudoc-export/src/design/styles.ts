@@ -115,9 +115,10 @@ header > span {
   flex: none;
 }
 /*
- * The button that opens the sidebar as a panel, the backdrop and the line
+ * The buttons that open the sidebar as a panel, the backdrop and the line
  * that close it: drawn on a narrow screen only.
  */
+.cudoc-nav-header,
 .cudoc-nav-button,
 .cudoc-nav-backdrop,
 .cudoc-nav-close {
@@ -883,6 +884,30 @@ footer {
     font-weight: 600;
     cursor: pointer;
   }
+  /*
+   * The same bars before the header's title, for a reader at the top of the
+   * page: a finger's square, its bars lined up with the text below.
+   */
+  .cudoc-nav-header {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    margin: 0 var(--space-1) 0 calc(-1 * var(--space-3));
+    border-radius: var(--radius);
+    color: var(--muted);
+    cursor: pointer;
+    transition:
+      background var(--ease),
+      color var(--ease);
+  }
+  .cudoc-nav-header:hover {
+    background: var(--wash);
+    color: var(--accent);
+  }
+  .cudoc-nav-header svg,
   .cudoc-nav-button svg,
   .cudoc-nav-close svg {
     flex: none;

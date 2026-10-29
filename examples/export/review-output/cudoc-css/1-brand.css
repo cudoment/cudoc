@@ -3,8 +3,10 @@
    as well goes in the configuration's tokens instead. */
 
 /* The handbook's mark before the site title: a picture the stylesheet
-   loads, copied beside it on the site and written into a standalone page. */
-header > :first-child::before {
+   loads, copied beside it on the site and written into a standalone page.
+   The title is the header's first link or text; on a narrow site page the
+   menu bars stand before it. */
+header > :is(a, span):first-of-type::before {
   content: "";
   display: inline-block;
   width: 1.375rem;

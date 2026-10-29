@@ -183,10 +183,18 @@ suite("the site's layout in the browser", () => {
     try {
       const page = await context.newPage()
       await page.goto(url)
-      // Closed: no button in the header, a round button at the bottom left
+      // Closed: the bars before the header's title, a finger's square whose
+      // bars line up with the text below, a round button at the bottom left
       // with the bars in its middle and its word out of sight, and nothing
       // of the panel.
-      expect(await page.$$("header label")).toHaveLength(0)
+      const square = (await page.locator(".cudoc-nav-header").boundingBox())!
+      const title = (await page.locator("header > a").boundingBox())!
+      const headerBars = (await page
+        .locator(".cudoc-nav-header svg")
+        .boundingBox())!
+      expect([square.width, square.height].map(Math.round)).toEqual([44, 44])
+      expect(Math.round(headerBars.x)).toBe(16)
+      expect(square.x + square.width).toBeLessThanOrEqual(title.x)
       const round = (await page.locator(".cudoc-nav-button").boundingBox())!
       expect(
         [round.x, 844 - round.y - round.height, round.width, round.height].map(
@@ -263,6 +271,17 @@ suite("the site's layout in the browser", () => {
         panel: null,
         button: true,
       })
+      // The header's bars open the same panel from the top of the page.
+      await page.evaluate(() => scrollTo(0, 0))
+      await page.tap(".cudoc-nav-header")
+      await settled(page)
+      expect(await panelState(page)).toMatchObject({
+        open: true,
+        panel: [0, 0, 335, 844],
+        backdrop: true,
+      })
+      await page.tap(".cudoc-nav-close")
+      expect((await panelState(page)).open).toBe(false)
     } finally {
       await context.close()
     }
@@ -391,6 +410,7 @@ suite("the site's layout in the browser", () => {
           await page.evaluate(() => ({
             drawn: [
               ".cudoc-nav-toggle",
+              ".cudoc-nav-header",
               ".cudoc-nav-button",
               ".cudoc-nav-backdrop",
               ".cudoc-nav-close",
