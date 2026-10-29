@@ -1,5 +1,13 @@
 # cudoc
 
+[![CI](https://img.shields.io/github/actions/workflow/status/cudoment/cudoc/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white)](https://github.com/cudoment/cudoc/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@cudoment/cudoc?logo=npm)](https://www.npmjs.com/package/@cudoment/cudoc)
+[![npm downloads](https://img.shields.io/npm/dm/@cudoment/cudoc)](https://www.npmjs.com/package/@cudoment/cudoc)
+[![Node.js](https://img.shields.io/node/v/@cudoment/cudoc?logo=nodedotjs&logoColor=white)](./docs/README.ko.md#지원-버전)
+[![License](https://img.shields.io/npm/l/@cudoment/cudoc)](./LICENSE)
+[![Hosts](https://img.shields.io/badge/hosts-Next.js%20%C2%B7%20Docusaurus%20%C2%B7%20Nextra%20%C2%B7%20VitePress%20%C2%B7%20Eleventy-blue)](#사이트-생성기-고르기)
+[![Export](https://img.shields.io/badge/export-HTML%20%C2%B7%20PDF%20%C2%B7%20Word-blue)](./docs/export.ko.md)
+
 [English](./README.md) | **한국어**
 
 **한 번 쓴 사실을 어디서나 재사용합니다. 모든 문서, 사이트, 인덱스가 원본 하나를 공유합니다.**
