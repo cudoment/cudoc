@@ -35,6 +35,48 @@ const LONG_WORD = "internationalizationandlocalizationconfigurationreference"
 const PARAGRAPH =
   "A paragraph of the page, long enough to wrap over several lines on a phone.\n\n"
 
+/** A finger drag made from touch events, with every point inside the viewport. */
+const swipeUp = async (
+  page: Page,
+  start: { x: number; y: number },
+  distance: number,
+) => {
+  const cdp = await page.context().newCDPSession(page)
+  try {
+    // Hit testing uses the compositor's frame, which can follow layout.
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    )
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ ...start, id: 1 }],
+    })
+    for (let step = 1; step <= 12; step++) {
+      await cdp.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [
+          { x: start.x, y: start.y - (distance * step) / 12, id: 1 },
+        ],
+      })
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) =>
+            requestAnimationFrame(() => resolve()),
+          ),
+      )
+    }
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    })
+  } finally {
+    await cdp.detach()
+  }
+}
+
 suite("the site's layout in the browser", () => {
   let root: string
   let browser: Browser
@@ -237,15 +279,7 @@ suite("the site's layout in the browser", () => {
       })
       // A swipe on the panel scrolls the panel; one on the backdrop scrolls
       // nothing, since the page behind is held still.
-      const cdp = await context.newCDPSession(page)
-      const swipe = (x: number) =>
-        cdp.send("Input.synthesizeScrollGesture", {
-          x,
-          y: 600,
-          yDistance: -500,
-          gestureSourceType: "touch",
-          speed: 2000,
-        })
+      const swipe = (x: number) => swipeUp(page, { x, y: 600 }, 500)
       await swipe(150)
       await expect
         .poll(async () => (await panelState(page)).panelScroll)
@@ -523,13 +557,22 @@ suite("the site's layout in the browser", () => {
           }
         }, start),
       ).toEqual({ position: "sticky", room: 0, toc: "none", onSidebar: true })
-      const cdp = await context.newCDPSession(page)
-      await cdp.send("Input.synthesizeScrollGesture", {
-        ...start,
-        yDistance: -400,
-        gestureSourceType: "touch",
-        speed: 2000,
+      // Several short drags stay inside this short box and the viewport.
+      // First restore the regressed rule: the same input must then move
+      // nothing, so the positive assertion below cannot pass on a no-op.
+      const contained = await page.addStyleTag({
+        content: ".sidebar { overscroll-behavior: contain; }",
       })
+      const drag = async () => {
+        for (let i = 0; i < 4; i++)
+          await swipeUp(page, start, Math.min(100, start.y - 10))
+      }
+      await drag()
+      expect(await page.evaluate(() => scrollY)).toBe(0)
+      await contained.evaluate((element) => {
+        element.parentNode?.removeChild(element)
+      })
+      await drag()
       await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(200)
     } finally {
       await context.close()
