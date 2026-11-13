@@ -1,6 +1,6 @@
 {
   "name": "cudoc-nextra",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "cudoc for Nextra: embed a section of one document in another, kept in step with its source, and write merged table cells, lists inside cells and variables in plain Markdown, keeping Nextra's own heading IDs and table of contents.",
   "license": "MIT",
   "repository": {
@@ -46,7 +46,7 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "cudoc-remark": "1.0.0",
+    "cudoc-remark": "1.1.0",
     "unified": "^11.0.5"
   },
   "peerDependencies": {

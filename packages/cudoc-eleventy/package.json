@@ -1,6 +1,6 @@
 {
   "name": "cudoc-eleventy",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "cudoc for Eleventy, as its markdown-it library: embed a section of one document in another, kept in step with its source, and write merged table cells, lists inside cells and variables in plain Markdown.",
   "license": "MIT",
   "repository": {
@@ -45,8 +45,8 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "@cudoment/cudoc": "1.0.0",
-    "cudoc-markdown-it": "1.0.0",
+    "@cudoment/cudoc": "1.1.0",
+    "cudoc-markdown-it": "1.1.0",
     "yaml": "^2.9.0"
   },
   "peerDependencies": {

@@ -1,5 +1,13 @@
 # cudoc
 
+[![CI](https://img.shields.io/github/actions/workflow/status/cudoment/cudoc/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white)](https://github.com/cudoment/cudoc/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@cudoment/cudoc?logo=npm)](https://www.npmjs.com/package/@cudoment/cudoc)
+[![npm downloads](https://img.shields.io/npm/dm/@cudoment/cudoc)](https://www.npmjs.com/package/@cudoment/cudoc)
+[![Node.js](https://img.shields.io/node/v/@cudoment/cudoc?logo=nodedotjs&logoColor=white)](./docs/README.md#supported-versions)
+[![License](https://img.shields.io/npm/l/@cudoment/cudoc)](./LICENSE)
+[![Hosts](https://img.shields.io/badge/hosts-Next.js%20%C2%B7%20Docusaurus%20%C2%B7%20Nextra%20%C2%B7%20VitePress%20%C2%B7%20Eleventy-blue)](#pick-your-site-generator)
+[![Export](https://img.shields.io/badge/export-HTML%20%C2%B7%20PDF%20%C2%B7%20Word-blue)](./docs/export.md)
+
 **English** | [한국어](./README.ko.md)
 
 **Write a fact once. Reuse it everywhere. Keep one source of truth across every document, every site and every index.**

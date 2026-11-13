@@ -258,11 +258,14 @@ export function wordStyles(
       },
     },
     {
-      // A line the fence marked: the same box, washed in the accent.
+      // A line the fence marked: the same box, washed in the accent and set
+      // in bold. The wash alone is a grey on grey, and a bar like the site's
+      // would be a border of its own, which splits the box.
       id: "CudocCodeHighlighted",
       name: "cudoc Code Highlighted",
       basedOn: "CudocCodeBlock",
       next: "CudocCodeBlock",
+      run: { bold: true },
       paragraph: {
         shading: { type: ShadingType.CLEAR, fill: hex(light.accentSoft) },
       },
@@ -498,7 +501,7 @@ export function wordStyles(
   const characterStyles: ICharacterStyleOptions[] = [
     {
       // A contents entry is a link, but a contents page is not a page of
-      // underlined blue text.
+      // underlined link text.
       id: "IndexLink",
       name: "cudoc Contents Link",
       basedOn: "DefaultParagraphFont",
@@ -540,9 +543,12 @@ export function wordStyles(
         ["Number", light.codeNumber, false],
       ] as const
     ).map(([name, color, italics]) => ({
+      // Colour alone: these runs sit in a code block, whose paragraph style
+      // sets the face, size and wash. Based on `CudocCode`, they would carry
+      // its run wash too, a patch of the plain wash on a highlighted line.
       id: `CudocCode${name}`,
       name: `cudoc Code ${name}`,
-      basedOn: "CudocCode",
+      basedOn: "DefaultParagraphFont",
       run: { color: hex(color), ...(italics ? { italics: true } : {}) },
     })),
   ]

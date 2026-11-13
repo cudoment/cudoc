@@ -158,6 +158,24 @@ export type SiteOptions = DocumentOptions & {
    */
   css?: string | string[]
   /**
+   * Local JavaScript files of your own, loaded after cudoc's own scripts. A
+   * site copies each under `cudoc-js/` and loads it with `<script defer src>`
+   * at the end of `<body>`; a single page carries its text there. Classic
+   * scripts only: a module script does not load from `file://`. A page with
+   * one gets the same Content-Security-Policy meta as `themeSwitch`, and its
+   * `<main>` names the document in `data-cudoc-document`. Without it the
+   * default output stays script-free.
+   */
+  scripts?: string | string[]
+  /**
+   * Where a page's scripts may send requests: Content-Security-Policy
+   * sources such as `'self'` or `https://api.example.com`, written into the
+   * policy in place of `connect-src 'none'`. Needs `scripts` or
+   * `themeSwitch`, which write the policy; a review page (`mode:
+   * "annotate"`) sends nothing and refuses it.
+   */
+  connect?: string[]
+  /**
    * Links to files that are neither documents nor in the output: a link
    * whose target exists under `root`, in the library's coordinates, becomes
    * `url` followed by that path, under `relative` and `host` alike.

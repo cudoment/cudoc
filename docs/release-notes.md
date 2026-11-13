@@ -1,8 +1,26 @@
 # Release notes
 
-**English** | [한국어](./release-notes.ko.md) · [All guides](./README.md)
+**English** | [한국어](./release-notes.ko.md) | [All guides](./README.md)
 
 This page lists each version's changes, newest first. All eight packages share one version; [Supported versions](./README.md#supported-versions) says what each kind of release may change.
+
+## 1.1.0
+
+The export turns grey, the HTML export takes scripts of your own and lays a site out for a phone, and a tree embed is easier to tap on a host site.
+
+- `scripts` names local JavaScript files an exported page loads after cudoc's own: a site copies them under `cudoc-js/` and loads each with `<script defer>` at the end of `<body>`, and a single page carries their text. Such a page gets the same Content-Security-Policy as `themeSwitch` and names its document in `data-cudoc-document`; the default output stays script-free. `connect` names where those scripts may send requests, which they otherwise cannot. → [Scripts of your own](./export.md#look), [Consumer scripts](./api-reference/adapters.md#consumer-scripts)
+- A standalone or single review page carries consumer scripts in UTF-8 Base64 `data:` URLs, deferred in their given order. Raw templates, regular expressions and HTML delimiters keep their JavaScript meaning. → [Consumer scripts](./api-reference/adapters.md#consumer-scripts)
+- On a screen 768px wide or narrower an exported site opens the sidebar as a panel over the page from a round button at the bottom left, or from the menu bars before the header's title. The two buttons, a backdrop and the panel's close line are labels for one checkbox, so the panel opens and closes without a script. On a touch screen a folding line and a group's summary are at least 2.75rem tall, and a checkbox in a list takes 2.75rem of its line. → [Look](./export.md#look)
+- A site page with a sidebar starts its header with those menu bars, hidden beside a wide page, so a `css` rule on `header > :first-child` reaches them rather than the title; select the title as `header > :is(a, span):first-of-type`.
+- The built-in palette is achromatic: greys on white, and in dark greys on pure black, with a black or white accent where it was blue. Only the warning, danger and code colours other than comments keep a hue, in the site, the PDF and Word alike. → [Look](./export.md#look)
+- Prose links are underlined, since colour no longer sets them apart; navigation lists and the printed contents stay without. A site that wants a colour back redefines `--accent` and `--accent-soft`, or passes `tokens` for every format.
+- A marked code line also shows a bar in the accent at its left edge in the site and the PDF, and bold text in Word. In Word the shading behind a coloured code token on such a line is now the line's own, where 1.0.0 left a patch of the plain code grey. → [Word template](./api-reference/adapters.md#word-template)
+- The theme menu's summary shows the sun or moon alone; the theme's word stays its accessible name. → [Theme switch](./api-reference/adapters.md#theme-switch)
+- `locales` takes a `menu` word in `ui`, the name of that button: `Menu` in English and `메뉴` in Korean. The panel's own title is still the `documents` word. → [Site structure](./api-reference/adapters.md#site-structure)
+- While the panel is open a wheel or a swipe scrolls the panel, not the page behind it, in a browser with `:has()`. The panel replaces the sidebar that 1.0.0 drew above the text, a scroll box that could not scroll, so a swipe that started on it moved nothing. A word too long for the panel wraps rather than scrolling it sideways.
+- `@cudoment/cudoc/styles.css` gives a tree embed's folding lines the same touch height on a touch screen, and wraps a long line instead of letting it overflow.
+- An authored `data-*` attribute inside a list item reaches the exported page as written, and a test now holds the export to it, so a consumer's hooks cannot be dropped in silence.
+- Beside the text, a wheel or a swipe that starts on an exported site's sidebar or contents column scrolls the page when that column is short or already scrolled to its end. Both columns kept such a gesture from passing on, so it moved nothing.
 
 ## 1.0.0
 

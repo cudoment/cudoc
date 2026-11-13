@@ -87,7 +87,7 @@ const LIGHT_GROUPS: Group[] = [
     ],
   },
   {
-    comment: "Accent and status. Each pairs with its own tinted surface.",
+    comment: "Accent and status, each with its own surface.",
     lines: (t) => [
       color(t, "light", "accent", "accent"),
       color(t, "light", "accentSoft", "accent-soft"),
@@ -246,9 +246,16 @@ body {
 }
 header,
 .sidebar,
+.cudoc-nav-toggle:checked ~ .layout > .sidebar,
+.cudoc-nav-toggle,
+.cudoc-nav-button,
+.cudoc-nav-toggle:checked ~ .cudoc-nav-backdrop,
 .toc,
 .skip {
   display: none;
+}
+html:has(.cudoc-nav-toggle:checked) {
+  overflow: visible;
 }
 .layout {
   display: block;

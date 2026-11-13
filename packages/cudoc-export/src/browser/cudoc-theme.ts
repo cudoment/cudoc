@@ -1,7 +1,8 @@
 /**
  * The theme switch: a menu in the site header that chooses light or dark,
  * remembered per browser. Until the reader chooses, the page follows the
- * system setting and the menu shows which of the two that is. The
+ * system setting and the menu shows which of the two that is, by its icon
+ * alone; the word is the summary's accessible name. The
  * stylesheet does the work through `data-theme` on `<html>`; this script only
  * sets that attribute, and it runs from `<head>` so a remembered choice is in
  * place before the first paint rather than flashing the other theme.
@@ -121,9 +122,6 @@ function mount(): void {
   const menu = document.createElement("details")
   menu.className = "menu theme-switch"
   const summary = document.createElement("summary")
-  const label = document.createElement("span")
-  label.className = "menu-label"
-  summary.append(label)
   const list = document.createElement("ul")
   list.className = "menu-list"
   const buttons = CHOICES.map((mode) => {
@@ -145,10 +143,8 @@ function mount(): void {
   })
   const render = () => {
     const mode = current()
-    // Only the icon and the words change, so focus stays where it is.
-    summary.querySelector("svg")?.remove()
-    summary.prepend(icon(mode))
-    label.textContent = STRINGS[mode]
+    // Only the icon and the name change, so focus stays where it is.
+    summary.replaceChildren(icon(mode))
     summary.setAttribute("aria-label", `${STRINGS.theme}: ${STRINGS[mode]}`)
     for (const button of buttons)
       button.setAttribute("aria-pressed", String(button.value === mode))

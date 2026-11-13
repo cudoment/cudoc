@@ -71,6 +71,20 @@ const project = (files: Record<string, string>) => {
   return { root, sourceRoot, library, outDir: path.join(root, "site") }
 }
 
+it("keeps an authored data attribute inside a list item", () => {
+  // A consumer's script reads attributes it wrote into the Markdown, so a
+  // sanitizer that dropped `data-*` would take its hooks away in silence.
+  const p = project({
+    "index.md": '# Home\n\n- <span data-x="1">item</span>\n- plain\n',
+  })
+  buildSite({ sourceRoot: p.sourceRoot, outDir: p.outDir })
+  const html = parse(fs.readFileSync(path.join(p.outDir, "index.html"), "utf8"))
+  const span = html.querySelector("main li span")!
+  expect(span.getAttribute("data-x")).toBe("1")
+  expect(span.text).toBe("item")
+  expect(html.querySelectorAll("main li")).toHaveLength(2)
+})
+
 it("links to deployed host routes, preserves queries/fragments and copies public images", () => {
   const p = project({
     "index.md":

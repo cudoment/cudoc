@@ -25,10 +25,9 @@ export const escapeHtml = (value: string): string =>
 /**
  * The built-in stylesheet for an exported site.
  *
- * Palette: the Knowledge Base/Documentation ramp for light and the Developer
- * Tool/IDE ramp for dark, with three values darkened so that every foreground
- * and surface pair clears WCAG AA (4.5:1 for text, 3:1 for the focus ring).
- * Every colour is a custom property that both themes define, so a site
+ * Palette: the achromatic ramp in `tokens.ts`, whose accent is black in light
+ * and white in dark, so prose links are underlined rather than told apart by
+ * colour alone. Every colour is a custom property that both themes define, so a site
  * restyles the export by redefining properties rather than rewriting rules.
  */
 export const buildStyles = (tokens: DesignTokens = designTokens): string => `
@@ -66,6 +65,19 @@ a {
 a:hover {
   text-decoration: underline;
   text-decoration-thickness: 0.08em;
+}
+/* Every link in the text, whatever element holds it, at the specificity of
+   two elements, so a component's own rule, such as the printed contents
+   list's, still wins; a navigation list inside main, such as a
+   landing page's, keeps the sidebar's look, and a host's heading permalink
+   keeps its own. */
+main a:where(:not(nav a, .header-anchor)) {
+  text-decoration: underline;
+  text-decoration-thickness: 0.06em;
+  text-decoration-color: var(--faint);
+}
+main a:where(:not(nav a, .header-anchor)):hover {
+  text-decoration-color: currentColor;
 }
 :focus-visible {
   outline: 2px solid var(--accent);
@@ -108,11 +120,22 @@ header a {
 }
 header a:hover {
   color: var(--accent);
-  text-decoration: none;
+  text-decoration: underline;
+  text-decoration-thickness: 0.08em;
 }
 header > a,
 header > span {
   flex: none;
+}
+/*
+ * The buttons that open the sidebar as a panel, the backdrop and the line
+ * that close it: drawn on a narrow screen only.
+ */
+.cudoc-nav-header,
+.cudoc-nav-button,
+.cudoc-nav-backdrop,
+.cudoc-nav-close {
+  display: none;
 }
 /* Header links, the language menu and the theme menu, at the right. */
 .header-end {
@@ -296,13 +319,18 @@ header:has(.menu[open]) {
   margin: 0 auto;
   padding: var(--space-8) var(--space-6) 40vh;
 }
+/*
+ * The navigation and the contents stay beside the text and scroll inside
+ * themselves. Neither contains its overscroll: a wheel or a swipe that starts
+ * on one with nothing left to scroll, a short one or one at its end, goes on
+ * to the page instead of moving nothing.
+ */
 .sidebar,
 .toc {
   position: sticky;
   top: calc(var(--head-h) + var(--space-4));
   max-height: calc(100vh - var(--head-h) - var(--space-8));
   overflow-y: auto;
-  overscroll-behavior: contain;
   font-size: var(--text-sm);
 }
 nav ul {
@@ -558,6 +586,8 @@ pre .line.highlighted {
   margin: 0 calc(-1 * var(--space-4));
   padding: 0 var(--space-4);
   background: var(--accent-soft);
+  /* A bar as well as the wash, which is a grey on grey. */
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 .cudoc-code {
   margin: 0 0 var(--space-4);
@@ -823,20 +853,172 @@ footer {
   .landing {
     padding: var(--space-6) var(--space-4) 20vh;
   }
+  /*
+   * The sidebar opens as a panel over the page from a floating button. The
+   * button, the backdrop and the panel's close line are labels for one
+   * checkbox, so the panel opens and closes without a script. The checkbox
+   * is written hidden; here it is shown to the keyboard alone, under the
+   * button, so a reader can tab to it and press Space while the labels are
+   * what is seen, and focusing it scrolls nothing.
+   */
+  .cudoc-nav-toggle {
+    display: block;
+    position: fixed;
+    left: calc(var(--space-4) + env(safe-area-inset-left, 0px));
+    bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+  /*
+   * A round button with the bars alone, at the bottom left: on the side the
+   * panel opens from, and clear of the review runtime's notes button at the
+   * bottom right. Below that runtime's controls and an open menu's layer.
+   * Its word stays in the page for a reader who cannot see the bars.
+   */
+  .cudoc-nav-button {
+    position: fixed;
+    left: calc(var(--space-4) + env(safe-area-inset-left, 0px));
+    bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+    z-index: 5;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    padding: 0;
+    /* Drawn in forced colours, where the fill is dropped. */
+    border: 1px solid transparent;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--paper);
+    box-shadow: 0 4px 14px rgb(0 0 0 / 0.2);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  /*
+   * The same bars before the header's title, for a reader at the top of the
+   * page: a finger's square, its bars lined up with the text below.
+   */
+  .cudoc-nav-header {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    margin: 0 var(--space-1) 0 calc(-1 * var(--space-3));
+    border-radius: var(--radius);
+    color: var(--muted);
+    cursor: pointer;
+    transition:
+      background var(--ease),
+      color var(--ease);
+  }
+  .cudoc-nav-header:hover {
+    background: var(--wash);
+    color: var(--accent);
+  }
+  .cudoc-nav-header svg,
+  .cudoc-nav-button svg,
+  .cudoc-nav-close svg {
+    flex: none;
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+  .cudoc-nav-button span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .cudoc-nav-toggle:focus-visible ~ .cudoc-nav-button {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+  .cudoc-nav-toggle:checked ~ .cudoc-nav-button {
+    display: none;
+  }
+  /*
+   * Open, the panel lies over everything, the review runtime and an open
+   * menu included, and scrolls inside itself; its overscroll stays in it.
+   * Where :has() is supported, a wheel or a swipe does not scroll the page
+   * behind, which keeps its scrollbar's room so it does not reflow. Nothing
+   * in the panel scrolls sideways: a long word wraps.
+   */
   .sidebar {
-    position: static;
+    display: none;
+  }
+  .cudoc-nav-toggle:checked ~ .layout > .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 46;
+    display: block;
+    width: min(86vw, 22rem);
     max-height: none;
-    margin-bottom: var(--space-6);
-    padding-bottom: var(--space-4);
-    border-bottom: 1px solid var(--line);
+    padding: 0 var(--space-4) calc(var(--space-6) + env(safe-area-inset-bottom, 0px))
+      calc(var(--space-4) + env(safe-area-inset-left, 0px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    overflow-wrap: anywhere;
+    background: var(--paper);
+    border-right: 1px solid var(--line);
+    box-shadow: 4px 0 24px rgb(0 0 0 / 0.2);
+    animation: var(--ease) cudoc-nav-in;
   }
-  .sidebar > ul {
+  .cudoc-nav-toggle:checked ~ .cudoc-nav-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 45;
+    display: block;
+    background: rgb(0 0 0 / 0.4);
+    cursor: pointer;
+    animation: var(--ease) cudoc-nav-fade;
+  }
+  html:has(.cudoc-nav-toggle:checked) {
+    overflow: hidden;
+    scrollbar-gutter: stable;
+  }
+  /* The close line stays at the top of the panel as its list scrolls. */
+  .cudoc-nav-toggle:checked ~ .layout > .sidebar .cudoc-nav-close {
+    position: sticky;
+    top: 0;
+    z-index: 1;
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-1);
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--space-2);
+    min-height: 3rem;
+    margin: 0 calc(-1 * var(--space-4)) var(--space-2);
+    padding: env(safe-area-inset-top, 0px) var(--space-4) 0;
+    background: var(--paper);
+    border-bottom: 1px solid var(--line-soft);
+    color: var(--muted);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    cursor: pointer;
   }
-  .sidebar .nav-group {
-    flex-basis: 100%;
+  .cudoc-nav-toggle:checked:focus-visible ~ .layout > .sidebar .cudoc-nav-close {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+  /* A short slide and fade, which --ease shortens to 1ms for reduced motion. */
+  @keyframes cudoc-nav-in {
+    from {
+      transform: translateX(-100%);
+    }
+  }
+  @keyframes cudoc-nav-fade {
+    from {
+      opacity: 0;
+    }
   }
   .header-links {
     display: none;
@@ -858,6 +1040,25 @@ footer {
   }
   h3 {
     font-size: var(--text-lg);
+  }
+}
+
+/* ---------- touch ---------- */
+@media (pointer: coarse) {
+  /* A finger's target: the line that folds a group, a details or a tree
+     branch is at least 2.75rem tall, and a checkbox in a list, wrapped in a
+     paragraph or not, takes 2.75rem of its line. */
+  details summary {
+    min-height: 2.75rem;
+    padding-top: var(--space-2);
+    padding-bottom: var(--space-2);
+  }
+  li > input[type="checkbox"],
+  li > p > input[type="checkbox"] {
+    width: 1.5rem;
+    height: 1.5rem;
+    margin: 0.625rem var(--space-2) 0.625rem 0;
+    vertical-align: middle;
   }
 }
 ${sitePrintBlock(tokens)}

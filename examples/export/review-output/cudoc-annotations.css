@@ -88,7 +88,7 @@
 }
 .cudoc-ann-primary:hover {
   color: var(--paper);
-  filter: brightness(1.08);
+  opacity: 0.85;
 }
 .cudoc-ann-ghost {
   border-color: transparent;
@@ -310,7 +310,7 @@ html.cudoc-ann-push body {
   cursor: pointer;
 }
 .cudoc-ann-item:hover {
-  border-color: var(--accent-soft);
+  border-color: var(--muted);
 }
 .cudoc-ann-item.cudoc-ann-active {
   border-color: var(--accent);

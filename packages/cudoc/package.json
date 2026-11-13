@@ -1,6 +1,6 @@
 {
   "name": "@cudoment/cudoc",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Document ASTs for documentation sites: Markdown compilation and syntax normalization, cross-document embedding, reference checking, datasets and the cudoc CLI.",
   "keywords": [
     "cudoc",

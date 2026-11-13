@@ -114,6 +114,10 @@ export const scriptText = (code: string, name: string): string => {
 export const stylesheetAsset = (file: string, index: number) =>
   `cudoc-css/${index + 1}-${path.basename(file)}`
 
+/** A script's file name in a site's output: its place in `scripts`, as a stylesheet's in `css`. */
+export const scriptAsset = (file: string, index: number) =>
+  `cudoc-js/${index + 1}-${path.basename(file)}`
+
 /** A file a stylesheet loads, named by its content, so one copy serves every stylesheet. */
 export const stylesheetFileAsset = (source: string) => {
   const digest = createHash("sha256")

@@ -1,8 +1,9 @@
 /**
- * What the site builder adds to a page for its two opt-in scripts: for
+ * What the site builder adds to a page for its opt-in scripts: for
  * `annotations`, the block ids notes anchor to, the runtime's two files and
- * the tags that load them; for `themeSwitch`, the theme script. Everything
- * here runs in Node at build time; the scripts themselves are under
+ * the tags that load them; for `themeSwitch`, the theme script; for
+ * `scripts`, the tags that load a caller's own files after cudoc's. Everything
+ * here runs in Node at build time; cudoc's scripts themselves are under
  * `src/browser/`, bundled by esbuild into `dist/browser/`.
  */
 
@@ -188,6 +189,26 @@ function ensurePolicy(head: Element): void {
 }
 
 /**
+ * Lets a page's scripts send requests to `sources`: the policy that
+ * `ensurePolicy` wrote names them in place of `connect-src 'none'`.
+ */
+export function setConnectSources(page: HastRoot, sources: string[]): void {
+  const head = findElement(page, "head")
+  const meta = head?.children.find(
+    (child): child is Element =>
+      child.type === "element" &&
+      child.tagName === "meta" &&
+      Array.isArray(child.properties.httpEquiv) &&
+      child.properties.httpEquiv.includes("Content-Security-Policy"),
+  )
+  if (!meta) throw new Error("cudoc-export: page has no policy for connect")
+  meta.properties.content = String(meta.properties.content).replace(
+    "connect-src 'none'",
+    `connect-src ${sources.join(" ")}`,
+  )
+}
+
+/**
  * Loads the theme script from the end of `<head>`, without `defer`: it must
  * set `data-theme` before the body paints, and it is a few hundred bytes.
  */
@@ -261,4 +282,39 @@ export function injectAnnotationAssets(
     properties: { defer: true, src: hrefs.script },
     children: [],
   })
+}
+
+/**
+ * Loads a caller's own scripts from the end of `<body>`, after cudoc's, in
+ * the order given. Classic deferred scripts, as the annotation runtime is: a
+ * module script is refused over `file://`.
+ */
+export function injectConsumerScripts(page: HastRoot, hrefs: string[]): void {
+  const head = findElement(page, "head")
+  const body = findElement(page, "body")
+  if (!head || !body)
+    throw new Error("cudoc-export: page has no head or body for the scripts")
+  ensurePolicy(head)
+  for (const href of hrefs)
+    body.children.push({
+      type: "element",
+      tagName: "script",
+      properties: { defer: true, src: href },
+      children: [],
+    })
+}
+
+/**
+ * Self-contained classic scripts, deferred in the same order as a site's.
+ * Encoding the source keeps HTML delimiters out of the parser without
+ * rewriting JavaScript strings, raw templates or regular expressions.
+ */
+export function inlineConsumerScripts(page: HastRoot, texts: string[]): void {
+  injectConsumerScripts(
+    page,
+    texts.map(
+      (text) =>
+        `data:text/javascript;charset=utf-8;base64,${Buffer.from(text).toString("base64")}`,
+    ),
+  )
 }

@@ -23,7 +23,7 @@ const result = buildSite({
 
 The CLI equivalent is `npx cudoc-export build docs --out-dir site`. Open `site/index.html` and share the whole directory. The builder handles collection, embeds, local assets, navigation, TOC and code highlighting. Use a nonexistent output path initially; existing output must be owned by cudoc.
 
-The generated shell needs no JavaScript or CDN and does not execute React components. `themeSwitch: true` adds the theme menu's script, a local file that makes no network request.
+The generated shell needs no JavaScript or CDN and does not execute React components. `themeSwitch: true` adds the theme menu's script, a local file that makes no network request, and `scripts` adds files of your own after cudoc's, under the same policy.
 
 `navigation` (a YAML file or a list) decides what the site lists and publishes, `locales` adds languages found by file suffix, and `home`, `header`, `toc`, `css`, `sourceLinks` and `mounts` shape the rest.
 

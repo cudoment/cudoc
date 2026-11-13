@@ -82,9 +82,12 @@ import {
   assignBlockIds,
   documentMetadata,
   injectAnnotationAssets,
+  injectConsumerScripts,
   injectThemeScript,
   inlineAnnotationAssets,
+  inlineConsumerScripts,
   inlineThemeScript,
+  setConnectSources,
   siteId,
   themeRuntimeFile,
 } from "./annotations/site.js"
@@ -107,6 +110,7 @@ import { planOutput, type HtmlMode, type OmittedDocument } from "./plan.js"
 import { createResources, dataUrl, fileIdentity, within } from "./resources.js"
 import {
   rewriteStylesheet,
+  scriptAsset,
   scriptText,
   styleText,
   stylesheetAsset,
@@ -193,6 +197,14 @@ export type InternalOptions = SiteOptions & {
 const COVER_IMAGE_TYPES = ["png", "jpg", "gif", "bmp"]
 
 /**
+ * A `connect` entry: `'self'`, a secure scheme, a secure origin with an
+ * optional path, or a loopback address for local work. No quote, space,
+ * comma or semicolon, so an entry cannot add a directive of its own.
+ */
+const CONNECT_SOURCE =
+  /^(?:'self'|(?:https|wss):|(?:https|wss):\/\/(?:\*\.)?[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*(?::\d{1,5})?(?:\/[A-Za-z0-9._~!$&()*+=:@%/-]*)?|http:\/\/(?:localhost|127\.0\.0\.1)(?::\d{1,5})?)$/
+
+/**
  * Every key the builder reads, so a mistyped or retired one is an error
  * rather than an option that silently does nothing. The collection keys are
  * checked against `buildDocuments`' own type, so a new collection option
@@ -241,6 +253,8 @@ const SITE_KEYS = {
   locales: true,
   toc: true,
   css: true,
+  scripts: true,
+  connect: true,
   sourceLinks: true,
   mounts: true,
   tokens: true,
@@ -322,6 +336,8 @@ export function stageSite(
     locales: localeOptions,
     toc: tocOption = {},
     css,
+    scripts,
+    connect,
     sourceLinks,
     mounts = [],
     tokens,
@@ -458,6 +474,40 @@ export function stageSite(
   for (const file of cssFiles)
     if (typeof file !== "string" || !file || !fs.existsSync(file))
       throw new Error(`cudoc-export: css file not found: ${String(file)}`)
+  // A caller's scripts are read and checked here, before anything is
+  // written: a site copies the file as it is, a single page carries the text.
+  const scriptFiles =
+    scripts === undefined ? [] : Array.isArray(scripts) ? scripts : [scripts]
+  const consumerScripts = scriptFiles.map((file) => {
+    if (typeof file !== "string" || !file || !fs.existsSync(file))
+      throw new Error(`cudoc-export: script file not found: ${String(file)}`)
+    if (!fs.statSync(file).isFile() || !/\.js$/i.test(file))
+      throw new Error(
+        `cudoc-export: scripts names ${file}, which is not a .js file; a module script does not load from file://, so each entry is a classic script`,
+      )
+    return { file, text: fs.readFileSync(file, "utf8") }
+  })
+  // Where those scripts may send requests; nothing unless the caller names it.
+  if (
+    connect !== undefined &&
+    (!Array.isArray(connect) ||
+      !connect.length ||
+      connect.some(
+        (source) => typeof source !== "string" || !CONNECT_SOURCE.test(source),
+      ))
+  )
+    throw new Error(
+      `cudoc-export: connect is a list of Content-Security-Policy sources such as "'self'" or "https://api.example.com", got ${JSON.stringify(connect)}`,
+    )
+  if (connect !== undefined && !consumerScripts.length && !themeSwitch)
+    throw new Error(
+      "cudoc-export: connect widens the policy that scripts or themeSwitch write, and a page without either has none",
+    )
+  if (connect !== undefined && mode === "annotate")
+    throw new Error(
+      'cudoc-export: connect does not apply to mode: "annotate", whose review pages send nothing',
+    )
+  const connectSources = connect ?? []
   let sourceBase: { root: string; url: string } | undefined
   if (sourceLinks !== undefined) {
     if (
@@ -560,6 +610,11 @@ export function stageSite(
         "cudoc-export: site output overlaps source, library, asset or mounted directory",
       )
   }
+  for (const { file } of consumerScripts)
+    if (contained(output, realPath(file)))
+      throw new Error(
+        `cudoc-export: scripts names ${file}, which is inside the output directory the build replaces`,
+      )
   // A mount is copied whole: over a root it would publish documents the
   // navigation leaves out, and its copies would collide with the assets the
   // pages carry. Two mounts may not share files or folders either.
@@ -732,6 +787,7 @@ export function stageSite(
     reserved: reservedOutputs,
     reservedPrefixes: [
       "cudoc-css/",
+      "cudoc-js/",
       ...mountList.map((mount) => `${mount.to.toLowerCase()}/`),
     ],
   })
@@ -1187,6 +1243,15 @@ export function stageSite(
         }
         if (theme) write(THEME_SCRIPT, fs.readFileSync(theme))
       }
+      // A caller's scripts, copied as they are under their place in the
+      // option, as the stylesheets are under `cudoc-css/`.
+      const consumerAssets = singlePages
+        ? []
+        : consumerScripts.map(({ file }, index) => {
+            const asset = scriptAsset(file, index)
+            write(asset, fs.readFileSync(file))
+            return asset
+          })
 
       // Only a site has `siteUrl`: a single page has no address of its own.
       // Encoded as every other link the export writes: `c#.html` is a page,
@@ -1265,6 +1330,19 @@ export function stageSite(
         if (themeText)
           if (singlePages) inlineThemeScript(tree, themeText)
           else injectThemeScript(tree, relativeTo(file, THEME_SCRIPT))
+        // Last, so a caller's script runs after cudoc's own.
+        if (consumerScripts.length)
+          if (singlePages)
+            inlineConsumerScripts(
+              tree,
+              consumerScripts.map((script) => script.text),
+            )
+          else
+            injectConsumerScripts(
+              tree,
+              consumerAssets.map((asset) => relativeTo(file, asset)),
+            )
+        if (connectSources.length) setConnectSources(tree, connectSources)
         const text = toHtml(tree)
         if (singlePages && Buffer.byteLength(text) > maxPageBytes)
           throw new Error(
@@ -1454,9 +1532,13 @@ export function stageSite(
         // shared `hast` feeds the print outputs, which stay as they were.
         if (annotations) assignBlockIds(body)
         const metadata = documentMetadata(doc)
+        // A caller's script finds the document by its id; the version pins
+        // and the storage key are the review runtime's alone.
         const mainAttributes = annotations
           ? ` data-cudoc-document="${escapeHtml(doc.id)}" data-cudoc-ast-hash="${metadata.astHash}" data-cudoc-source-hash="${metadata.sourceHash}" data-cudoc-site="${escapeHtml(site)}" data-cudoc-generator="${escapeHtml(generator)}"${inboxAttribute}`
-          : ""
+          : consumerScripts.length
+            ? ` data-cudoc-document="${escapeHtml(doc.id)}"`
+            : ""
         const pageHtml = renderShell({
           lang,
           title: `${titles.get(doc.id)!} · ${title}`,

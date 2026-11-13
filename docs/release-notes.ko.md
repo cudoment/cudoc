@@ -1,8 +1,26 @@
 # 릴리스 노트
 
-[English](./release-notes.md) | **한국어** · [전체 가이드](./README.ko.md)
+[English](./release-notes.md) | **한국어** | [전체 가이드](./README.ko.md)
 
 이 페이지는 버전마다 바뀐 내용을 최신 버전부터 정리합니다. 여덟 패키지는 모두 같은 버전 번호를 공유하며, 수 버전, 부 버전, 주 버전이 각각 무엇을 바꿀 수 있는지는 [지원 버전](./README.ko.md#지원-버전)에 있습니다.
+
+## 1.1.0
+
+내보내기의 기본 색이 무채색이 되고, HTML 내보내기가 사용자의 스크립트를 싣고 사이트를 휴대전화에 맞게 배치하며, 호스트 사이트의 트리 임베드는 손가락으로 누르기 쉬워집니다.
+
+- `scripts`는 내보낸 페이지가 cudoc의 스크립트 다음에 읽을 로컬 JavaScript 파일을 지정하고, `connect`는 그 스크립트가 요청을 보낼 수 있는 곳을 지정합니다. 사이트는 파일을 `cudoc-js/` 아래에 복사해 `<body>` 끝에서 `<script defer>`로 읽고, 단일 페이지는 그 텍스트를 품습니다. 이런 페이지는 `themeSwitch`와 같은 Content-Security-Policy를 받고 `data-cudoc-document`에 문서 id를 적으며, 기본 출력에는 여전히 스크립트가 없습니다. → [직접 쓴 스크립트](./export.ko.md#모양), [사용자 스크립트](./api-reference/adapters.ko.md#사용자-스크립트)
+- 독립 페이지와 단일 리뷰 페이지는 사용자 스크립트를 UTF-8 Base64 `data:` URL에 담아 지정한 순서로 지연 실행합니다. 원시 템플릿, 정규식, HTML 구분 기호가 JavaScript의 의미를 그대로 유지합니다. → [사용자 스크립트](./api-reference/adapters.ko.md#사용자-스크립트)
+- 폭이 768px 이하인 화면에서는 내보낸 사이트가 왼쪽 아래의 둥근 버튼이나 머리글 제목 앞의 메뉴 막대로 사이드바를 페이지 위의 패널로 엽니다. 두 버튼과 배경, 패널의 닫기 줄은 체크박스 하나의 레이블이라 스크립트 없이 패널을 열고 닫습니다. 터치 화면에서는 접는 줄과 그룹의 요약 줄이 2.75rem 이상의 높이를 갖고, 목록의 체크박스는 한 줄에서 2.75rem을 차지합니다. → [모양](./export.ko.md#모양)
+- 사이드바가 있는 사이트 페이지는 머리글을 그 메뉴 막대로 시작하고 넓은 화면에서는 막대를 숨깁니다. 그래서 `header > :first-child`를 대상으로 한 `css` 규칙은 제목이 아니라 막대에 적용됩니다. 제목은 `header > :is(a, span):first-of-type`로 선택해야 합니다.
+- 기본 팔레트를 무채색으로 바꿨습니다. 라이트는 흰 바탕의 회색, 다크는 완전한 검은 바탕의 회색이며, 파란색이던 강조색은 검은색 또는 흰색입니다. 사이트, PDF, Word 모두에서 경고와 위험 색, 주석을 뺀 코드 색만 색조를 유지합니다. → [모양](./export.ko.md#모양)
+- 색으로는 더 이상 링크를 구분할 수 없으므로 본문 링크에 밑줄을 긋고, 내비게이션 목록과 인쇄 목차에는 긋지 않습니다. 색을 되살리려면 `--accent`와 `--accent-soft`를 재정의하거나, 모든 형식에 적용되도록 `tokens`를 지정합니다.
+- 강조한 코드 줄은 사이트와 PDF에서 왼쪽 가장자리에 강조색 막대를, Word에서 굵은 글자를 함께 표시합니다. Word에서 이런 줄의 색이 있는 코드 토큰 뒤에는 이제 줄 자신의 음영이 깔리며, 1.0.0에서는 일반 코드의 회색 조각이 남았습니다. → [Word 양식](./api-reference/adapters.ko.md#word-양식)
+- 테마 메뉴의 요약 줄은 해나 달 아이콘만 보여 줍니다. 테마 문구는 접근성 이름으로 남습니다. → [테마 전환](./api-reference/adapters.ko.md#테마-전환)
+- `locales`의 `ui`에 그 버튼의 이름인 `menu` 문구를 더했습니다. 영어는 `Menu`, 한국어는 `메뉴`입니다. 패널의 제목은 그대로 `documents` 문구입니다. → [사이트 구성](./api-reference/adapters.ko.md#사이트-구성)
+- 패널이 열린 동안 휠과 스와이프는 `:has()`를 지원하는 브라우저에서 뒤의 페이지가 아니라 패널을 스크롤합니다. 이 패널은 1.0.0이 본문 위에 그리던 사이드바를 대신하며, 그 사이드바는 스크롤할 수 없는 스크롤 상자여서 그 위에서 시작한 스와이프가 아무것도 움직이지 못했습니다. 패널은 폭보다 긴 단어를 옆으로 스크롤하지 않고 줄바꿈합니다.
+- `@cudoment/cudoc/styles.css`는 트리 임베드의 접는 줄에 터치 화면에서 같은 높이를 주고, 긴 줄은 넘치지 않게 줄바꿈합니다.
+- 목록 항목 안에 쓴 `data-*` 속성은 내보낸 페이지에 쓴 그대로 남으며, 이제 테스트가 이를 보장하므로 소비자의 훅이 조용히 사라지지 않습니다.
+- 내보낸 사이트의 본문 옆에 놓인 사이드바나 목차 열에서 시작한 휠과 스와이프는 그 열이 짧거나 이미 끝까지 스크롤되었으면 페이지를 스크롤합니다. 지금까지는 두 열이 그런 동작을 페이지로 넘기지 않아 아무것도 움직이지 않았습니다.
 
 ## 1.0.0
 
@@ -39,9 +57,9 @@
 - cudoc의 클래스를 다시 꾸미는 사이트 스타일시트는 `@cudoment/cudoc/styles.css`와 내보내기가 꾸미는 `cudoc-code`, `cudoc-code-title`, `cudoc-table-note`, `cudoc-tab*` 클래스도 함께 다루는 것이 좋습니다. Word 파일에는 문단 스타일 `CudocCodeTitle`, `CudocCodeHighlighted`, `CudocTabLabel`, `CudocTableNote`가 새로 생겼으므로, 스타일을 바꾼 템플릿도 이 스타일을 함께 다루는 것이 좋습니다.
 - cudoc 다음에 오는 remark 플러그인을 위해 frontmatter를 트리에 그대로 남깁니다. 지금까지는 Nextra 페이지에서 frontmatter가 사라져 Nextra가 첫 제목으로 페이지 제목을 정하고 `sidebarTitle` 같은 설정을 무시했고, cudoc 뒤에 둔 remark-mdx-frontmatter도 frontmatter를 찾지 못했습니다.
 - 지금까지는 Docusaurus와 Nextra 라이브러리에 frontmatter가 저장되지 않아, 내보내기의 제목과 설명이 frontmatter가 없는 페이지처럼 읽었습니다. cudoc 버전이 라이브러리 설정에 들어가므로, 이전에 수집한 모든 라이브러리는 처음부터 다시 수집합니다.
-- 이제 사용자 `transforms`는 페이지의 `yaml` 노드도 만나고, 내보낸 AST(`@cudoment/cudoc/embed`)는 기본으로 `yaml`·`toml` 노드를 버립니다(`DEFAULT_DROPPED_NODE_TYPES`).
+- 이제 사용자 `transforms`는 페이지의 `yaml` 노드도 만나고, 내보낸 AST(`@cudoment/cudoc/embed`)는 기본으로 `yaml`, `toml` 노드를 버립니다(`DEFAULT_DROPPED_NODE_TYPES`).
 - Nextra 지원 범위는 이후의 모든 4.x가 아니라 빌드되는 버전, 즉 4.6.0과 zod를 4.4 미만으로 고정한 4.6.1입니다. Nextra 사이트는 4.6.0을 유지하거나 4.6.1에서 `overrides`에 `"zod": "4.3.6"`을 추가하고, Next.js 16에서는 `next dev --webpack`과 `next build --webpack`을 씁니다.
-- cudoc이 정규화하는 Docusaurus·Nextra 페이지에서는 `promoteAnchorIds`가 제목 안에 쓴 `<Anchor>`의 id를 제목에 더 이상 주지 않습니다. 그 id는 `headingAnchor`가 호스트 문법을 받는 동안 정규화가 전과 같이 읽습니다.
+- cudoc이 정규화하는 Docusaurus, Nextra 페이지에서는 `promoteAnchorIds`가 제목 안에 쓴 `<Anchor>`의 id를 제목에 더 이상 주지 않습니다. 그 id는 `headingAnchor`가 호스트 문법을 받는 동안 정규화가 전과 같이 읽습니다.
 - 내보낸 페이지와 그 내비게이션 항목, 머리글은 `documentTitle`이 읽는 문서 제목을 씁니다. 비어 있지 않은 frontmatter `title`, 없으면 호스트가 어디에 두었든 첫 `#` 제목, 그것도 없으면 깊이와 관계없이 첫 제목입니다. 0.9.0은 비어 있는 `title`도 썼고, 없으면 최상위에 있는 깊이와 관계없는 첫 제목을 썼습니다.
 - `cudoc-export/print`는 `writePrintOutputs`, `printStylesheet`, `fillVolumePageNumbers`, `resolveVolumeOptions`, `volumeId`, `printFileName`과 상수, 타입만 내보냅니다. `namespaceIds`, `localizeAssets`, `urlPath`처럼 인쇄 HTML이 페이지마다 거치는 단계는 이제 내부용입니다.
 - 컴파일 진단 `duplicate-heading-id`는 다른 컴파일 진단과 같은 표기인 `DUPLICATE_HEADING_ID`가 되었습니다. `ignoreDiagnostics`에 이 코드를 적었다면 새 코드로 바꿉니다.
@@ -50,7 +68,7 @@
 - `cudoc-export`는 내부용이던 `LinkTarget`, `StagingContext`, `InternalOptions`와 이 타입을 받던 `buildSite` 시그니처를 더 이상 내보내지 않습니다. `buildSite`는 `SiteOptions`를 받아 `SiteResult`를 돌려주며, `afterStaging`과 `printOutputs`는 알 수 없는 옵션으로 거부합니다.
 - 호스트 사이트에서 `danger`와 `error`를 읽어 들인 `caution` 콜아웃은 내보내기처럼 빨간색입니다. 지금까지 `@cudoment/cudoc/styles.css`는 이 콜아웃을 경고처럼 호박색으로 그렸습니다.
 - 기준 경로가 있는 라이브러리의 `documents` 디렉터리로 만든 데이터셋은 이제 기준 경로 다음 조각을 scope로 씁니다. 첫 경로 조각을 scope로 쓰려면 AST를 다른 곳에 복사합니다.
-- `buildExport`는 `page`, `page.margin`, `pdf`, `docx`, `volume.cover`, `volume.contents`, `tokens`에 없는 키와 `portrait`·`landscape`가 아닌 `page.orientation`, 호출자가 넘긴 `afterStaging`·`printOutputs`를 거부합니다. 이전에는 모두 무시했습니다.
+- `buildExport`는 `page`, `page.margin`, `pdf`, `docx`, `volume.cover`, `volume.contents`, `tokens`에 없는 키와 `portrait`, `landscape`가 아닌 `page.orientation`, 호출자가 넘긴 `afterStaging`, `printOutputs`를 거부합니다. 이전에는 모두 무시했습니다.
 - 언어별 `header.links` 제목은 내비게이션 제목과 같이 `locales`가 있어야 하며 그 코드만 쓸 수 있습니다.
 - 가이드를 따른 Docusaurus 사이트는 `serialize-javascript` 고정값을 [GHSA-m5mm-p8h7-m29v](https://github.com/advisories/GHSA-m5mm-p8h7-m29v)를 고친 7.1.3으로 올립니다.
 - Nextra 4.6.0과 zod를 고정한 Nextra 4.6.1 모두 [GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5)를 고친 zod 4.6.6보다 오래된 zod를 쓰며, Nextra 4.6.1은 zod 4.6.6과 함께 빌드되지 않습니다. `npm audit`는 이 권고를 zod 4.3.6 고정에서만 보고하고, Nextra 4.6.0이 담은 zod 4.0 베타에서는 보고하지 않습니다. 가이드는 cudoc이 검증했고 override 없이 빌드되는 4.6.0을 권합니다.
@@ -76,7 +94,7 @@ Eleventy의 frontmatter를 `gray-matter` 없이 읽고, 내보낸 홈 페이지�
 
 ## 0.8.0
 
-HTML 내보내기에 세 모드(`site`, `standalone`, `annotate`), 호스팅하는 리뷰, `navigation` 파일, `locales`, `css` 목록, 라이트·다크 테마 메뉴가 생기고, cudoc 문서가 `cudoc-export`로 만든 웹사이트가 됩니다.
+HTML 내보내기에 세 모드(`site`, `standalone`, `annotate`), 호스팅하는 리뷰, `navigation` 파일, `locales`, `css` 목록, 라이트, 다크 테마 메뉴가 생기고, cudoc 문서가 `cudoc-export`로 만든 웹사이트가 됩니다.
 
 - HTML 내보내기에 세 가지 모드가 생겼습니다. 기본값인 `mode: "site"`는 사이트를 쓰고, `mode: "standalone"`은 문서마다 스타일, 그림, 테마 메뉴를 품은 HTML 파일 하나를 써서 첨부 파일로 보내고 어느 폴더에서든 열 수 있게 하며, `mode: "annotate"`는 리뷰 메모를 받는 페이지를 씁니다.
 - 단일 페이지를 쓸 때 `documents`(`--document`)로 쓸 페이지를 고르고, 단일 페이지 실행은 페이지마다 바깥에서 필요로 하는 것을 `dependencies`와 표준 오류로 알려 주며, `strict`(`--strict`)를 켜면 무엇이든 필요한 페이지가 있을 때 실패합니다. → [HTML의 세 가지 형태](./export.ko.md#html의-세-가지-형태)
@@ -134,7 +152,7 @@ HTML 내보내기에 세 모드(`site`, `standalone`, `annotate`), 호스팅하�
 - VitePress와 Eleventy에서 이미지의 대체 텍스트는 remark 호스트와 같이 레이블을 코드와 엔터티까지 포함한 일반 텍스트로 읽은 값입니다. Eleventy는 이 값을 비워 두었습니다.
 - 설정 해시에 `@cudoment/cudoc` 버전이 들어가므로, 업그레이드한 뒤 처음 하는 수집은 `cudoc collect --watch`를 포함해 이전 릴리스가 만든 트리를 재사용하지 않고 모든 문서를 다시 컴파일합니다. 업그레이드한 뒤에는 다시 수집해야 합니다. 이전 릴리스가 기록한 라이브러리는 읽을 때 그대로 쓰입니다.
 - 임베드에 대해서는 `cudoc check`가 `available`에 제목 id만 제시합니다. raw HTML이 선언한 id는 구역을 시작하지 않기 때문입니다. `no sections matched` 메시지에는 문서 이름을 한 번만 적습니다.
-- `cudoc check`는 원문을 Markdown(`.mdx`는 MDX)으로 파싱하고 각 펜스를 글자로 블록과 대조하여 임베드 펜스를 찾습니다. 따라서 더 긴 펜스나 들여쓴 코드 예제 안에 보여 준 `cudoc-embed` 펜스가 뒤에 오는 임베드의 줄을 가져가지 않고, 인용문·콜아웃·목록 항목 안의 임베드도 자기 줄을 유지하며, 열은 줄의 처음부터 셉니다. 호스트가 Markdown과 다르게 읽는 블록에는 글자가 다른 블록의 줄을 붙이지 않고 위치를 비워 둡니다.
+- `cudoc check`는 원문을 Markdown(`.mdx`는 MDX)으로 파싱하고 각 펜스를 글자로 블록과 대조하여 임베드 펜스를 찾습니다. 따라서 더 긴 펜스나 들여쓴 코드 예제 안에 보여 준 `cudoc-embed` 펜스가 뒤에 오는 임베드의 줄을 가져가지 않고, 인용문, 콜아웃, 목록 항목 안의 임베드도 자기 줄을 유지하며, 열은 줄의 처음부터 셉니다. 호스트가 Markdown과 다르게 읽는 블록에는 글자가 다른 블록의 줄을 붙이지 않고 위치를 비워 둡니다.
 - `cudoc-eleventy`를 `eleventyConfig.addPlugin`에 넘기면 markdown-it 안에서 실패하지 않고, `createMarkdownRenderer`를 `setLibrary`에 넘기라고 안내합니다.
 - `cudoc check`는 `collect`가 쓴 라이브러리를 읽기만 하고 아무것도 쓰지 않으므로, 검사가 `embeds.json`을 다시 만들거나 지우지 않습니다. 수집한 뒤에 실행해야 합니다.
 - 라이브러리와 준비된 임베드를 함께 게시하므로, 수집이나 감시 회차가 실패해도 마지막으로 성공한 한 쌍이 그대로 남습니다. 두 번째로 쓰려는 프로세스는 출력을 쥐고 있는 프로세스를 밝히며 거부되고, 비정상 종료한 실행이 남긴 잠금은 복구됩니다.
@@ -148,7 +166,7 @@ HTML 내보내기에 세 모드(`site`, `standalone`, `annotate`), 호스팅하�
 - 임베드된 내용 안에서 앵커나 쿼리만 적은 링크가 그 내용을 가져온 문서를 가리킵니다.
 - `cudoc collect --watch`가 디렉터리의 이름이 바뀌거나 삭제될 때도 다시 수집하며, 감시기 오류로 프로세스를 끝내지 않고 그 오류를 `onError`에 넘깁니다.
 - VitePress와 Eleventy에서 cudoc이 바꾸지 않는 것은 호스트가 직접 렌더링하며, 코드 강조, `<script setup>`과 `<style>` 블록, 이모지, `[[toc]]`, 코드 그룹, 사이트 자체 컨테이너가 여기에 속하고 컨테이너 안의 내용은 cudoc이 그대로 읽습니다. 다른 제목에 적힌 id와 같은 값으로 slug되는 제목은 번호를 붙여 구분하고, `[[toc]]`는 cudoc이 정한 id로 연결됩니다. VitePress `rewrites`가 동작하고, `<!--@include-->`와 임베드를 함께 쓰는 페이지는 명확한 메시지와 함께 실패하며, 진단은 출력되거나 `onDiagnostic`으로 전달됩니다.
-- Docusaurus가 cudoc이 정한 제목 id를 그대로 유지하므로 `(#v1.2)`가 그곳에서도 `v1.2`로 남습니다. Nextra는 여전히 모든 id를 슬러그로 바꾸며, 영문 소문자·숫자·하이픈으로 된 id는 모든 호스트에서 같습니다.
+- Docusaurus가 cudoc이 정한 제목 id를 그대로 유지하므로 `(#v1.2)`가 그곳에서도 `v1.2`로 남습니다. Nextra는 여전히 모든 id를 슬러그로 바꾸며, 영문 소문자, 숫자, 하이픈으로 된 id는 모든 호스트에서 같습니다.
 - 어댑터가 스스로 정해야 하는 옵션(Docusaurus와 Nextra의 `host`, `headingIds`, `toc`, markdown-it의 `components`)을 무시하지 않고 거부합니다.
 - 0.5에서 올릴 때는 다음 호출이 바뀝니다. `createHostPlugins(options, adapter, host)`는 세 번째 인자로 호스트(`"docusaurus"` 또는 `"nextra"`)를 반드시 받습니다. `/transforms/table-cell-list/index`처럼 `/transforms/table-cell-list`와 `/transforms/table-column-layout` 아래의 경로는 더 이상 해석되지 않고, `render` 없이 호출한 `tokensToAst`는 callout이 아닌 컨테이너를 callout으로 읽지 않고 오류를 발생시킵니다.
 - 0.5에서 올릴 때는 다음 결과도 바뀝니다. `readPreparedEmbeds`는 호출 사이에 공유하는 캐시 객체 하나를 반환하므로 블록을 고치기 전에 복사해야 하고, 인쇄 파이프라인은 자산을 `data.cudocAsset`이 아니라 `AssetMark` 목록인 `data.cudocAssets`로 표시합니다. 묶은 파일 안에서 문서의 앵커는 `cudoc-` 뒤에 `idToken(id)`를 붙인 값이므로, id에 `/`가 든 문서로 가는 인쇄 HTML 링크가 바뀌어 `#cudoc-guide%2Fstart`는 `#cudoc-guide_2f_start`가 됩니다.
@@ -169,10 +187,10 @@ HTML 사이트 옆에 PDF와 Word 출력이 생기고, 묶음 파일, `page` 설
 - 문서 집합을 한 권으로 묶은 파일로도 내보내며, 문서 사이 링크가 그 안에서 해석되고 PDF와 Word 모두 표지와 목차로 시작합니다.
 - `page` 설정 하나로 PDF와 Word가 같은 용지, 머리글과 바닥글, 제목 앞 쪽 나누기, 넓은 표의 가로 쪽, 인쇄된 링크 주소를 갖습니다.
 - `annotations: true`를 켜면 HTML 사이트에 메모 런타임이 실립니다. 파일을 받은 사람이 글자나 블록을 골라 메모를 남기고 파일이나 공유 토큰으로 돌려줄 수 있고, `cudoc-export annotations`가 그 메모를 원문 줄 번호가 붙은 사실 기록 보고서로 정리합니다.
-- `themeSwitch: true`를 켜면 HTML 사이트 머리글에 시스템·라이트·다크 버튼이 생기고 선택을 브라우저가 기억합니다. 켜지 않으면 기본 스타일이 스크립트 없이 시스템 설정을 따릅니다.
+- `themeSwitch: true`를 켜면 HTML 사이트 머리글에 시스템, 라이트, 다크 버튼이 생기고 선택을 브라우저가 기억합니다. 켜지 않으면 기본 스타일이 스크립트 없이 시스템 설정을 따릅니다.
 - MDX 호스트에서는 임베드된 절이 페이지가 컴파일될 때 접합되므로, 그 안의 컴포넌트는 호스트 자신의 컴포넌트 매핑으로 렌더링되고 코드 블록은 호스트의 강조기에 닿습니다. 임베드 플러그인은 더 이상 HTML 문자열을 렌더링하지 않고 `cudoc-remark/runtime`은 없어졌으며, `cudoc-remark/loader`가 재수집을 개발 서버와 빌드 캐시에 알립니다. `cudoc check`가 원본 파일에 import가 남아 있는 복사된 컴포넌트를 보고합니다.
 - 표 임베드가 열을 직접 정의합니다. 각 셀의 글자가 어디서 오는지(절 제목, 첫 문단, 상위 제목, 절 안 표의 셀, 또는 수집 설정에 등록한 함수), 무엇으로 연결되는지, 어느 폭을 유지해야 하는지를 적을 수 있고, 정의한 열이 비워 둔 셀을 `cudoc check`가 모두 보고합니다.
-- `roots: [{ dir, base }]`로 여러 디렉터리를 하나의 라이브러리로 수집하며 각각 자기 URL 접두어 아래에 놓입니다. `/docs/…`와 `/terms/…` 링크, 임베드 원본, 내보내기가 모두 같은 문서를 가리킵니다. `exclude`는 문서가 아닌 파일을 빼고, `private`는 내부용 문서를 수집·검사는 하되 내보내기와 데이터셋에서 빼며, `externalPaths`는 같은 도메인에서 다른 애플리케이션이 담당하는 경로를 검사기와 내보내기에 알립니다.
+- `roots: [{ dir, base }]`로 여러 디렉터리를 하나의 라이브러리로 수집하며 각각 자기 URL 접두어 아래에 놓입니다. `/docs/…`와 `/terms/…` 링크, 임베드 원본, 내보내기가 모두 같은 문서를 가리킵니다. `exclude`는 문서가 아닌 파일을 빼고, `private`는 내부용 문서를 수집, 검사는 하되 내보내기와 데이터셋에서 빼며, `externalPaths`는 같은 도메인에서 다른 애플리케이션이 담당하는 경로를 검사기와 내보내기에 알립니다.
 - `tableColumnWidths`가 표 열에 헤더 글자 기준으로 최소 폭을 지정합니다. 절마다 또는 전체에 적용할 수 있어 저자가 쓴 표의 셀에 `<div style>`을 넣을 필요가 없고, HTML 사이트, 쪽을 나누는 형식, Word가 모두 이 값을 따릅니다.
 - `ignoreDiagnostics`가 프로젝트가 감수하기로 정한 진단 코드를 조용히 하고, `loadLibrary(…, { cache: true })`가 수집이 바뀌기 전까지 서버가 불러온 라이브러리를 요청 사이에 재사용하게 합니다. 저장된 트리를 읽는 소비자가 `cudocAstVersion: 1`에서 의존할 수 있는 사항을 문서로 적었습니다.
 - `cudoc collect --watch`가 문서가 바뀔 때마다 다시 수집하며, 원문이 바뀐 문서만 컴파일하고 그 문서를 읽는 임베드만 다시 해석합니다. `previous` 라이브러리나 준비 결과를 넘기면 어떤 수집기든 같은 절약을 얻고, 컴파일에 실패한 문서는 라이브러리를 깨뜨리는 대신 메시지로 남습니다.

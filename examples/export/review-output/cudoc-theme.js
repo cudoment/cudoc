@@ -81,9 +81,6 @@
     const menu = document.createElement("details");
     menu.className = "menu theme-switch";
     const summary = document.createElement("summary");
-    const label = document.createElement("span");
-    label.className = "menu-label";
-    summary.append(label);
     const list = document.createElement("ul");
     list.className = "menu-list";
     const buttons = CHOICES.map((mode) => {
@@ -105,9 +102,7 @@
     });
     const render = () => {
       const mode = current();
-      summary.querySelector("svg")?.remove();
-      summary.prepend(icon(mode));
-      label.textContent = STRINGS[mode];
+      summary.replaceChildren(icon(mode));
       summary.setAttribute("aria-label", `${STRINGS.theme}: ${STRINGS[mode]}`);
       for (const button of buttons)
         button.setAttribute("aria-pressed", String(button.value === mode));

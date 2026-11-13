@@ -306,6 +306,27 @@ describe("node mapping", () => {
     expect(shape[2]).toEqual(["CudocCodeHighlighted", "export { value }"])
   })
 
+  it("sets a marked line in bold, which a grey wash alone does not show", async () => {
+    const { styles } = await archive([document()])
+    const style = styles.match(
+      /<w:style [^>]*w:styleId="CudocCodeHighlighted"[\s\S]*?<\/w:style>/,
+    )![0]
+    expect(style).toContain("<w:b/>")
+  })
+
+  it("leaves the wash of a code line to its paragraph, so a token does not patch it", async () => {
+    const { styles } = await archive([document()])
+    for (const role of ["Keyword", "String", "Comment", "Number"]) {
+      const style = styles.match(
+        new RegExp(
+          `<w:style [^>]*w:styleId="CudocCode${role}"[\\s\\S]*?<\\/w:style>`,
+        ),
+      )![0]
+      expect(style, role).not.toContain("<w:shd")
+      expect(style, role).not.toContain('w:basedOn w:val="CudocCode"')
+    }
+  })
+
   it("numbers a nested list one level deeper on the same instance", () => {
     const levels = [
       ...xml.matchAll(/<w:ilvl w:val="(\d+)"\/><w:numId w:val="(\d+)"\/>/g),
