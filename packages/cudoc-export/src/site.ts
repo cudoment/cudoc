@@ -485,7 +485,7 @@ export function stageSite(
       throw new Error(
         `cudoc-export: scripts names ${file}, which is not a .js file; a module script does not load from file://, so each entry is a classic script`,
       )
-    return { file, text: scriptText(fs.readFileSync(file, "utf8"), file) }
+    return { file, text: fs.readFileSync(file, "utf8") }
   })
   // Where those scripts may send requests; nothing unless the caller names it.
   if (

@@ -8,9 +8,14 @@
  * object, and the paginated formats translate the same object into their own
  * units.
  *
- * Palette: the Knowledge Base/Documentation ramp for light and the Developer
- * Tool/IDE ramp for dark, with three values darkened so that every foreground
- * and surface pair clears WCAG AA (4.5:1 for text, 3:1 for the focus ring).
+ * Palette: achromatic greys on white for light and on pure black for dark.
+ * Surfaces, text, rules and the accent carry no hue, so links, the current
+ * page and focus stand out by weight, underline and contrast; only the warning,
+ * danger and code colours other than comments keep a hue, because they carry
+ * meaning. The light number colour is darker than the warning colour so that
+ * it still reads on a highlighted line.
+ * Every foreground and surface pair clears WCAG AA (4.5:1 for text, 3:1 for
+ * the focus ring).
  */
 
 export type Theme = "light" | "dark"
@@ -108,45 +113,45 @@ export type DesignTokens = {
 export const designTokens: DesignTokens = {
   colors: {
     light: {
-      canvas: "#f8fafc",
+      canvas: "#fafafa",
       paper: "#ffffff",
-      wash: "#f1f5f9",
-      rowAlt: "#fafbfd",
-      ink: "#1e293b",
-      muted: "#475569",
-      faint: "#5b6b7f",
-      line: "#e2e8f0",
-      lineSoft: "#eef2f7",
-      accent: "#1d4ed8",
-      accentSoft: "#dbeafe",
+      wash: "#f4f4f4",
+      rowAlt: "#f5f5f5",
+      ink: "#1f1f1f",
+      muted: "#525252",
+      faint: "#616161",
+      line: "#e3e3e3",
+      lineSoft: "#efefef",
+      accent: "#000000",
+      accentSoft: "#ebebeb",
       warn: "#b45309",
       warnWash: "#fef6e7",
       danger: "#b91c1c",
       dangerWash: "#fdeeee",
       codeKeyword: "#7c3aed",
       codeString: "#0f766e",
-      codeComment: "#5b6b7f",
-      codeNumber: "#b45309",
+      codeComment: "#616161",
+      codeNumber: "#9a4708",
     },
     dark: {
-      canvas: "#0b1120",
-      paper: "#0f172a",
-      wash: "#1b2336",
-      rowAlt: "#141d31",
-      ink: "#f8fafc",
-      muted: "#94a3b8",
-      faint: "#8b9ab0",
-      line: "#334155",
-      lineSoft: "#1e293b",
-      accent: "#7cb0fb",
-      accentSoft: "#1e3252",
+      canvas: "#000000",
+      paper: "#0a0a0a",
+      wash: "#1a1a1a",
+      rowAlt: "#0d0d0d",
+      ink: "#f2f2f2",
+      muted: "#a3a3a3",
+      faint: "#8f8f8f",
+      line: "#333333",
+      lineSoft: "#1f1f1f",
+      accent: "#ffffff",
+      accentSoft: "#262626",
       warn: "#fbbf24",
       warnWash: "#2b2110",
       danger: "#f87171",
       dangerWash: "#2c1618",
       codeKeyword: "#c4b5fd",
       codeString: "#5eead4",
-      codeComment: "#8b9ab0",
+      codeComment: "#8f8f8f",
       codeNumber: "#fcd34d",
     },
   },

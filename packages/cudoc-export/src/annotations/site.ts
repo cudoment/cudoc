@@ -304,18 +304,17 @@ export function injectConsumerScripts(page: HastRoot, hrefs: string[]): void {
     })
 }
 
-/** A caller's own scripts written into the page itself, at the same place. */
+/**
+ * Self-contained classic scripts, deferred in the same order as a site's.
+ * Encoding the source keeps HTML delimiters out of the parser without
+ * rewriting JavaScript strings, raw templates or regular expressions.
+ */
 export function inlineConsumerScripts(page: HastRoot, texts: string[]): void {
-  const head = findElement(page, "head")
-  const body = findElement(page, "body")
-  if (!head || !body)
-    throw new Error("cudoc-export: page has no head or body for the scripts")
-  ensurePolicy(head)
-  for (const text of texts)
-    body.children.push({
-      type: "element",
-      tagName: "script",
-      properties: {},
-      children: [{ type: "text", value: text }],
-    })
+  injectConsumerScripts(
+    page,
+    texts.map(
+      (text) =>
+        `data:text/javascript;charset=utf-8;base64,${Buffer.from(text).toString("base64")}`,
+    ),
+  )
 }

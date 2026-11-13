@@ -123,6 +123,77 @@ describe("units the Word writer derives", () => {
   })
 })
 
+describe("the default palette", () => {
+  const channels = (color: string) =>
+    [1, 3, 5].map((at) => parseInt(color.slice(at, at + 2), 16))
+  const luminance = (color: string) => {
+    const [r, g, b] = channels(color).map((value) => {
+      const c = value / 255
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+    })
+    return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!
+  }
+  const contrast = (a: string, b: string) => {
+    const [high, low] = [luminance(a), luminance(b)].sort((x, y) => y - x)
+    return (high! + 0.05) / (low! + 0.05)
+  }
+  const themes = ["light", "dark"] as const
+  // Only the status and code colours carry meaning a grey cannot.
+  const hued = new Set([
+    "warn",
+    "warnWash",
+    "danger",
+    "dangerWash",
+    "codeKeyword",
+    "codeString",
+    "codeNumber",
+  ])
+
+  it.each(themes)(
+    "has no hue outside status and code colours in %s",
+    (theme) => {
+      for (const [name, value] of Object.entries(designTokens.colors[theme]))
+        if (!hued.has(name))
+          expect(new Set(channels(value)).size, `${theme}.${name}`).toBe(1)
+    },
+  )
+
+  it.each(themes)("stripes table rows apart from the page in %s", (theme) => {
+    const c = designTokens.colors[theme]
+    expect(c.rowAlt).not.toBe(c.canvas)
+    expect(c.rowAlt).not.toBe(c.paper)
+  })
+
+  it("sets the dark theme on pure black", () => {
+    expect(designTokens.colors.dark.canvas).toBe("#000000")
+  })
+
+  it.each(themes)("clears WCAG AA for every text colour in %s", (theme) => {
+    const c = designTokens.colors[theme]
+    const pairs: [string, string][] = [
+      ...["ink", "muted", "faint", "accent"].flatMap((text) =>
+        ["canvas", "paper", "wash", "accentSoft"].map(
+          (surface) => [text, surface] as [string, string],
+        ),
+      ),
+      ...["codeKeyword", "codeString", "codeComment", "codeNumber"].flatMap(
+        // A highlighted line sits on the accent's soft surface.
+        (text) =>
+          ["wash", "accentSoft"].map(
+            (surface) => [text, surface] as [string, string],
+          ),
+      ),
+      ["warn", "warnWash"],
+      ["danger", "dangerWash"],
+    ]
+    for (const [text, surface] of pairs)
+      expect(
+        contrast(c[text as keyof typeof c], c[surface as keyof typeof c]),
+        `${theme} ${text} on ${surface}`,
+      ).toBeGreaterThanOrEqual(4.5)
+  })
+})
+
 describe("generating CSS from the tokens", () => {
   it("writes an overridden colour into the light block only", () => {
     const tokens = resolveTokens({ colors: { light: { accent: "#123456" } } })
@@ -133,12 +204,15 @@ describe("generating CSS from the tokens", () => {
   })
 
   it("declares every colour token in both blocks", () => {
+    // By name as well as value, since two tokens may share a value.
+    const property = (name: string) =>
+      `--${name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`
     const light = rootVariables()
     const dark = darkVariables()
-    for (const value of Object.values(designTokens.colors.light))
-      expect(light).toContain(value)
-    for (const value of Object.values(designTokens.colors.dark))
-      expect(dark).toContain(value)
+    for (const [name, value] of Object.entries(designTokens.colors.light))
+      expect(light).toContain(`${property(name)}: ${value};`)
+    for (const [name, value] of Object.entries(designTokens.colors.dark))
+      expect(dark).toContain(`${property(name)}: ${value};`)
   })
 
   it("keeps the CSS font stack and the token list in step", () => {

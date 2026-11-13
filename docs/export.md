@@ -1,6 +1,6 @@
 # Export
 
-**English** | [한국어](./export.ko.md) · [All guides](./README.md)
+**English** | [한국어](./export.ko.md) | [All guides](./README.md)
 
 `cudoc-export` writes an HTML site, single HTML pages, review pages, PDF and Word from one collected document set and one set of design tokens.
 
@@ -435,7 +435,7 @@ The site opens on `index.md`, or on the document `home` names, such as `home: "R
 
 ### Look
 
-The built-in stylesheet follows the viewer's light or dark system setting, needs no script to do so, and keeps every colour in a custom property that both themes define.
+The built-in stylesheet follows the viewer's light or dark system setting, needs no script to do so, and keeps every colour in a custom property that both themes define. Its palette is grey, on white or on pure black, and prose links are underlined. → [Export adapter](./api-reference/adapters.md#export)
 
 `themeSwitch: true` (or `--theme-switch`) adds a theme menu to the header with Light and Dark, a drop-down drawn like the language menu rather than the browser's own control. Until the reader chooses, the page follows the system setting and the menu shows which one it is, and the browser remembers a choice. It is the one script of cudoc's own the site loads besides the review-note runtime, and the default output stays without it.
 
@@ -464,9 +464,9 @@ The built-in stylesheet follows the viewer's light or dark system setting, needs
 }
 ```
 
-**Scripts of your own.** `scripts` names one JavaScript file or a list, loaded after cudoc's own scripts. A site copies each to `cudoc-js/` and loads it with `<script defer>` at the end of every page's `<body>`; a single page carries its text there. The files are classic scripts, since a module script does not load from `file://`, and a page that loads one gets the same Content-Security-Policy as `themeSwitch`, which allows no plugin, `<base>`, form post or fetch request. The `<main>` of a document page then names the document in `data-cudoc-document`, so a script knows which page it runs on. → [Consumer scripts](./api-reference/adapters.md#consumer-scripts)
+**Scripts of your own.** `scripts` names JavaScript files loaded after cudoc's scripts. A site copies them to `cudoc-js/` and loads them with `<script defer>` at the end of `<body>`; a single page uses deferred `data:` URLs. Files must be classic scripts to work over `file://`. The `themeSwitch` Content-Security-Policy blocks plugins, `<base>`, form posts and fetch requests. A document's `<main>` names it in `data-cudoc-document`. → [Consumer scripts](./api-reference/adapters.md#consumer-scripts)
 
-**On a narrow screen.** The contents column leaves at 1024px, and at 768px a round button at the bottom left opens the sidebar as a panel over the page, and a wheel or a swipe then scrolls the panel rather than the page. A tap on the backdrop or the panel's close line closes it, as opening another page does. The button, the backdrop and the close line are labels for one checkbox, so none needs a script. On a touch screen a folding line is at least 2.75rem tall, a checkbox in a list takes 2.75rem of its line, and a wide table scrolls inside the page rather than widening it. → [Consumer scripts](./api-reference/adapters.md#consumer-scripts)
+**On a narrow screen.** The contents column leaves at 1024px. At 768px the header menu or a round button at the bottom left opens the sidebar over the page; a wheel or swipe scrolls the panel. The backdrop, the close line or another page closes it. These controls label one checkbox, needing no script. Touch targets for folding lines and list checkboxes reach 2.75rem; wide tables scroll inside the page. → [Export](./api-reference/adapters.md#export)
 
 ### Files that are not documents
 

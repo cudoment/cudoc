@@ -1,6 +1,6 @@
 # Document APIs
 
-**English** | [한국어](./document.ko.md) · [API reference](./README.md)
+**English** | [한국어](./document.ko.md) | [API reference](./README.md)
 
 This page states the document APIs of `@cudoment/cudoc`: options, metadata, compilation, semantic AST, presentation, rendering, sections, projection and helpers.
 
@@ -198,7 +198,7 @@ const DESCRIPTION_LENGTH = 160
 
 `documentDescription` returns a string front matter `description` with white space collapsed. Without one, it returns the text of the first top-level `paragraph` that is more than a row of links and has words, so a paragraph holding only a logo image is passed over too. In that text a raw `<br>` is read as a space and white space is collapsed.
 
-A row of links holds at least one link, a reference-style link counted when the document defines its label. Beyond that, it holds only links, strong or emphasized words and separators (`|`, `·`, `•`, `/`, `,`, dashes), as a language switcher written `**English** | [한국어](…)` does.
+A row of links holds at least one link, a reference-style link counted when the document defines its label. Beyond that, it holds only links, strong or emphasized words and separators (`|`, `U+00B7`, `•`, `/`, `,`, dashes), as a language switcher written `**English** | [한국어](…)` does.
 
 A front matter `description` is returned whole. Paragraph text longer than `maxLength` code points (default `DESCRIPTION_LENGTH`) is cut at the last space past half the limit, trailing punctuation dropped and `…` added, so the result is at most `maxLength` code points. It is empty when there is neither. Collection writes both into [`pages.json`](./node.md#library-files), and `cudoc-export` puts the description in each site page's `<meta name="description">`.
 
@@ -373,7 +373,7 @@ Three theme signals turn the dark palette on:
 - a `dark` class on the root element (VitePress, Nextra)
 - `data-theme="dark"` (Docusaurus)
 
-A `light` class or `data-theme="light"` restores the light palette even when the system prefers dark, so a host's own toggle wins in both directions. The palette matches `siteStyles` in [the export adapter](./adapters.md#export), and every surface clears WCAG AA against both a light and a dark inherited text colour.
+A `light` class or `data-theme="light"` restores the light palette even when the system prefers dark, so a host's own toggle wins in both directions. Its warning and danger pairs match `siteStyles` in [the export adapter](./adapters.md#export), but it keeps its blue accent and blue-grey wash and line because a host's own page sets the tone around them. Every surface clears WCAG AA against both a light and a dark inherited text colour.
 
 ## Sections and queries
 

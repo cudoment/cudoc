@@ -87,7 +87,7 @@ const LIGHT_GROUPS: Group[] = [
     ],
   },
   {
-    comment: "Accent and status. Each pairs with its own tinted surface.",
+    comment: "Accent and status, each with its own surface.",
     lines: (t) => [
       color(t, "light", "accent", "accent"),
       color(t, "light", "accentSoft", "accent-soft"),

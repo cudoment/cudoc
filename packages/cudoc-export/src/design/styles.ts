@@ -25,10 +25,9 @@ export const escapeHtml = (value: string): string =>
 /**
  * The built-in stylesheet for an exported site.
  *
- * Palette: the Knowledge Base/Documentation ramp for light and the Developer
- * Tool/IDE ramp for dark, with three values darkened so that every foreground
- * and surface pair clears WCAG AA (4.5:1 for text, 3:1 for the focus ring).
- * Every colour is a custom property that both themes define, so a site
+ * Palette: the achromatic ramp in `tokens.ts`, whose accent is black in light
+ * and white in dark, so prose links are underlined rather than told apart by
+ * colour alone. Every colour is a custom property that both themes define, so a site
  * restyles the export by redefining properties rather than rewriting rules.
  */
 export const buildStyles = (tokens: DesignTokens = designTokens): string => `
@@ -66,6 +65,19 @@ a {
 a:hover {
   text-decoration: underline;
   text-decoration-thickness: 0.08em;
+}
+/* Every link in the text, whatever element holds it, at the specificity of
+   two elements, so a component's own rule, such as the printed contents
+   list's, still wins; a navigation list inside main, such as a
+   landing page's, keeps the sidebar's look, and a host's heading permalink
+   keeps its own. */
+main a:where(:not(nav a, .header-anchor)) {
+  text-decoration: underline;
+  text-decoration-thickness: 0.06em;
+  text-decoration-color: var(--faint);
+}
+main a:where(:not(nav a, .header-anchor)):hover {
+  text-decoration-color: currentColor;
 }
 :focus-visible {
   outline: 2px solid var(--accent);
@@ -108,7 +120,8 @@ header a {
 }
 header a:hover {
   color: var(--accent);
-  text-decoration: none;
+  text-decoration: underline;
+  text-decoration-thickness: 0.08em;
 }
 header > a,
 header > span {
@@ -573,6 +586,8 @@ pre .line.highlighted {
   margin: 0 calc(-1 * var(--space-4));
   padding: 0 var(--space-4);
   background: var(--accent-soft);
+  /* A bar as well as the wash, which is a grey on grey. */
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 .cudoc-code {
   margin: 0 0 var(--space-4);

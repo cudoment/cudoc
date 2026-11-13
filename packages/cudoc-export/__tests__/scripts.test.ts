@@ -190,16 +190,23 @@ describe("buildSite with scripts", () => {
     }
   })
 
-  it("writes the text into a single page, escaped, and copies nothing", () => {
+  it("carries a single page's scripts as deferred data URLs and copies nothing", () => {
     const s = site()
     const result = s.build({ mode: "standalone", scripts: [s.a, s.b] })
     expect(result.files).toEqual(["guide/setup.html", "index.html"])
     expect(s.exists("cudoc-js")).toBe(false)
     const html = s.read("index.html")
     expect(html.match(/<script/g)).toHaveLength(2)
-    expect(html).toContain(
-      `</footer></main></div><script>${A}</script><script>console.log("<\\/script> is text here")\n</script></body></html>`,
-    )
+    const scripts = parse(html).querySelectorAll("script")
+    expect(scripts.every((script) => script.hasAttribute("defer"))).toBe(true)
+    expect(
+      scripts.map((script) => {
+        const src = script.getAttribute("src")!
+        expect(src).toMatch(/^data:text\/javascript;charset=utf-8;base64,/)
+        return Buffer.from(src.split(",")[1]!, "base64").toString("utf8")
+      }),
+    ).toEqual([A, B])
+    expect(html).toMatch(/<script defer src="data:[^"]+"><\/script><\/body>/)
     expect(html.match(/http-equiv/g)).toHaveLength(1)
     expect(html).toContain(
       '<main id="main-content" data-cudoc-document="index">',
@@ -209,7 +216,9 @@ describe("buildSite with scripts", () => {
   withRuntime("writes the text into a review page the same way", () => {
     const s = site()
     s.build({ mode: "annotate", scripts: [s.a] })
-    expect(s.read("index.html")).toContain(`<script>${A}</script></body>`)
+    expect(s.read("index.html")).toContain(
+      `<script defer src="data:text/javascript;charset=utf-8;base64,${Buffer.from(A).toString("base64")}"></script></body>`,
+    )
     expect(s.read("index.html").match(/http-equiv/g)).toHaveLength(1)
   })
 
@@ -242,12 +251,18 @@ describe("buildSite with scripts", () => {
     )
   })
 
-  it("refuses a script holding <!-- before anything is written", () => {
+  it("preserves HTML delimiters in scripts in a site and a single page", () => {
     const s = site({ "extra/c.js": "// <!-- a comment opener -->\n" })
-    expect(() =>
-      s.build({ scripts: [s.a, path.join(s.root, "extra/c.js")] }),
-    ).toThrow(/extra\/c\.js contains <!--, which a page cannot carry inline/)
-    expect(fs.existsSync(s.outDir)).toBe(false)
+    const file = path.join(s.root, "extra/c.js")
+    s.build({ scripts: [file] })
+    expect(s.read("cudoc-js/1-c.js")).toBe(fs.readFileSync(file, "utf8"))
+    s.build({ mode: "standalone", scripts: [file] })
+    const src = parse(s.read("index.html"))
+      .querySelector("script")!
+      .getAttribute("src")!
+    expect(Buffer.from(src.split(",")[1]!, "base64").toString("utf8")).toBe(
+      fs.readFileSync(file, "utf8"),
+    )
   })
 
   it.each([

@@ -7,21 +7,21 @@
   color-scheme: light dark;
 
   /* Surfaces, from the page ground up to a raised panel. */
-  --canvas: #f8fafc;
+  --canvas: #fafafa;
   --paper: #ffffff;
-  --wash: #f1f5f9;
-  --row-alt: #fafbfd;
+  --wash: #f4f4f4;
+  --row-alt: #f5f5f5;
 
   /* Text, from primary reading colour down to small labels. */
-  --ink: #1e293b;
-  --muted: #475569;
-  --faint: #5b6b7f;
+  --ink: #1f1f1f;
+  --muted: #525252;
+  --faint: #616161;
 
   /* Lines: --line separates regions, --line-soft separates rows. */
-  --line: #e2e8f0;
-  --line-soft: #eef2f7;
+  --line: #e3e3e3;
+  --line-soft: #efefef;
 
-  /* Accent and status. Each pairs with its own tinted surface. */
+  /* Accent and status, each with its own surface. */
   --accent: #155e75;
   --accent-soft: #e0f2fe;
   --warn: #b45309;
@@ -32,8 +32,8 @@
   /* Syntax highlighting, kept in the same ramp as the body text. */
   --code-keyword: #7c3aed;
   --code-string: #0f766e;
-  --code-comment: #5b6b7f;
-  --code-number: #b45309;
+  --code-comment: #616161;
+  --code-number: #9a4708;
 
   /* Type: the browser's own base size is respected and scaled from. */
   --font-sans:
@@ -105,6 +105,19 @@ a:hover {
   text-decoration: underline;
   text-decoration-thickness: 0.08em;
 }
+/* Every link in the text, whatever element holds it, at the specificity of
+   two elements, so a component's own rule, such as the printed contents
+   list's, still wins; a navigation list inside main, such as a
+   landing page's, keeps the sidebar's look, and a host's heading permalink
+   keeps its own. */
+main a:where(:not(nav a, .header-anchor)) {
+  text-decoration: underline;
+  text-decoration-thickness: 0.06em;
+  text-decoration-color: var(--faint);
+}
+main a:where(:not(nav a, .header-anchor)):hover {
+  text-decoration-color: currentColor;
+}
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -146,7 +159,8 @@ header a {
 }
 header a:hover {
   color: var(--accent);
-  text-decoration: none;
+  text-decoration: underline;
+  text-decoration-thickness: 0.08em;
 }
 header > a,
 header > span {
@@ -611,6 +625,8 @@ pre .line.highlighted {
   margin: 0 calc(-1 * var(--space-4));
   padding: 0 var(--space-4);
   background: var(--accent-soft);
+  /* A bar as well as the wash, which is a grey on grey. */
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 .cudoc-code {
   margin: 0 0 var(--space-4);
